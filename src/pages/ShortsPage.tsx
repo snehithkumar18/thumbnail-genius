@@ -113,6 +113,7 @@ const ShortsPage = () => {
           format: "9:16",
           quality,
           count: variations,
+          language: language !== "en" ? language : undefined,
         },
       });
 
