@@ -9,6 +9,7 @@ import PricingSection from "@/components/PricingSection";
 import FAQSection from "@/components/FAQSection";
 import Footer from "@/components/Footer";
 import AuthModal from "@/components/AuthModal";
+import SEOHead from "@/components/SEOHead";
 
 const Index = () => {
   const [authOpen, setAuthOpen] = useState(false);
@@ -21,6 +22,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="ThumbAI — AI YouTube Thumbnail Generator"
+        description="Generate viral YouTube thumbnails in seconds with AI. Hindi, English & 8 languages. Start for just $2. No design skills needed."
+        url="https://thumbai.app"
+      />
       <Navbar onOpenAuth={openAuth} />
       <HeroSection onOpenAuth={() => openAuth("signup")} />
       <SocialProof />
