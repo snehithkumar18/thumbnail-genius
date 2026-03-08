@@ -53,7 +53,6 @@ const ShortsPage = () => {
   const [quality, setQuality] = useState<"fast" | "pro">("pro");
   const [variations, setVariations] = useState(1);
   const [language, setLanguage] = useState<LanguageId>("en");
-  const [variations, setVariations] = useState(1);
 
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
