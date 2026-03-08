@@ -14,8 +14,10 @@ export default {
     },
     extend: {
       fontFamily: {
+        display: ['"Bebas Neue"', "sans-serif"],
         heading: ["Sora", "sans-serif"],
-        body: ["Inter", "sans-serif"],
+        body: ['"DM Sans"', "sans-serif"],
+        mono: ['"JetBrains Mono"', "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",

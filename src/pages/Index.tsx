@@ -1,41 +1,77 @@
-import { useState } from "react";
-import Navbar from "@/components/Navbar";
-import HeroSection from "@/components/HeroSection";
-import SocialProof from "@/components/SocialProof";
-import FeaturesSection from "@/components/FeaturesSection";
-import HowItWorks from "@/components/HowItWorks";
-import ExampleGallery from "@/components/ExampleGallery";
-import PricingSection from "@/components/PricingSection";
-import FAQSection from "@/components/FAQSection";
-import Footer from "@/components/Footer";
+import { useState, useCallback, useEffect, lazy, Suspense } from "react";
+import CustomCursor from "@/components/landing/CustomCursor";
+import IntroSequence from "@/components/landing/IntroSequence";
+import LandingNavbar from "@/components/landing/LandingNavbar";
+import HeroSection from "@/components/landing/HeroSection";
+import SocialProofTicker from "@/components/landing/SocialProofTicker";
+import FeaturesSection from "@/components/landing/FeaturesSection";
+import HowItWorks from "@/components/landing/HowItWorks";
+import StatsCounter from "@/components/landing/StatsCounter";
+import ExampleGallery from "@/components/landing/ExampleGallery";
+import ComparisonTable from "@/components/landing/ComparisonTable";
+import PricingSection from "@/components/landing/PricingSection";
+import TestimonialsSection from "@/components/landing/TestimonialsSection";
+import FAQSection from "@/components/landing/FAQSection";
+import FinalCTA from "@/components/landing/FinalCTA";
+import LandingFooter from "@/components/landing/LandingFooter";
+import ScrollProgress from "@/components/landing/ScrollProgress";
+import BackToTop from "@/components/landing/BackToTop";
 import AuthModal from "@/components/AuthModal";
 import SEOHead from "@/components/SEOHead";
 
 const Index = () => {
+  const [introComplete, setIntroComplete] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "signup">("signup");
 
-  const openAuth = (tab: "login" | "signup" = "signup") => {
+  const handleIntroComplete = useCallback(() => {
+    setIntroComplete(true);
+  }, []);
+
+  const openAuth = useCallback((tab: "login" | "signup" = "signup") => {
     setAuthTab(tab);
     setAuthOpen(true);
-  };
+  }, []);
+
+  // Skip intro in dev for faster iteration (optional)
+  // useEffect(() => { setIntroComplete(true); }, []);
 
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
-        title="ThumbAI — AI YouTube Thumbnail Generator"
-        description="Generate viral YouTube thumbnails in seconds with AI. Hindi, English & 8 languages. Start for just $2. No design skills needed."
+        title="ThumbAI — AI YouTube Thumbnail Generator | Free"
+        description="Generate viral YouTube thumbnails in seconds with AI. Hindi, English & 8 languages. Free plan available. Trusted by 12,000+ creators."
         url="https://thumbai.app"
       />
-      <Navbar onOpenAuth={openAuth} />
-      <HeroSection onOpenAuth={() => openAuth("signup")} />
-      <SocialProof />
+
+      {/* Intro sequence */}
+      {!introComplete && <IntroSequence onComplete={handleIntroComplete} />}
+
+      {/* Custom cursor (desktop only) */}
+      <CustomCursor />
+
+      {/* Scroll progress bar */}
+      <ScrollProgress />
+
+      {/* Main content */}
+      <LandingNavbar onOpenAuth={openAuth} visible={introComplete} />
+      <HeroSection onOpenAuth={() => openAuth("signup")} visible={introComplete} />
+      <SocialProofTicker />
       <FeaturesSection />
       <HowItWorks />
+      <StatsCounter />
       <ExampleGallery />
+      <ComparisonTable />
       <PricingSection onOpenAuth={() => openAuth("signup")} />
+      <TestimonialsSection />
       <FAQSection />
-      <Footer />
+      <FinalCTA onOpenAuth={() => openAuth("signup")} />
+      <LandingFooter />
+
+      {/* Back to top */}
+      <BackToTop />
+
+      {/* Auth modal */}
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultTab={authTab} />
     </div>
   );
