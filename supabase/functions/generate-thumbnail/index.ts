@@ -157,11 +157,17 @@ serve(async (req) => {
 
     if (text_overlay && text_content) {
       imagePrompt += ` Bold large text overlay saying "${text_content}" in high contrast, easily readable font.`;
+      if (langName) {
+        imagePrompt += ` Text in thumbnail must be in ${langName} script with correct native typography. Use authentic ${langName} font styling.`;
+      }
     }
 
     if (brand_kit_active && brand_kit) {
       imagePrompt += ` Dominant color: ${brand_kit.primary_color}, accent: ${brand_kit.secondary_color}.`;
     }
+
+    // Force text model for non-English languages
+    const forceTextModel = !!(language && langName);
 
     // Step 2: Generate images using Lovable AI image generation
     const results: Array<{
