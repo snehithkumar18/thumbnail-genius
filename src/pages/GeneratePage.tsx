@@ -394,6 +394,30 @@ const GeneratePage = () => {
           </p>
         </div>
 
+        {/* Batch Mode Toggle */}
+        <div className="glass-card rounded-xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-foreground font-medium">Batch Mode</span>
+            {!canUseBatch && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Lock className="h-3 w-3 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>Creator plan and above</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs border-border"
+            onClick={() => setShowBatch(true)}
+          >
+            {canUseBatch ? "Open Batch" : "🔒 Pro Feature"}
+          </Button>
+        </div>
+
         {/* Generate Button */}
         <Button
           variant="hero"
