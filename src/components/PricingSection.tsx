@@ -27,7 +27,7 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
           className="text-center mb-12"
         >
           <h2 className="text-3xl md:text-5xl font-heading font-bold mb-4">
-            Start for $2. No subscription required.
+            Start for $2. Scale when ready.
           </h2>
           <p className="text-muted-foreground max-w-lg mx-auto">
             Pay only for what you use. Top-up credits never expire.
@@ -73,7 +73,7 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
           className="text-center mb-8"
         >
           <h3 className="text-2xl font-heading font-bold mb-2">Level Up With a Plan</h3>
-          <p className="text-muted-foreground text-sm mb-6">Remove watermarks, unlock pro models, get fresh credits every month</p>
+          <p className="text-muted-foreground text-sm mb-6">Remove watermarks, unlock pro models, get fresh credits every month.</p>
 
           <div className="flex items-center justify-center gap-3">
             <span className={`text-sm ${!annual ? "text-foreground" : "text-muted-foreground"}`}>Monthly</span>
@@ -96,7 +96,7 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto">
           {SUBSCRIPTION_PLANS.map((plan, i) => {
-            const displayPrice = annual ? Math.round(plan.annualUsd / 12) : plan.monthlyUsd;
+            const displayPrice = annual ? plan.annualPerMonthUsd : plan.monthlyUsd;
             return (
               <motion.div
                 key={plan.id}
@@ -113,9 +113,16 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
                 )}
                 <h3 className="font-heading font-bold text-lg text-foreground">{plan.name}</h3>
                 <div className="mt-4 mb-1">
-                  <span className="text-3xl font-heading font-extrabold text-foreground">${displayPrice}</span>
+                  <span className="text-3xl font-heading font-extrabold text-foreground">
+                    ${typeof displayPrice === 'number' && displayPrice % 1 !== 0 ? displayPrice.toFixed(2) : displayPrice}
+                  </span>
                   <span className="text-muted-foreground text-sm">/month</span>
                 </div>
+                {annual && (
+                  <span className="inline-block mb-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold w-fit">
+                    Save ${plan.savingsUsd}/year
+                  </span>
+                )}
                 <p className="text-xs text-muted-foreground mb-4">{plan.credits} credits/month</p>
 
                 <ul className="space-y-2 mb-6 flex-1">
@@ -155,7 +162,7 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
                   {CREDIT_COST_TABLE.map((c) => (
                     <div key={c.action} className="flex justify-between py-1.5 text-sm border-b border-border/50 last:border-0">
                       <span className="text-muted-foreground">{c.emoji} {c.action}</span>
-                      <span className={`font-medium ${c.cost === 'FREE' ? 'text-primary' : 'text-foreground'}`}>{c.cost}</span>
+                      <span className={`font-medium ${c.cost.startsWith('FREE') ? 'text-primary' : 'text-foreground'}`}>{c.cost}</span>
                     </div>
                   ))}
                 </div>

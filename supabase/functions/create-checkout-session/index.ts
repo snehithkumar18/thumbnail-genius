@@ -55,11 +55,12 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Payment system not configured' }), { status: 500, headers: corsHeaders });
     }
 
+    const billingPeriod = product_id.includes('_annual') ? 'annual' : product_id.includes('_monthly') ? 'monthly' : 'one_time';
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const projectRef = supabaseUrl.replace('https://', '').split('.')[0];
     const successUrl = `https://${projectRef}.supabase.co/functions/v1/dodo-webhook?redirect=success&plan=${product.plan ?? 'topup'}`;
 
-    // Create Dodo checkout session
     const dodoResponse = await fetch('https://api.dodopayments.com/payments', {
       method: 'POST',
       headers: {
@@ -77,6 +78,7 @@ Deno.serve(async (req: Request) => {
           credits_to_add: product.credits.toString(),
           plan_type: product.plan ?? 'none',
           product_type: product.type,
+          billing_period: billingPeriod,
           rollover_max: product.rollover_max.toString(),
         },
         return_url: `${req.headers.get('origin') ?? 'https://thumbai.app'}/dashboard?payment=success&plan=${product.plan ?? 'topup'}`,

@@ -17,12 +17,21 @@ import { TOPUP_PACKS, SUBSCRIPTION_PLANS, CREDIT_COST_TABLE } from "@/lib/credit
 import { toast } from "sonner";
 
 const faqs = [
-  { q: "Is there a free trial?", a: "We don't offer a free trial, but our $2 Starter Pack lets you generate 30 thumbnails with no commitment. It's the best way to see the quality yourself." },
-  { q: "Do credits expire?", a: "Top-up credits never expire. Subscription credits refresh monthly, and unused ones roll over based on your plan limit." },
-  { q: "Can I use both a subscription and top-up credits?", a: "Yes! Top-up credits stack with your subscription and are used after your monthly credits run out." },
-  { q: "Can I cancel my subscription anytime?", a: "Yes, cancel anytime. You keep your plan until the end of the billing period." },
-  { q: "Which plan is best for a beginner?", a: "Start with the $2 Starter Pack to test the quality. If you love it, Basic at $8/month gives you the best entry-level value." },
-  { q: "Do you support Indian payments (UPI, cards)?", a: "Yes! We support UPI, all Indian debit/credit cards, and international cards. Pricing is shown in ₹ for Indian users automatically." },
+  { q: "Is there a free trial?", a: "We don't offer a free trial, but our $2 Starter Pack lets you generate 30 thumbnails risk-free. Best way to judge the quality yourself." },
+  { q: "Do credits expire?", a: "Top-up credits never expire, ever. Subscription credits refresh monthly — unused ones roll over based on your plan's rollover limit." },
+  { q: "Can I stack top-up credits with a subscription?", a: "Yes. Top-up credits are used after your monthly subscription credits run out. They stack perfectly." },
+  { q: "What happens to my credits if I cancel?", a: "Your subscription credits stop at end of billing period. Top-up credits stay forever — they're yours." },
+  { q: "Which plan should I start with?", a: "Try the $2 Starter Pack first. If you're generating more than 15–20 thumbnails a month, Basic at $10/mo is instantly better value." },
+  { q: "Do you support UPI and Indian cards?", a: "Yes — UPI, all Indian debit/credit cards, and international cards all work. Indian users see INR pricing automatically." },
+];
+
+const competitors = [
+  { feature: 'Entry price', thumbai: '$2', pikzels: '$29/mo', canva: '$15/mo' },
+  { feature: 'Monthly plan', thumbai: 'From $10', pikzels: 'From $29', canva: 'From $15' },
+  { feature: 'Credits', thumbai: '100 (Basic)', pikzels: 'Limited', canva: 'Limited' },
+  { feature: 'Hindi thumbnails', thumbai: '✅', pikzels: '❌', canva: '❌' },
+  { feature: 'Face swap', thumbai: '✅', pikzels: '✅', canva: '❌' },
+  { feature: 'Credits expire', thumbai: '❌ Never', pikzels: '✅ Monthly', canva: '✅ Monthly' },
 ];
 
 const PricingPage = () => {
@@ -34,7 +43,6 @@ const PricingPage = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Auto-detect currency based on timezone
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       if (tz?.includes('Kolkata') || tz?.includes('Calcutta') || tz?.includes('Asia/Colombo')) {
@@ -58,7 +66,6 @@ const PricingPage = () => {
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: {
           product_id: productId,
-          user_id: user.id,
           user_email: user.email,
           billing_country: currency === 'inr' ? 'IN' : 'US',
         },
@@ -66,8 +73,6 @@ const PricingPage = () => {
       if (error) throw error;
       if (data?.checkout_url) {
         window.location.href = data.checkout_url;
-      } else {
-        toast.success("Checkout session created! Redirecting...");
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to create checkout session");
@@ -100,7 +105,6 @@ const PricingPage = () => {
             Pay only for what you use. Start with $2 — no subscription needed.
           </motion.p>
 
-          {/* Currency toggle */}
           <div className="flex items-center justify-center gap-3 mb-12">
             <button
               onClick={() => setCurrency('usd')}
@@ -123,7 +127,7 @@ const PricingPage = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-10">
             <h2 className="text-2xl md:text-3xl font-heading font-bold mb-2">🚀 Start Without a Subscription</h2>
-            <p className="text-muted-foreground">Buy credits once, use them anytime. They never expire.</p>
+            <p className="text-muted-foreground">Buy credits once. They never expire. Stack with any subscription.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
@@ -172,6 +176,7 @@ const PricingPage = () => {
                     Fast model only (Schnell)
                   </li>
                 </ul>
+                <p className="text-xs text-muted-foreground mb-3">No subscription. No commitment.</p>
                 <Button
                   variant={i === 0 ? "outline" : "heroGhost"}
                   className="w-full"
@@ -185,7 +190,7 @@ const PricingPage = () => {
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            ⚡ Top-up credits never expire and stack with subscriptions
+            ⚡ Top-up credits never expire and stack on top of any subscription plan
           </p>
         </div>
       </section>
@@ -195,7 +200,7 @@ const PricingPage = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-10">
             <h2 className="text-2xl md:text-3xl font-heading font-bold mb-2">Level Up With a Plan</h2>
-            <p className="text-muted-foreground mb-6">Remove watermarks, unlock pro models, get fresh credits every month</p>
+            <p className="text-muted-foreground mb-6">Remove watermarks, unlock pro models, get fresh credits every month.</p>
 
             <div className="flex items-center justify-center gap-3">
               <span className={`text-sm ${!annual ? 'text-foreground' : 'text-muted-foreground'}`}>Monthly</span>
@@ -217,8 +222,10 @@ const PricingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto">
             {SUBSCRIPTION_PLANS.map((plan, i) => {
               const monthlyPrice = currency === 'inr' ? plan.monthlyInr : plan.monthlyUsd;
-              const annualPrice = currency === 'inr' ? plan.annualInr : plan.annualUsd;
-              const displayPrice = annual ? Math.round(annualPrice / 12) : monthlyPrice;
+              const annualTotal = currency === 'inr' ? plan.annualInr : plan.annualUsd;
+              const annualPerMonth = currency === 'inr' ? plan.annualPerMonthInr : plan.annualPerMonthUsd;
+              const savings = currency === 'inr' ? plan.savingsInr : plan.savingsUsd;
+              const displayPrice = annual ? annualPerMonth : monthlyPrice;
               const productId = `${plan.id}_${annual ? 'annual' : 'monthly'}`;
 
               return (
@@ -238,13 +245,23 @@ const PricingPage = () => {
                   <h3 className="font-heading font-bold text-lg text-foreground">{plan.name}</h3>
                   <div className="mt-4 mb-1">
                     <span className="text-3xl font-heading font-extrabold text-foreground">
-                      {sym}{displayPrice.toLocaleString()}
+                      {sym}{typeof displayPrice === 'number' && displayPrice % 1 !== 0 ? displayPrice.toFixed(2) : displayPrice.toLocaleString()}
                     </span>
                     <span className="text-muted-foreground text-sm">/month</span>
                   </div>
                   {annual && (
+                    <div className="mb-1">
+                      <p className="text-xs text-muted-foreground">
+                        {sym}{annualTotal.toLocaleString()}/year
+                      </p>
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                        Save {sym}{savings.toLocaleString()}/year
+                      </span>
+                    </div>
+                  )}
+                  {!annual && (
                     <p className="text-xs text-muted-foreground mb-1">
-                      {sym}{annualPrice.toLocaleString()}/year
+                      or {sym}{annualPerMonth % 1 !== 0 ? annualPerMonth.toFixed(2) : annualPerMonth}/mo billed annually
                     </p>
                   )}
                   <div className="flex items-center gap-1.5 mb-4">
@@ -296,7 +313,7 @@ const PricingPage = () => {
                       <span className="text-muted-foreground">
                         {c.emoji} {c.action}
                       </span>
-                      <span className={`font-medium ${c.cost === 'FREE' ? 'text-primary' : 'text-foreground'}`}>{c.cost}</span>
+                      <span className={`font-medium ${c.cost.startsWith('FREE') ? 'text-primary' : 'text-foreground'}`}>{c.cost}</span>
                     </div>
                   ))}
                 </div>
@@ -306,8 +323,42 @@ const PricingPage = () => {
         </div>
       </section>
 
-      {/* Section 4 — FAQ */}
+      {/* Section 4 — Competitor comparison */}
       <section className="py-16 bg-muted/10">
+        <div className="container mx-auto px-4 max-w-3xl">
+          <h2 className="text-2xl md:text-3xl font-heading font-bold text-center mb-8">Why ThumbAI vs others?</h2>
+          <div className="glass-card rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left p-4 text-muted-foreground font-medium"></th>
+                    <th className="p-4 text-primary font-heading font-bold">ThumbAI</th>
+                    <th className="p-4 text-muted-foreground font-medium">Pikzels</th>
+                    <th className="p-4 text-muted-foreground font-medium">Canva AI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {competitors.map((row) => (
+                    <tr key={row.feature} className="border-b border-border/50 last:border-0">
+                      <td className="p-4 text-muted-foreground font-medium">{row.feature}</td>
+                      <td className="p-4 text-center text-foreground font-semibold">{row.thumbai}</td>
+                      <td className="p-4 text-center text-muted-foreground">{row.pikzels}</td>
+                      <td className="p-4 text-center text-muted-foreground">{row.canva}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-center text-xs text-muted-foreground p-4 border-t border-border/50">
+              You get more, pay less, keep your credits.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 5 — FAQ */}
+      <section className="py-16">
         <div className="container mx-auto px-4 max-w-3xl">
           <h2 className="text-2xl md:text-3xl font-heading font-bold text-center mb-10">Frequently Asked Questions</h2>
           <Accordion type="single" collapsible className="space-y-3">
