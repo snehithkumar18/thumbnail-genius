@@ -98,7 +98,7 @@ const ReferralPage = () => {
             className="border-border text-foreground"
             onClick={() => window.open(`https://wa.me/?text=${whatsappMessage}`, "_blank")}
           >
-            <MessageCircle className="h-4 w-4 mr-1.5 text-green-500" /> WhatsApp
+            <MessageCircle className="h-4 w-4 mr-1.5 text-primary" /> WhatsApp
           </Button>
           <Button
             variant="outline"
@@ -106,7 +106,7 @@ const ReferralPage = () => {
             className="border-border text-foreground"
             onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Check out ThumbAI for AI YouTube thumbnails! 🔥")}`, "_blank")}
           >
-            <Send className="h-4 w-4 mr-1.5 text-blue-500" /> Telegram
+            <Send className="h-4 w-4 mr-1.5 text-primary" /> Telegram
           </Button>
           <Button
             variant="outline"
