@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Type, Monitor, Smartphone, Zap, Star, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, Pencil, User, Globe } from "lucide-react";
+import { Sparkles, Type, Monitor, Smartphone, Zap, Star, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, Pencil, User, Globe, Layers, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -9,16 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits } from "@/hooks/useSupabaseData";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { STYLE_PRESETS, NICHE_TEMPLATES, LOADING_MESSAGES } from "@/lib/generate-constants";
 import { CREDIT_COSTS } from "@/lib/credits";
 import { LANGUAGES, type LanguageId } from "@/lib/languages";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
+import BatchGenerator from "@/components/BatchGenerator";
 
 type GeneratedImage = {
   image_url: string;
@@ -28,6 +31,7 @@ type GeneratedImage = {
 const GeneratePage = () => {
   const { user } = useAuth();
   const { data: credits } = useCredits();
+  const { canUseBatch } = usePlanAccess();
   const queryClient = useQueryClient();
   const location = useLocation();
 
@@ -51,6 +55,7 @@ const GeneratePage = () => {
   const [activeImage, setActiveImage] = useState(0);
   const [showPromptLibrary, setShowPromptLibrary] = useState(false);
   const [showZeroCredits, setShowZeroCredits] = useState(false);
+  const [showBatch, setShowBatch] = useState(false);
   const abortRef = useRef(false);
 
   // Accept prefilled prompt from navigation state
@@ -389,6 +394,30 @@ const GeneratePage = () => {
           </p>
         </div>
 
+        {/* Batch Mode Toggle */}
+        <div className="glass-card rounded-xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-foreground font-medium">Batch Mode</span>
+            {!canUseBatch && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Lock className="h-3 w-3 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>Creator plan and above</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs border-border"
+            onClick={() => setShowBatch(true)}
+          >
+            {canUseBatch ? "Open Batch" : "🔒 Pro Feature"}
+          </Button>
+        </div>
+
         {/* Generate Button */}
         <Button
           variant="hero"
@@ -578,6 +607,16 @@ const GeneratePage = () => {
       </AnimatePresence>
 
       <ZeroCreditsModal open={showZeroCredits} onClose={() => setShowZeroCredits(false)} />
+
+      <AnimatePresence>
+        <BatchGenerator
+          visible={showBatch}
+          onClose={() => setShowBatch(false)}
+          basePrompt={prompt}
+          quality={quality}
+          format={format}
+        />
+      </AnimatePresence>
     </div>
   );
 };

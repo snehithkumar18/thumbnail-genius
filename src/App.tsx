@@ -21,6 +21,8 @@ import ABTesterPage from "./pages/ABTesterPage";
 import VotePage from "./pages/VotePage";
 import PricingPage from "./pages/PricingPage";
 import SettingsPage from "./pages/SettingsPage";
+import PromptLibraryPage from "./pages/PromptLibraryPage";
+import ReferralPage from "./pages/ReferralPage";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +50,8 @@ const App = () => (
               <Route path="brandkit" element={<BrandKitPage />} />
               <Route path="abtester" element={<ABTesterPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="prompts" element={<PromptLibraryPage />} />
+              <Route path="referrals" element={<ReferralPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

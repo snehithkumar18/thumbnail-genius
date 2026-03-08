@@ -1,4 +1,4 @@
-import { Zap, Smartphone, RefreshCw, Pencil, User, Type, BarChart3, TrendingUp, FolderOpen, Palette, FlaskConical, Settings, Gem, CreditCard } from "lucide-react";
+import { Zap, Smartphone, RefreshCw, Pencil, User, Type, BarChart3, TrendingUp, FolderOpen, Palette, FlaskConical, Settings, Gem, CreditCard, BookOpen, Gift } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -28,9 +28,11 @@ const navItems = [
   { title: "Titles & Scripts", url: "/dashboard/titles", icon: Type },
   { title: "Thumbnail Scorer", url: "/dashboard/scorer", icon: BarChart3 },
   { title: "Trending Styles", url: "/dashboard/trending", icon: TrendingUp },
+  { title: "Prompt Library", url: "/dashboard/prompts", icon: BookOpen },
   { title: "My Thumbnails", url: "/dashboard/thumbnails", icon: FolderOpen },
   { title: "Brand Kit", url: "/dashboard/brandkit", icon: Palette },
   { title: "A/B Tester", url: "/dashboard/abtester", icon: FlaskConical },
+  { title: "Refer & Earn", url: "/dashboard/referrals", icon: Gift },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 
@@ -58,7 +60,7 @@ export function DashboardSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.slice(0, 8).map((item) => (
+              {navItems.slice(0, 9).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -83,7 +85,7 @@ export function DashboardSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.slice(8).map((item) => (
+              {navItems.slice(9).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink

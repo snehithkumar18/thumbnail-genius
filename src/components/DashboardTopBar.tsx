@@ -28,6 +28,8 @@ const routeTitles: Record<string, string> = {
   "/dashboard/brandkit": "Brand Kit",
   "/dashboard/abtester": "A/B Tester",
   "/dashboard/settings": "Settings",
+  "/dashboard/prompts": "Prompt Library",
+  "/dashboard/referrals": "Refer & Earn",
 };
 
 export function DashboardTopBar() {
