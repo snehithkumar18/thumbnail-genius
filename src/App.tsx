@@ -10,6 +10,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import DashboardHome from "./pages/DashboardHome";
 import MyThumbnails from "./pages/MyThumbnails";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import GeneratePage from "./pages/GeneratePage";
 
 const queryClient = new QueryClient();
 
