@@ -62,7 +62,7 @@ const ZeroCreditsModal = ({ open, onClose }: ZeroCreditsModalProps) => {
               size="lg"
               onClick={() => { onClose(); navigate('/pricing'); }}
             >
-              View All Plans
+              Basic Plan — $10/mo (100 credits)
             </Button>
           </div>
         </motion.div>

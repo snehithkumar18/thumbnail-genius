@@ -28,8 +28,16 @@ const faqs = [
     a: "FLUX.2 Pro gives the best photorealistic results. Ideogram is great for text-heavy thumbnails. The Schnell model is fastest but slightly lower quality. Basic and above plans get access to all pro models.",
   },
   {
+    q: "Which plan should I start with?",
+    a: "Try the $2 Starter Pack first. If you're generating more than 15–20 thumbnails a month, Basic at $10/mo is instantly better value.",
+  },
+  {
     q: "Can I cancel my plan anytime?",
-    a: "Absolutely. You can cancel anytime from your account settings. You'll keep access until the end of your billing period. No questions asked.",
+    a: "Absolutely. You can cancel anytime from your account settings. You'll keep access until the end of your billing period. Top-up credits stay forever.",
+  },
+  {
+    q: "Do you support UPI and Indian cards?",
+    a: "Yes — UPI, all Indian debit/credit cards, and international cards all work. Indian users see INR pricing automatically.",
   },
 ];
 
