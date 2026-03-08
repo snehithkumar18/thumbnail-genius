@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, SortAsc, Grid3X3, List, FolderOpen, Star, Trash2, Plus, Heart, Pencil, MoreVertical, Download, FolderInput, X, Check } from "lucide-react";
+import { Search, Filter, SortAsc, Grid3X3, List, FolderOpen, Star, Trash2, Plus, Heart, Pencil, MoreVertical, Download, FolderInput, X, Check, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-type ViewFilter = "all" | "favorites" | "deleted" | string; // string = folder ID
+type ViewFilter = "all" | "favorites" | "deleted" | string;
 
 const MyThumbnails = () => {
   const { user } = useAuth();
@@ -26,7 +26,6 @@ const MyThumbnails = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [newFolderEmoji, setNewFolderEmoji] = useState("📁");
 
   const isFolderId = activeFilter !== "all" && activeFilter !== "favorites" && activeFilter !== "deleted";
   const { data: thumbnails = [], isLoading } = useThumbnails(
@@ -72,7 +71,7 @@ const MyThumbnails = () => {
 
   const createFolder = async () => {
     if (!newFolderName.trim() || !user) return;
-    await supabase.from("folders").insert({ user_id: user.id, name: newFolderName.trim(), emoji: newFolderEmoji });
+    await supabase.from("folders").insert({ user_id: user.id, name: newFolderName.trim(), emoji: "📁" });
     queryClient.invalidateQueries({ queryKey: ["folders"] });
     setNewFolderName("");
     setCreatingFolder(false);
@@ -89,7 +88,7 @@ const MyThumbnails = () => {
   return (
     <div className="flex gap-6 h-[calc(100vh-60px-48px)]">
       {/* Left - Folder navigation */}
-      <div className="w-[220px] shrink-0 space-y-1 overflow-y-auto">
+      <div className="w-[220px] shrink-0 space-y-1 overflow-y-auto hidden md:block">
         <button
           onClick={() => setActiveFilter("all")}
           className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
@@ -274,7 +273,6 @@ const MyThumbnails = () => {
                       </div>
                     )}
 
-                    {/* Hover overlay */}
                     <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleFavorite(thumb.id, thumb.is_favorite); }}
@@ -310,7 +308,6 @@ const MyThumbnails = () => {
                       )}
                     </div>
 
-                    {/* Badges */}
                     <div className="absolute top-2 left-2 flex gap-1">
                       <span className="px-1.5 py-0.5 text-[10px] rounded bg-muted/80 text-foreground font-medium">
                         {thumb.format_type === "9:16" ? "📱 9:16" : "📺 16:9"}
@@ -340,6 +337,3 @@ const MyThumbnails = () => {
 };
 
 export default MyThumbnails;
-
-// Need RefreshCw import for restore button
-import { RefreshCw } from "lucide-react";
