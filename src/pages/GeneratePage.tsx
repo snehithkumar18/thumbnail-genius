@@ -29,6 +29,7 @@ const GeneratePage = () => {
   const { user } = useAuth();
   const { data: credits } = useCredits();
   const queryClient = useQueryClient();
+  const location = useLocation();
 
   // Controls
   const [prompt, setPrompt] = useState("");
@@ -40,6 +41,7 @@ const GeneratePage = () => {
   const [format, setFormat] = useState<"16:9" | "9:16">("16:9");
   const [quality, setQuality] = useState<"fast" | "pro">("pro");
   const [variations, setVariations] = useState(1);
+  const [language, setLanguage] = useState<LanguageId>("en");
 
   // State
   const [generating, setGenerating] = useState(false);
@@ -50,6 +52,16 @@ const GeneratePage = () => {
   const [showPromptLibrary, setShowPromptLibrary] = useState(false);
   const [showZeroCredits, setShowZeroCredits] = useState(false);
   const abortRef = useRef(false);
+
+  // Accept prefilled prompt from navigation state
+  useEffect(() => {
+    const state = location.state as { prefillPrompt?: string } | null;
+    if (state?.prefillPrompt) {
+      setPrompt(state.prefillPrompt);
+      // Clear state so it doesn't persist on re-render
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const creditCost = (quality === "fast" ? CREDIT_COSTS.FAST_GENERATE : CREDIT_COSTS.PRO_GENERATE) * variations;
   const remaining = credits?.credits_remaining ?? 0;

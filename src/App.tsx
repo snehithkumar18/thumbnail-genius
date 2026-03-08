@@ -18,6 +18,8 @@ import PlaceholderPage from "./pages/PlaceholderPage";
 import TitleGeneratorPage from "./pages/TitleGeneratorPage";
 import ThumbnailScorerPage from "./pages/ThumbnailScorerPage";
 import TrendingStylesPage from "./pages/TrendingStylesPage";
+import ABTesterPage from "./pages/ABTesterPage";
+import VotePage from "./pages/VotePage";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +32,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/vote/:shareId" element={<VotePage />} />
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<GeneratePage />} />
               <Route path="shorts" element={<ShortsPage />} />
@@ -41,7 +44,7 @@ const App = () => (
               <Route path="trending" element={<TrendingStylesPage />} />
               <Route path="thumbnails" element={<MyThumbnails />} />
               <Route path="brandkit" element={<BrandKitPage />} />
-              <Route path="abtester" element={<PlaceholderPage title="A/B Tester" emoji="🧪" />} />
+              <Route path="abtester" element={<ABTesterPage />} />
               <Route path="settings" element={<PlaceholderPage title="Settings" emoji="⚙️" />} />
             </Route>
             <Route path="*" element={<NotFound />} />
