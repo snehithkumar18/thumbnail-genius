@@ -554,7 +554,7 @@ const FaceSwapPage = () => {
         </div>
       </div>
 
-      <ZeroCreditsModal open={showZeroCredits} onOpenChange={setShowZeroCredits} />
+      <ZeroCreditsModal open={showZeroCredits} onClose={() => setShowZeroCredits(false)} />
     </div>
   );
 };

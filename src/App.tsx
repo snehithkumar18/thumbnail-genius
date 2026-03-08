@@ -38,7 +38,7 @@ const App = () => (
               <Route path="scorer" element={<PlaceholderPage title="Thumbnail Scorer" emoji="📊" />} />
               <Route path="trending" element={<PlaceholderPage title="Trending Styles" emoji="📈" />} />
               <Route path="thumbnails" element={<MyThumbnails />} />
-              <Route path="brandkit" element={<PlaceholderPage title="Brand Kit" emoji="🎨" />} />
+              <Route path="brandkit" element={<BrandKitPage />} />
               <Route path="abtester" element={<PlaceholderPage title="A/B Tester" emoji="🧪" />} />
               <Route path="settings" element={<PlaceholderPage title="Settings" emoji="⚙️" />} />
             </Route>
