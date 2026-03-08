@@ -72,7 +72,15 @@ serve(async (req) => {
       count = 1,
       brand_kit_active = false,
       brand_kit = null,
+      language = null,
     } = body;
+
+    // Language config
+    const LANG_NAMES: Record<string, string> = {
+      hi: "Hindi", hinglish: "Hinglish", ta: "Tamil", te: "Telugu",
+      bn: "Bengali", es: "Spanish", pt: "Portuguese", ar: "Arabic",
+    };
+    const langName = language ? LANG_NAMES[language] : null;
 
     if (!prompt || prompt.trim().length === 0) {
       return new Response(JSON.stringify({ error: "Prompt is required" }), {
