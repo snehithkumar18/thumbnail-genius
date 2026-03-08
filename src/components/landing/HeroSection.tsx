@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { TypeAnimation } from "react-type-animation";
-import { useInView } from "react-intersection-observer";
 import { Star, ChevronDown } from "lucide-react";
 
 const ParticleBackground = lazy(() => import("./ParticleBackground"));
@@ -72,13 +71,20 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
     return () => clearInterval(t);
   }, []);
 
-  const wordVariants = {
+  const wordVariants: Variants = {
     hidden: { opacity: 0, y: 40 },
-    visible: (i: number) => ({
+    visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.5, delay: i * 0.12, ease: [0.22, 1, 0.36, 1] },
-    }),
+      transition: { duration: 0.5, ease: "easeOut" },
+    },
+  };
+
+  const containerVariants: Variants = {
+    hidden: {},
+    visible: {
+      transition: { staggerChildren: 0.12 },
+    },
   };
 
   return (
@@ -118,16 +124,15 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
             </motion.div>
 
             {/* Headline */}
-            <div className="mb-6">
+            <motion.div
+              className="mb-6"
+              variants={containerVariants}
+              initial="hidden"
+              animate={visible ? "visible" : "hidden"}
+            >
               {["GENERATE", "VIRAL", "THUMBNAILS", "IN SECONDS"].map(
                 (word, i) => (
-                  <motion.div
-                    key={word}
-                    custom={i}
-                    initial="hidden"
-                    animate={visible ? "visible" : "hidden"}
-                    variants={wordVariants}
-                  >
+                  <motion.div key={word} variants={wordVariants}>
                     {word === "VIRAL" ? (
                       <span className="relative inline-block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-bold leading-none gradient-text shimmer-text">
                         {word}
@@ -144,7 +149,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
                   </motion.div>
                 )
               )}
-            </div>
+            </motion.div>
 
             {/* Subheadline */}
             <motion.div

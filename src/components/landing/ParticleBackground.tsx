@@ -1,16 +1,16 @@
 import { useCallback, useMemo } from "react";
 import Particles from "@tsparticles/react";
 import { loadSlim } from "@tsparticles/slim";
-import type { Engine } from "@tsparticles/engine";
+import type { Engine, ISourceOptions } from "@tsparticles/engine";
 
 const ParticleBackground = () => {
-  const particlesInit = useCallback(async (engine: Engine) => {
-    await loadSlim(engine);
+  const particlesLoaded = useCallback(async () => {
+    // Particles loaded callback
   }, []);
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
-  const options = useMemo(
+  const options: ISourceOptions = useMemo(
     () => ({
       fullScreen: false,
       fpsLimit: 60,
@@ -53,7 +53,7 @@ const ParticleBackground = () => {
     <Particles
       id="hero-particles"
       className="absolute inset-0 z-0"
-      init={particlesInit}
+      particlesLoaded={particlesLoaded}
       options={options}
     />
   );
