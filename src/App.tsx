@@ -14,6 +14,8 @@ import GeneratePage from "./pages/GeneratePage";
 import ShortsPage from "./pages/ShortsPage";
 import RecreatePage from "./pages/RecreatePage";
 import EditorPage from "./pages/EditorPage";
+import FaceSwapPage from "./pages/FaceSwapPage";
+import BrandKitPage from "./pages/BrandKitPage";
 
 const queryClient = new QueryClient();
 
