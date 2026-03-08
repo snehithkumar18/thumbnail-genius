@@ -150,7 +150,7 @@ const GeneratePage = () => {
     } finally {
       setGenerating(false);
     }
-  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, niche, format, quality, variations, remaining, creditCost, queryClient]);
+  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, niche, format, quality, variations, language, remaining, creditCost, queryClient]);
 
   // Cmd+Enter shortcut
   useEffect(() => {
