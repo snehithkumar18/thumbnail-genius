@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Gift, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface AuthModalProps {
   open: boolean;
@@ -17,20 +19,57 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Placeholder - will integrate with Supabase when Cloud is enabled
-    setTimeout(() => {
+
+    try {
+      if (tab === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: name },
+            emailRedirectTo: window.location.origin,
+          },
+        });
+        if (error) throw error;
+        toast.success("Check your email to verify your account!");
+        onClose();
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        toast.success("Welcome back!");
+        onClose();
+        navigate("/dashboard");
+      }
+    } catch (err: any) {
+      toast.error(err.message ?? "Something went wrong");
+    } finally {
       setLoading(false);
-      toast.success(tab === "signup" ? "Check your email to verify your account!" : "Welcome back!");
-      onClose();
-    }, 1000);
+    }
   };
 
-  const handleGoogle = () => {
-    toast.info("Google OAuth requires Lovable Cloud. Enable it to proceed!");
+  const handleGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/dashboard` },
+    });
+    if (error) toast.error(error.message);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error("Enter your email first");
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) toast.error(error.message);
+    else toast.success("Check your email for the reset link!");
   };
 
   if (!open) return null;
@@ -61,16 +100,13 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
             <span className="font-heading font-bold text-foreground">ThumbAI</span>
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-1 mb-6 bg-muted rounded-lg p-1">
             {(["signup", "login"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${
-                  tab === t
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                  tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {t === "signup" ? "Sign Up" : "Login"}
@@ -81,9 +117,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
           {tab === "signup" && (
             <div className="flex items-center gap-2 mb-5 px-3 py-2 rounded-lg bg-secondary/10 border border-secondary/20">
               <Gift className="h-4 w-4 text-secondary shrink-0" />
-              <span className="text-xs text-secondary font-medium">
-                You'll get 20 free credits instantly
-              </span>
+              <span className="text-xs text-secondary font-medium">You'll get 20 free credits instantly</span>
             </div>
           )}
 
@@ -116,7 +150,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
             />
 
             {tab === "login" && (
-              <button type="button" className="text-xs text-primary hover:underline">
+              <button type="button" onClick={handleForgotPassword} className="text-xs text-primary hover:underline">
                 Forgot password?
               </button>
             )}
