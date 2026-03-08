@@ -12,6 +12,8 @@ import MyThumbnails from "./pages/MyThumbnails";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import GeneratePage from "./pages/GeneratePage";
 import ShortsPage from "./pages/ShortsPage";
+import RecreatePage from "./pages/RecreatePage";
+import EditorPage from "./pages/EditorPage";
 
 const queryClient = new QueryClient();
 
