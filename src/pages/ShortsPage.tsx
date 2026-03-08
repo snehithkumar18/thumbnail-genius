@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Type, Zap, Star, Download, Heart, Share2, RefreshCw, Pencil, X, Eye } from "lucide-react";
+import { Sparkles, Type, Zap, Star, Download, Heart, Share2, RefreshCw, Pencil, X, Eye, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCredits } from "@/hooks/useSupabaseData";
 import { useQueryClient } from "@tanstack/react-query";
 import { CREDIT_COSTS } from "@/lib/credits";
+import { LANGUAGES, type LanguageId } from "@/lib/languages";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
 
 type GeneratedImage = { image_url: string; thumbnail_id: string };
