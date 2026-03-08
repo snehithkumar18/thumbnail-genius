@@ -55,6 +55,7 @@ const GeneratePage = () => {
   const [activeImage, setActiveImage] = useState(0);
   const [showPromptLibrary, setShowPromptLibrary] = useState(false);
   const [showZeroCredits, setShowZeroCredits] = useState(false);
+  const [showBatch, setShowBatch] = useState(false);
   const abortRef = useRef(false);
 
   // Accept prefilled prompt from navigation state
