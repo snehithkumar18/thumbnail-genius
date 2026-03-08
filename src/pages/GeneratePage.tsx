@@ -118,6 +118,7 @@ const GeneratePage = () => {
           format,
           quality,
           count: variations,
+          language: language !== "en" ? language : undefined,
         },
       });
 
