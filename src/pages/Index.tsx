@@ -46,9 +46,6 @@ const Index = () => {
       {/* Intro sequence */}
       {!introComplete && <IntroSequence onComplete={handleIntroComplete} />}
 
-      {/* Custom cursor (desktop only) */}
-      <CustomCursor />
-
       {/* Scroll progress bar */}
       <ScrollProgress />
 
