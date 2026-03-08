@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, lazy, Suspense } from "react";
-import CustomCursor from "@/components/landing/CustomCursor";
 import IntroSequence from "@/components/landing/IntroSequence";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import HeroSection from "@/components/landing/HeroSection";
@@ -46,9 +45,6 @@ const Index = () => {
 
       {/* Intro sequence */}
       {!introComplete && <IntroSequence onComplete={handleIntroComplete} />}
-
-      {/* Custom cursor (desktop only) */}
-      <CustomCursor />
 
       {/* Scroll progress bar */}
       <ScrollProgress />
