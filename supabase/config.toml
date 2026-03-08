@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.edit-thumbnail]
 verify_jwt = false
+
+[functions.face-swap]
+verify_jwt = false
