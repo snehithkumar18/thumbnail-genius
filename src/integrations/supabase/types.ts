@@ -211,6 +211,8 @@ export type Database = {
       payment_events: {
         Row: {
           amount: number
+          amount_inr: number | null
+          amount_usd: number | null
           created_at: string
           credits_added: number | null
           currency: string
@@ -218,11 +220,14 @@ export type Database = {
           event_type: string
           id: string
           plan_type: Database["public"]["Enums"]["plan_type"] | null
+          product_type: string | null
           status: string
           user_id: string
         }
         Insert: {
           amount: number
+          amount_inr?: number | null
+          amount_usd?: number | null
           created_at?: string
           credits_added?: number | null
           currency?: string
@@ -230,11 +235,14 @@ export type Database = {
           event_type: string
           id?: string
           plan_type?: Database["public"]["Enums"]["plan_type"] | null
+          product_type?: string | null
           status?: string
           user_id: string
         }
         Update: {
           amount?: number
+          amount_inr?: number | null
+          amount_usd?: number | null
           created_at?: string
           credits_added?: number | null
           currency?: string
@@ -242,6 +250,7 @@ export type Database = {
           event_type?: string
           id?: string
           plan_type?: Database["public"]["Enums"]["plan_type"] | null
+          product_type?: string | null
           status?: string
           user_id?: string
         }
@@ -400,9 +409,14 @@ export type Database = {
           credits_used_total: number
           id: string
           lifetime_credits_purchased: number
+          max_rollover: number
           monthly_reset_date: string
+          plan_expires_at: string | null
+          plan_status: string
           plan_type: Database["public"]["Enums"]["plan_type"]
           rollover_credits: number
+          subscription_credits: number
+          topup_credits: number
           user_id: string
         }
         Insert: {
@@ -411,9 +425,14 @@ export type Database = {
           credits_used_total?: number
           id?: string
           lifetime_credits_purchased?: number
+          max_rollover?: number
           monthly_reset_date?: string
+          plan_expires_at?: string | null
+          plan_status?: string
           plan_type?: Database["public"]["Enums"]["plan_type"]
           rollover_credits?: number
+          subscription_credits?: number
+          topup_credits?: number
           user_id: string
         }
         Update: {
@@ -422,9 +441,14 @@ export type Database = {
           credits_used_total?: number
           id?: string
           lifetime_credits_purchased?: number
+          max_rollover?: number
           monthly_reset_date?: string
+          plan_expires_at?: string | null
+          plan_status?: string
           plan_type?: Database["public"]["Enums"]["plan_type"]
           rollover_credits?: number
+          subscription_credits?: number
+          topup_credits?: number
           user_id?: string
         }
         Relationships: []
@@ -437,7 +461,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      plan_type: "free" | "creator" | "pro" | "studio"
+      plan_type: "free" | "creator" | "pro" | "studio" | "none" | "basic"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -565,7 +589,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      plan_type: ["free", "creator", "pro", "studio"],
+      plan_type: ["free", "creator", "pro", "studio", "none", "basic"],
     },
   },
 } as const

@@ -8,24 +8,24 @@ import {
 
 const faqs = [
   {
-    q: "What is a credit and how does it work?",
-    a: "Each credit lets you generate one thumbnail. Different features cost different amounts — a basic text-to-thumbnail costs 1 credit, while face swap or URL recreate costs 2 credits. Credits refresh monthly on your billing date.",
+    q: "Is there a free trial?",
+    a: "We don't offer a free trial, but our $2 Starter Pack lets you generate 30 thumbnails with no commitment. It's the best way to see the quality yourself.",
   },
   {
-    q: "Do unused credits expire?",
-    a: "On the Free plan, credits reset each month. On Creator and Pro plans, unused credits roll over (up to your monthly limit). Studio plan has unlimited rollover.",
+    q: "Do credits expire?",
+    a: "Top-up credits never expire. Subscription credits refresh monthly, and unused ones roll over based on your plan limit.",
+  },
+  {
+    q: "Can I use both a subscription and top-up credits?",
+    a: "Yes! Top-up credits stack with your subscription and are used after your monthly credits run out.",
   },
   {
     q: "Can I use ThumbAI for Hindi/regional language thumbnails?",
     a: "Yes! ThumbAI supports Hindi, Tamil, Telugu, Spanish, Portuguese, and 20+ other languages. Our AI handles text rendering in multiple scripts beautifully.",
   },
   {
-    q: "Is there a free plan? What are its limits?",
-    a: "Yes! The free plan gives you 20 credits/month with fast generation. You get access to Shorts generator and unlimited title generation. Downloads include a small watermark.",
-  },
-  {
     q: "Which AI model gives the best results?",
-    a: "FLUX.2 Pro gives the best photorealistic results. Ideogram is great for text-heavy thumbnails. The Schnell model is fastest but slightly lower quality. Pro and Studio plans get access to all models.",
+    a: "FLUX.2 Pro gives the best photorealistic results. Ideogram is great for text-heavy thumbnails. The Schnell model is fastest but slightly lower quality. Basic and above plans get access to all pro models.",
   },
   {
     q: "Can I cancel my plan anytime?",

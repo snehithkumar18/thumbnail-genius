@@ -14,12 +14,13 @@ import EditorPage from "./pages/EditorPage";
 import FaceSwapPage from "./pages/FaceSwapPage";
 import BrandKitPage from "./pages/BrandKitPage";
 import MyThumbnails from "./pages/MyThumbnails";
-import PlaceholderPage from "./pages/PlaceholderPage";
 import TitleGeneratorPage from "./pages/TitleGeneratorPage";
 import ThumbnailScorerPage from "./pages/ThumbnailScorerPage";
 import TrendingStylesPage from "./pages/TrendingStylesPage";
 import ABTesterPage from "./pages/ABTesterPage";
 import VotePage from "./pages/VotePage";
+import PricingPage from "./pages/PricingPage";
+import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/pricing" element={<PricingPage />} />
             <Route path="/vote/:shareId" element={<VotePage />} />
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<GeneratePage />} />
@@ -45,7 +47,7 @@ const App = () => (
               <Route path="thumbnails" element={<MyThumbnails />} />
               <Route path="brandkit" element={<BrandKitPage />} />
               <Route path="abtester" element={<ABTesterPage />} />
-              <Route path="settings" element={<PlaceholderPage title="Settings" emoji="⚙️" />} />
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

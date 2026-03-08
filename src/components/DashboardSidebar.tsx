@@ -1,11 +1,11 @@
-import { Zap, Smartphone, RefreshCw, Pencil, User, Type, BarChart3, TrendingUp, FolderOpen, Palette, FlaskConical, Settings, Gem } from "lucide-react";
+import { Zap, Smartphone, RefreshCw, Pencil, User, Type, BarChart3, TrendingUp, FolderOpen, Palette, FlaskConical, Settings, Gem, CreditCard } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useProfile, useCredits } from "@/hooks/useSupabaseData";
-import { PLAN_LIMITS } from "@/lib/credits";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
 import {
   Sidebar,
   SidebarContent,
@@ -37,14 +37,11 @@ const navItems = [
 export function DashboardSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
+  const navigate = useNavigate();
   const { data: profile } = useProfile();
-  const { data: credits } = useCredits();
+  const { totalCredits, plan, hasSubscription, subscriptionCredits, topupCredits } = usePlanAccess();
 
-  const planType = (credits?.plan_type ?? "free") as keyof typeof PLAN_LIMITS;
-  const maxCredits = PLAN_LIMITS[planType]?.credits ?? 20;
-  const remaining = credits?.credits_remaining ?? 0;
-  const usedPercent = Math.min(100, ((maxCredits - remaining) / maxCredits) * 100);
+  const isLowCredits = totalCredits < 5;
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border bg-card">
@@ -111,16 +108,35 @@ export function DashboardSidebar() {
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Credits</span>
-              <span className="text-foreground font-medium">{remaining}/{maxCredits}</span>
+              <span className={`font-medium ${isLowCredits ? 'text-destructive animate-pulse' : 'text-foreground'}`}>
+                {totalCredits}
+              </span>
             </div>
-            <Progress value={100 - usedPercent} className="h-1.5" />
+            {hasSubscription && (
+              <div className="text-[10px] text-muted-foreground space-y-0.5">
+                <div className="flex justify-between">
+                  <span>Subscription</span>
+                  <span>{subscriptionCredits}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Top-up</span>
+                  <span>{topupCredits}</span>
+                </div>
+              </div>
+            )}
+
+            {isLowCredits && totalCredits > 0 && (
+              <p className="text-[10px] text-destructive">⚠️ Low credits!</p>
+            )}
+
             <Button
               variant="pill"
               size="sm"
               className="w-full bg-gradient-to-r from-primary to-primary/80 text-sm"
-              onClick={() => {}}
+              onClick={() => navigate('/pricing')}
             >
-              Upgrade Plan
+              <CreditCard className="h-3 w-3 mr-1.5" />
+              {hasSubscription ? 'Buy Credits' : 'Get Credits'}
             </Button>
           </div>
         )}
@@ -136,7 +152,9 @@ export function DashboardSidebar() {
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{profile?.username ?? "User"}</p>
-              <p className="text-xs text-muted-foreground capitalize">{planType} plan</p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {plan === 'none' ? 'Pay-as-you-go' : `${plan} plan`}
+              </p>
             </div>
           )}
         </div>
