@@ -123,39 +123,64 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               </span>
             </motion.div>
 
-            {/* Headline */}
-            <motion.div
+            {/* Headline - Single line */}
+            <motion.h1
               className="mb-6"
-              variants={containerVariants}
-              initial="hidden"
-              animate={visible ? "visible" : "hidden"}
+              initial={{ opacity: 0, y: 40 }}
+              animate={visible ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: 0.6, duration: 0.6, ease: "easeOut" }}
             >
-              {["GENERATE", "VIRAL", "THUMBNAILS", "IN SECONDS"].map(
-                (word, i) => (
-                  <motion.div key={word} variants={wordVariants}>
-                    {word === "VIRAL" ? (
-                      <span className="relative inline-block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-bold leading-none gradient-text shimmer-text">
-                        {word}
-                      </span>
-                    ) : word === "IN SECONDS" ? (
-                      <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-none text-foreground">
-                        {word}
-                      </span>
-                    ) : (
-                      <span className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-bold leading-none text-foreground">
-                        {word}
-                      </span>
-                    )}
-                  </motion.div>
-                )
-              )}
+              <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-bold leading-tight text-foreground whitespace-nowrap">
+                GENERATE <span className="gradient-text shimmer-text">VIRAL</span> THUMBNAILS IN SECONDS
+              </span>
+            </motion.h1>
+
+            {/* CTA Button - Right below title */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={visible ? { opacity: 1, y: 0 } : {}}
+              transition={{
+                delay: 0.8,
+                type: "spring",
+                stiffness: 400,
+                damping: 25,
+              }}
+              className="mb-6"
+              onMouseMove={handleMagnet}
+              onMouseLeave={handleMagnetLeave}
+            >
+              <button
+                ref={magnetRef}
+                onClick={onOpenAuth}
+                className="group relative bg-gradient-to-r from-primary to-[hsl(22,100%,52%)] text-primary-foreground font-bold px-8 py-4 rounded-full text-base hover:shadow-[0_20px_40px_hsl(16_100%_50%/0.4)] transition-all duration-300 active:scale-[0.97] animate-breathing-glow"
+              >
+                Try for $2 — 30 Credits
+                <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
+                  →
+                </span>
+              </button>
+            </motion.div>
+
+            {/* Model badges - Below button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={visible ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: 1.0, duration: 0.5 }}
+              className="flex flex-wrap items-center gap-3 mb-6"
+            >
+              <span className="glass-card rounded-full px-3 py-1.5 text-xs font-medium text-foreground animate-float-gentle">
+                FLUX.2 Pro ✨
+              </span>
+              <span className="glass-card rounded-full px-3 py-1.5 text-xs font-medium text-foreground animate-float-gentle" style={{ animationDelay: "0.3s" }}>
+                Ideogram 3.0 📝
+              </span>
             </motion.div>
 
             {/* Subheadline */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
-              transition={{ delay: 1.0, duration: 0.6 }}
+              transition={{ delay: 1.1, duration: 0.6 }}
               className="mb-6"
             >
               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
@@ -214,30 +239,13 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               </div>
             </motion.div>
 
-            {/* CTA Buttons */}
+            {/* See Examples button */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
-              transition={{
-                delay: 1.3,
-                type: "spring",
-                stiffness: 400,
-                damping: 25,
-              }}
-              className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 mb-6"
-              onMouseMove={handleMagnet}
-              onMouseLeave={handleMagnetLeave}
+              transition={{ delay: 1.3, duration: 0.5 }}
+              className="mb-6"
             >
-              <button
-                ref={magnetRef}
-                onClick={onOpenAuth}
-                className="group relative bg-gradient-to-r from-primary to-[hsl(22,100%,52%)] text-primary-foreground font-bold px-8 py-4 rounded-full text-base hover:shadow-[0_20px_40px_hsl(16_100%_50%/0.4)] transition-all duration-300 active:scale-[0.97] animate-breathing-glow"
-              >
-                Try for $2 — 30 Credits
-                <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
-                  →
-                </span>
-              </button>
               <button
                 onClick={() =>
                   document
