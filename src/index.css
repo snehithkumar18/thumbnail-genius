@@ -49,6 +49,51 @@
     --gold: 51 100% 50%;
     --gold-foreground: 0 0% 4%;
   }
+
+  .light {
+    --background: 0 0% 98%;
+    --foreground: 0 0% 9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --card-border: 0 0% 90%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+
+    --primary: 16 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 51 100% 50%;
+    --secondary-foreground: 0 0% 4%;
+
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 40%;
+
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 9%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 16 100% 50%;
+
+    --sidebar-background: 0 0% 97%;
+    --sidebar-foreground: 0 0% 30%;
+    --sidebar-primary: 16 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 94%;
+    --sidebar-accent-foreground: 0 0% 9%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 16 100% 50%;
+
+    --surface: 0 0% 100%;
+    --surface-border: 0 0% 90%;
+    --gold: 51 100% 50%;
+    --gold-foreground: 0 0% 4%;
+  }
 }
 
 @layer base {
@@ -71,11 +116,20 @@
   background-size: 24px 24px;
 }
 
+.light .dot-grid-bg {
+  background-image: radial-gradient(circle, hsl(0 0% 80%) 1px, transparent 1px);
+}
+
 /* Glassmorphism card */
 .glass-card {
   background: hsl(0 0% 8% / 0.7);
   backdrop-filter: blur(16px);
   border: 1px solid hsl(0 0% 13%);
+}
+
+.light .glass-card {
+  background: hsl(0 0% 100% / 0.8);
+  border-color: hsl(0 0% 90%);
 }
 
 /* Gradient text */
@@ -130,4 +184,20 @@
 ::-webkit-scrollbar-thumb {
   background: hsl(0 0% 20%);
   border-radius: 3px;
+}
+
+.light ::-webkit-scrollbar-track {
+  background: hsl(0 0% 96%);
+}
+.light ::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 80%);
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
