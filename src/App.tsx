@@ -29,8 +29,8 @@ const App = () => (
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<GeneratePage />} />
               <Route path="shorts" element={<ShortsPage />} />
-              <Route path="recreate" element={<PlaceholderPage title="Recreate" emoji="🔁" />} />
-              <Route path="editor" element={<PlaceholderPage title="AI Editor" emoji="✏️" />} />
+              <Route path="recreate" element={<RecreatePage />} />
+              <Route path="editor" element={<EditorPage />} />
               <Route path="faceswap" element={<PlaceholderPage title="Face Swap" emoji="🧑" />} />
               <Route path="titles" element={<PlaceholderPage title="Titles & Scripts" emoji="🔤" />} />
               <Route path="scorer" element={<PlaceholderPage title="Thumbnail Scorer" emoji="📊" />} />
