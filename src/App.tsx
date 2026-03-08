@@ -24,7 +24,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<DashboardLayout />}>
-              <Route index element={<DashboardHome />} />
+              <Route index element={<GeneratePage />} />
               <Route path="shorts" element={<PlaceholderPage title="Shorts Cover" emoji="📱" />} />
               <Route path="recreate" element={<PlaceholderPage title="Recreate" emoji="🔁" />} />
               <Route path="editor" element={<PlaceholderPage title="AI Editor" emoji="✏️" />} />
