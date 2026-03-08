@@ -33,7 +33,7 @@ const App = () => (
               <Route path="shorts" element={<ShortsPage />} />
               <Route path="recreate" element={<RecreatePage />} />
               <Route path="editor" element={<EditorPage />} />
-              <Route path="faceswap" element={<PlaceholderPage title="Face Swap" emoji="🧑" />} />
+              <Route path="faceswap" element={<FaceSwapPage />} />
               <Route path="titles" element={<PlaceholderPage title="Titles & Scripts" emoji="🔤" />} />
               <Route path="scorer" element={<PlaceholderPage title="Thumbnail Scorer" emoji="📊" />} />
               <Route path="trending" element={<PlaceholderPage title="Trending Styles" emoji="📈" />} />
