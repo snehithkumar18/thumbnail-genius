@@ -294,7 +294,7 @@ const ThumbnailScorerPage = () => {
         )}
       </AnimatePresence>
 
-      <ZeroCreditsModal open={showZeroCredits} onOpenChange={setShowZeroCredits} />
+      <ZeroCreditsModal open={showZeroCredits} onClose={() => setShowZeroCredits(false)} />
     </div>
   );
 };
