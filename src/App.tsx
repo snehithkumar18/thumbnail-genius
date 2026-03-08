@@ -11,6 +11,7 @@ import DashboardHome from "./pages/DashboardHome";
 import MyThumbnails from "./pages/MyThumbnails";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import GeneratePage from "./pages/GeneratePage";
+import ShortsPage from "./pages/ShortsPage";
 
 const queryClient = new QueryClient();
 
@@ -25,7 +26,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<GeneratePage />} />
-              <Route path="shorts" element={<PlaceholderPage title="Shorts Cover" emoji="📱" />} />
+              <Route path="shorts" element={<ShortsPage />} />
               <Route path="recreate" element={<PlaceholderPage title="Recreate" emoji="🔁" />} />
               <Route path="editor" element={<PlaceholderPage title="AI Editor" emoji="✏️" />} />
               <Route path="faceswap" element={<PlaceholderPage title="Face Swap" emoji="🧑" />} />
