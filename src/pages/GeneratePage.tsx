@@ -607,6 +607,16 @@ const GeneratePage = () => {
       </AnimatePresence>
 
       <ZeroCreditsModal open={showZeroCredits} onClose={() => setShowZeroCredits(false)} />
+
+      <AnimatePresence>
+        <BatchGenerator
+          visible={showBatch}
+          onClose={() => setShowBatch(false)}
+          basePrompt={prompt}
+          quality={quality}
+          format={format}
+        />
+      </AnimatePresence>
     </div>
   );
 };
