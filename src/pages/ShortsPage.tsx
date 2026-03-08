@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Type, Zap, Star, Download, Heart, Share2, RefreshCw, Pencil, X, Eye } from "lucide-react";
+import { Sparkles, Type, Zap, Star, Download, Heart, Share2, RefreshCw, Pencil, X, Eye, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCredits } from "@/hooks/useSupabaseData";
 import { useQueryClient } from "@tanstack/react-query";
 import { CREDIT_COSTS } from "@/lib/credits";
+import { LANGUAGES, type LanguageId } from "@/lib/languages";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
 
 type GeneratedImage = { image_url: string; thumbnail_id: string };
@@ -50,6 +52,7 @@ const ShortsPage = () => {
   const [compositionGuide, setCompositionGuide] = useState(true);
   const [quality, setQuality] = useState<"fast" | "pro">("pro");
   const [variations, setVariations] = useState(1);
+  const [language, setLanguage] = useState<LanguageId>("en");
 
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -110,6 +113,7 @@ const ShortsPage = () => {
           format: "9:16",
           quality,
           count: variations,
+          language: language !== "en" ? language : undefined,
         },
       });
 
@@ -224,6 +228,31 @@ const ShortsPage = () => {
                   )}
                 </span>
                 <span className="text-muted-foreground">{textContent.length}/20</span>
+              </div>
+              
+              {/* Language selector */}
+              <div className="mt-3">
+                <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1"><Globe className="h-3 w-3" /> Text Language</Label>
+                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+                  {LANGUAGES.map(l => (
+                    <button
+                      key={l.id}
+                      onClick={() => setLanguage(l.id)}
+                      className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${
+                        language === l.id
+                          ? "bg-primary/10 border-primary/40 text-primary"
+                          : "bg-muted border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {l.flag} {l.label}
+                    </button>
+                  ))}
+                </div>
+                {language !== "en" && (
+                  <Badge variant="outline" className="mt-1.5 text-[10px] border-primary/30 text-primary">
+                    Using Ideogram 3.0 — best for {LANGUAGES.find(l => l.id === language)?.label} text
+                  </Badge>
+                )}
               </div>
             </motion.div>
           )}

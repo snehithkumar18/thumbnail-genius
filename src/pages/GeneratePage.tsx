@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Type, Monitor, Smartphone, Zap, Star, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, Pencil, User } from "lucide-react";
+import { Sparkles, Type, Monitor, Smartphone, Zap, Star, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, Pencil, User, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,16 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits } from "@/hooks/useSupabaseData";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { STYLE_PRESETS, NICHE_TEMPLATES, LOADING_MESSAGES } from "@/lib/generate-constants";
 import { CREDIT_COSTS } from "@/lib/credits";
+import { LANGUAGES, type LanguageId } from "@/lib/languages";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
 
 type GeneratedImage = {
@@ -26,6 +29,7 @@ const GeneratePage = () => {
   const { user } = useAuth();
   const { data: credits } = useCredits();
   const queryClient = useQueryClient();
+  const location = useLocation();
 
   // Controls
   const [prompt, setPrompt] = useState("");
@@ -37,6 +41,7 @@ const GeneratePage = () => {
   const [format, setFormat] = useState<"16:9" | "9:16">("16:9");
   const [quality, setQuality] = useState<"fast" | "pro">("pro");
   const [variations, setVariations] = useState(1);
+  const [language, setLanguage] = useState<LanguageId>("en");
 
   // State
   const [generating, setGenerating] = useState(false);
@@ -47,6 +52,16 @@ const GeneratePage = () => {
   const [showPromptLibrary, setShowPromptLibrary] = useState(false);
   const [showZeroCredits, setShowZeroCredits] = useState(false);
   const abortRef = useRef(false);
+
+  // Accept prefilled prompt from navigation state
+  useEffect(() => {
+    const state = location.state as { prefillPrompt?: string } | null;
+    if (state?.prefillPrompt) {
+      setPrompt(state.prefillPrompt);
+      // Clear state so it doesn't persist on re-render
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const creditCost = (quality === "fast" ? CREDIT_COSTS.FAST_GENERATE : CREDIT_COSTS.PRO_GENERATE) * variations;
   const remaining = credits?.credits_remaining ?? 0;
@@ -103,6 +118,7 @@ const GeneratePage = () => {
           format,
           quality,
           count: variations,
+          language: language !== "en" ? language : undefined,
         },
       });
 
@@ -134,7 +150,7 @@ const GeneratePage = () => {
     } finally {
       setGenerating(false);
     }
-  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, niche, format, quality, variations, remaining, creditCost, queryClient]);
+  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, niche, format, quality, variations, language, remaining, creditCost, queryClient]);
 
   // Cmd+Enter shortcut
   useEffect(() => {
@@ -235,6 +251,31 @@ const GeneratePage = () => {
                 <span className="text-muted-foreground">{textContent.length}/30</span>
               </div>
               <p className="text-[10px] text-primary/70 mt-1">Uses Ideogram model — best for text in images</p>
+              
+              {/* Language selector — only when text overlay is on */}
+              <div className="mt-3">
+                <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1"><Globe className="h-3 w-3" /> Text Language</Label>
+                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+                  {LANGUAGES.map(l => (
+                    <button
+                      key={l.id}
+                      onClick={() => setLanguage(l.id)}
+                      className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${
+                        language === l.id
+                          ? "bg-primary/10 border-primary/40 text-primary"
+                          : "bg-muted border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {l.flag} {l.label}
+                    </button>
+                  ))}
+                </div>
+                {language !== "en" && (
+                  <Badge variant="outline" className="mt-1.5 text-[10px] border-primary/30 text-primary">
+                    Using Ideogram 3.0 — best for {LANGUAGES.find(l => l.id === language)?.label} text
+                  </Badge>
+                )}
+              </div>
             </motion.div>
           )}
           {!textOverlay && (
