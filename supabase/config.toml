@@ -11,3 +11,12 @@ verify_jwt = false
 
 [functions.face-swap]
 verify_jwt = false
+
+[functions.generate-titles]
+verify_jwt = false
+
+[functions.score-thumbnail]
+verify_jwt = false
+
+[functions.get-trends]
+verify_jwt = false

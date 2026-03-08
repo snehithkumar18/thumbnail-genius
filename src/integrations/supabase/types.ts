@@ -372,6 +372,27 @@ export type Database = {
           },
         ]
       }
+      trending_cache: {
+        Row: {
+          content: Json
+          id: string
+          niche: string
+          updated_at: string
+        }
+        Insert: {
+          content?: Json
+          id?: string
+          niche?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: Json
+          id?: string
+          niche?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_credits: {
         Row: {
           credits_remaining: number
