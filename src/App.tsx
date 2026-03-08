@@ -7,15 +7,17 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import DashboardLayout from "./components/DashboardLayout";
-import DashboardHome from "./pages/DashboardHome";
-import MyThumbnails from "./pages/MyThumbnails";
-import PlaceholderPage from "./pages/PlaceholderPage";
 import GeneratePage from "./pages/GeneratePage";
 import ShortsPage from "./pages/ShortsPage";
 import RecreatePage from "./pages/RecreatePage";
 import EditorPage from "./pages/EditorPage";
 import FaceSwapPage from "./pages/FaceSwapPage";
 import BrandKitPage from "./pages/BrandKitPage";
+import MyThumbnails from "./pages/MyThumbnails";
+import PlaceholderPage from "./pages/PlaceholderPage";
+import TitleGeneratorPage from "./pages/TitleGeneratorPage";
+import ThumbnailScorerPage from "./pages/ThumbnailScorerPage";
+import TrendingStylesPage from "./pages/TrendingStylesPage";
 
 const queryClient = new QueryClient();
 
@@ -34,9 +36,9 @@ const App = () => (
               <Route path="recreate" element={<RecreatePage />} />
               <Route path="editor" element={<EditorPage />} />
               <Route path="faceswap" element={<FaceSwapPage />} />
-              <Route path="titles" element={<PlaceholderPage title="Titles & Scripts" emoji="🔤" />} />
-              <Route path="scorer" element={<PlaceholderPage title="Thumbnail Scorer" emoji="📊" />} />
-              <Route path="trending" element={<PlaceholderPage title="Trending Styles" emoji="📈" />} />
+              <Route path="titles" element={<TitleGeneratorPage />} />
+              <Route path="scorer" element={<ThumbnailScorerPage />} />
+              <Route path="trending" element={<TrendingStylesPage />} />
               <Route path="thumbnails" element={<MyThumbnails />} />
               <Route path="brandkit" element={<BrandKitPage />} />
               <Route path="abtester" element={<PlaceholderPage title="A/B Tester" emoji="🧪" />} />
