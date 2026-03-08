@@ -307,20 +307,6 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
             >
               <ThreeDCards />
             </Suspense>
-
-            {/* Floating labels */}
-            <motion.div
-              className="absolute -top-4 right-8 glass-card rounded-full px-3 py-1.5 text-xs font-medium text-foreground animate-float-gentle"
-              style={{ animationDelay: "0s" }}
-            >
-              FLUX.2 Pro ✨
-            </motion.div>
-            <motion.div
-              className="absolute bottom-8 -left-4 glass-card rounded-full px-3 py-1.5 text-xs font-medium text-foreground animate-float-gentle"
-              style={{ animationDelay: "0.5s" }}
-            >
-              Ideogram 3.0 📝
-            </motion.div>
           </motion.div>
         </div>
 
