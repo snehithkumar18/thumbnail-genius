@@ -42,7 +42,6 @@ const HeroSection = ({ onOpenAuth }: HeroSectionProps) => {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center pt-16 dot-grid-bg overflow-hidden">
-      {/* Gradient orbs */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px]" />
       <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-secondary/8 rounded-full blur-[100px]" />
 
@@ -67,19 +66,28 @@ const HeroSection = ({ onOpenAuth }: HeroSectionProps) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10"
+            className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-4"
           >
             AI thumbnails that get clicks. No design skills, no Photoshop, no excuses.
+          </motion.p>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.3 }}
+            className="text-sm text-muted-foreground mb-10"
+          >
+            30 credits • No expiry • No hidden fees • Cancel anytime
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.4 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6"
           >
             <Button variant="hero" size="xl" onClick={onOpenAuth}>
-              Start Free — 20 Credits No Card Needed
+              Try for just $2 — 30 Credits, No Subscription
             </Button>
             <Button
               variant="heroGhost"
@@ -90,6 +98,15 @@ const HeroSection = ({ onOpenAuth }: HeroSectionProps) => {
             </Button>
           </motion.div>
 
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="text-xs text-muted-foreground mb-16"
+          >
+            🔥 Most creators start here
+          </motion.p>
+
           {/* Hero visual mockup */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -98,7 +115,6 @@ const HeroSection = ({ onOpenAuth }: HeroSectionProps) => {
             className="relative max-w-3xl mx-auto"
           >
             <div className="glass-card rounded-2xl p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left - prompt */}
               <div className="bg-background rounded-xl p-4 border border-border">
                 <div className="text-xs text-muted-foreground mb-2 font-body">Your prompt</div>
                 <div className="text-sm text-foreground min-h-[60px] font-body">
@@ -106,7 +122,6 @@ const HeroSection = ({ onOpenAuth }: HeroSectionProps) => {
                   <span className="animate-pulse text-primary">|</span>
                 </div>
               </div>
-              {/* Right - thumbnail result */}
               <div className="bg-background rounded-xl border border-border overflow-hidden relative">
                 <div className={`absolute inset-0 transition-opacity duration-700 ${showThumb ? "opacity-100" : "opacity-0"}`}>
                   <div className="w-full h-full bg-gradient-to-br from-primary/20 via-secondary/10 to-primary/20 flex items-center justify-center">
@@ -123,7 +138,6 @@ const HeroSection = ({ onOpenAuth }: HeroSectionProps) => {
               </div>
             </div>
 
-            {/* Floating social proof */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}

@@ -10,8 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useProfile, useCredits } from "@/hooks/useSupabaseData";
+import { useProfile } from "@/hooks/useSupabaseData";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { useAuth } from "@/contexts/AuthContext";
+import PaymentSuccessOverlay from "@/components/PaymentSuccessOverlay";
 
 const routeTitles: Record<string, string> = {
   "/dashboard": "Generate",
@@ -33,63 +35,86 @@ export function DashboardTopBar() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { data: profile } = useProfile();
-  const { data: credits } = useCredits();
+  const { totalCredits, plan, hasSubscription } = usePlanAccess();
 
   const title = routeTitles[location.pathname] ?? "Dashboard";
+  const isLowCredits = totalCredits < 5;
 
   return (
-    <header className="h-[60px] border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-4 shrink-0">
-      <div className="flex items-center gap-3">
-        <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-        <h1 className="text-lg font-heading font-semibold text-foreground">{title}</h1>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-          <Search className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative">
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-        </Button>
-
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-sm">
-          <Gem className="h-3.5 w-3.5 text-secondary" />
-          <span className="font-medium text-foreground">{credits?.credits_remaining ?? 0} credits</span>
+    <>
+      <PaymentSuccessOverlay />
+      <header className="h-[60px] border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+          <h1 className="text-lg font-heading font-semibold text-foreground">{title}</h1>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 hover:bg-muted rounded-lg p-1.5 transition-colors">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={profile?.avatar_url ?? undefined} />
-                <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                  {(profile?.username?.[0] ?? "U").toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 bg-card border-border">
-            <DropdownMenuItem onClick={() => navigate("/dashboard/settings")} className="text-foreground">
-              <User className="h-4 w-4 mr-2" /> Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-foreground">
-              <CreditCard className="h-4 w-4 mr-2" /> My Plan
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-foreground">
-              <Gift className="h-4 w-4 mr-2" /> Buy Credits
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-foreground">
-              <Users className="h-4 w-4 mr-2" /> Refer a Friend
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={signOut} className="text-destructive">
-              <LogOut className="h-4 w-4 mr-2" /> Logout
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </header>
+        <div className="flex items-center gap-3">
+          {/* Pay-as-you-go banner */}
+          {!hasSubscription && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden md:flex text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => navigate('/pricing')}
+            >
+              ⚡ Upgrade from $8/mo
+            </Button>
+          )}
+
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+            <Search className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative">
+            <Bell className="h-4 w-4" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
+          </Button>
+
+          <button
+            onClick={() => navigate('/pricing')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
+              isLowCredits ? 'bg-destructive/20 animate-pulse' : 'bg-muted'
+            }`}
+          >
+            <Gem className={`h-3.5 w-3.5 ${isLowCredits ? 'text-destructive' : 'text-secondary'}`} />
+            <span className={`font-medium ${isLowCredits ? 'text-destructive' : 'text-foreground'}`}>
+              {totalCredits} credits
+            </span>
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 hover:bg-muted rounded-lg p-1.5 transition-colors">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.avatar_url ?? undefined} />
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                    {(profile?.username?.[0] ?? "U").toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-card border-border">
+              <DropdownMenuItem onClick={() => navigate("/dashboard/settings")} className="text-foreground">
+                <User className="h-4 w-4 mr-2" /> Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/dashboard/settings")} className="text-foreground">
+                <CreditCard className="h-4 w-4 mr-2" /> Billing
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/pricing")} className="text-foreground">
+                <Gift className="h-4 w-4 mr-2" /> Buy Credits
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-foreground">
+                <Users className="h-4 w-4 mr-2" /> Refer a Friend
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={signOut} className="text-destructive">
+                <LogOut className="h-4 w-4 mr-2" /> Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+    </>
   );
 }
