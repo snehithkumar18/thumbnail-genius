@@ -50,7 +50,6 @@ export function DashboardTopBar() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Pay-as-you-go banner */}
           {!hasSubscription && (
             <Button
               variant="ghost"
@@ -58,7 +57,7 @@ export function DashboardTopBar() {
               className="hidden md:flex text-xs text-muted-foreground hover:text-foreground"
               onClick={() => navigate('/pricing')}
             >
-              ⚡ Upgrade from $8/mo
+              ⚡ Upgrade from $10/mo
             </Button>
           )}
 

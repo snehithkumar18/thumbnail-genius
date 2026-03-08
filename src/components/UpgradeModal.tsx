@@ -11,10 +11,10 @@ interface UpgradeModalProps {
 }
 
 const planInfo: Record<string, { price: string; credits: string; features: string[] }> = {
-  basic: { price: '$8', credits: '100', features: ['No watermark', 'FLUX.2 Pro + Ideogram', '1 Brand Kit'] },
-  creator: { price: '$15', credits: '200', features: ['All models', 'A/B testing', 'Batch generate'] },
-  pro: { price: '$25', credits: '350', features: ['Priority queue', '5 Brand Kits', 'Multi-language'] },
-  studio: { price: '$40', credits: '600', features: ['API access', 'Unlimited rollover', 'Dedicated support'] },
+  basic: { price: '$10', credits: '100', features: ['No watermark', 'FLUX.2 Pro + Ideogram 3.0', '1 Brand Kit'] },
+  creator: { price: '$19', credits: '200', features: ['All models', 'A/B testing', 'Batch generate (5)'] },
+  pro: { price: '$32', credits: '350', features: ['Priority queue', '5 Brand Kits', 'Multi-language'] },
+  studio: { price: '$50', credits: '600', features: ['API access', 'Unlimited rollover', 'Dedicated support'] },
 };
 
 const UpgradeModal = ({ open, onClose, featureName, minimumPlan }: UpgradeModalProps) => {
@@ -67,6 +67,8 @@ const UpgradeModal = ({ open, onClose, featureName, minimumPlan }: UpgradeModalP
               ))}
             </ul>
           </div>
+
+          <p className="text-xs text-muted-foreground mb-4">Annual plans save 20%</p>
 
           <div className="space-y-3">
             <Button
