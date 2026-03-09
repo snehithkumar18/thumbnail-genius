@@ -145,10 +145,9 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
                 {isPro && (
                   <motion.div
                     className="absolute -top-3 right-4 px-3 py-1 rounded-full text-xs font-bold"
-                    style={{ background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.3)" }}
+                    style={{ background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.3)", rotate: "-2deg" }}
                     animate={{ y: [0, -3, 0] }}
                     transition={{ duration: 2, repeat: Infinity }}
-                    style2={{ rotate: "-2deg" }}
                   >
                     ⭐ Most Popular
                   </motion.div>

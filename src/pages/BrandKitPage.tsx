@@ -58,8 +58,8 @@ const BrandKitPage = () => {
 
   const [activeKitId, setActiveKitId] = useState<string | null>(null);
   const [kitName, setKitName] = useState("");
-  const [primaryColor, setPrimaryColor] = useState("#FF4500");
-  const [secondaryColor, setSecondaryColor] = useState("#FFD700");
+  const [primaryColor, setPrimaryColor] = useState("#8B47FF");
+  const [secondaryColor, setSecondaryColor] = useState("#F59E0B");
   const [textColor, setTextColor] = useState("#FFFFFF");
   const [fontStyle, setFontStyle] = useState("bold-sans");
   const [frameStyle, setFrameStyle] = useState("none");

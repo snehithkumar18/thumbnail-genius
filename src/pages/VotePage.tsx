@@ -134,7 +134,7 @@ const VotePage = () => {
               animate={{ y: window.innerHeight + 20, opacity: 0, rotate: Math.random() * 720 }}
               transition={{ duration: 2 + Math.random(), delay: Math.random() * 0.5 }}
               className="absolute w-3 h-3 rounded-sm"
-              style={{ backgroundColor: ["hsl(16, 100%, 50%)", "hsl(51, 100%, 50%)", "#22c55e", "#3b82f6", "#a855f7"][i % 5] }}
+              style={{ backgroundColor: ["#8B47FF", "#F59E0B", "#22c55e", "#3b82f6", "#C4A8FF"][i % 5] }}
             />
           ))}
         </div>
