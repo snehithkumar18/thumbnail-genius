@@ -47,8 +47,8 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const queryClient = useQueryClient();
   const [step, setStep] = useState(1);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [primaryColor, setPrimaryColor] = useState("#FF4500");
-  const [secondaryColor, setSecondaryColor] = useState("#FFD700");
+  const [primaryColor, setPrimaryColor] = useState("#8B47FF");
+  const [secondaryColor, setSecondaryColor] = useState("#F59E0B");
   const [faceFile, setFaceFile] = useState<File | null>(null);
   const [facePreview, setFacePreview] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
