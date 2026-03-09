@@ -44,7 +44,7 @@ export function DashboardSidebar() {
   const { data: profile } = useProfile();
   const { totalCredits, plan, hasSubscription, subscriptionCredits, topupCredits } = usePlanAccess();
   const [showWhatsNew, setShowWhatsNew] = useState(false);
-  const [isDark, setIsDark] = useState(!document.documentElement.classList.contains("light"));
+  const [isDark, setIsDark] = useState(document.documentElement.classList.contains("dark"));
 
   const isLowCredits = totalCredits < 5;
 
