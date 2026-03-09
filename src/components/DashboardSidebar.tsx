@@ -52,9 +52,9 @@ export function DashboardSidebar() {
     const next = !isDark;
     setIsDark(next);
     if (next) {
-      document.documentElement.classList.remove("light");
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.add("light");
+      document.documentElement.classList.remove("dark");
     }
     localStorage.setItem("thumbai-theme", next ? "dark" : "light");
   };
