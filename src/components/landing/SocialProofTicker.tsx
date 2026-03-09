@@ -21,7 +21,7 @@ const TickerRow = ({ reverse = false }: { reverse?: boolean }) => {
         {doubled.map((item, i) => (
           <span
             key={i}
-            className="text-sm font-medium text-foreground/80 px-4 py-1 shrink-0"
+            className="text-sm font-medium text-muted-foreground px-4 py-1 shrink-0"
           >
             {item}
           </span>
@@ -40,7 +40,8 @@ const SocialProofTicker = () => {
       initial={{ opacity: 0 }}
       animate={inView ? { opacity: 1 } : {}}
       transition={{ duration: 0.6 }}
-      className="py-4 bg-primary/5 border-y border-primary/10 overflow-hidden"
+      className="py-4 overflow-hidden"
+      style={{ background: "rgba(139,71,255,0.04)", borderTop: "1px solid rgba(139,71,255,0.12)", borderBottom: "1px solid rgba(139,71,255,0.12)" }}
     >
       <TickerRow />
       <div className="mt-2">

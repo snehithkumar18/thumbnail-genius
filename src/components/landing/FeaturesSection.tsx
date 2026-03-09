@@ -40,13 +40,16 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0]; index: n
         ref={cardRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative bg-card border border-border rounded-2xl p-7 overflow-hidden group cursor-default transition-all duration-300 hover:-translate-y-2 hover:border-primary hover:shadow-[0_0_40px_hsl(16_100%_50%/0.15)]"
+        className="relative bg-card border border-border rounded-2xl p-7 overflow-hidden group cursor-default transition-all duration-300 hover:-translate-y-2 hover:border-[#C4A8FF] hover:shadow-[0_20px_48px_rgba(139,71,255,0.16),0_0_40px_rgba(139,71,255,0.12)]"
       >
         {/* Spotlight */}
         <div ref={spotlightRef} className="card-spotlight opacity-0 transition-opacity duration-300" />
 
         {/* Bottom border glow */}
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-gold scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+        <div
+          className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"
+          style={{ background: "linear-gradient(90deg, #8B47FF, #6366F1, #4F46E5)" }}
+        />
 
         <div className="relative z-10">
           <span className="text-4xl block mb-4 transition-transform duration-300 group-hover:-translate-y-1">
@@ -69,7 +72,7 @@ const FeaturesSection = () => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 });
 
   return (
-    <section id="features" className="py-24 relative" ref={ref}>
+    <section id="features" className="py-24 relative bg-background" ref={ref}>
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 60 }}

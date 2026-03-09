@@ -19,7 +19,6 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
   const heroRef = useRef<HTMLDivElement>(null);
   const magnetRef = useRef<HTMLButtonElement>(null);
 
-  // Parallax grid
   const [gridOffset, setGridOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -45,7 +44,6 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
     return () => window.removeEventListener("mousemove", handleMouse);
   }, []);
 
-  // Magnetic button
   const handleMagnet = useCallback((e: React.MouseEvent) => {
     if (!magnetRef.current || window.innerWidth < 768) return;
     const rect = magnetRef.current.getBoundingClientRect();
@@ -65,32 +63,16 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
     if (magnetRef.current) magnetRef.current.style.transform = "";
   }, []);
 
-  // Cycle styles
   useEffect(() => {
     const t = setInterval(() => setActiveStyle((s) => (s + 1) % styles.length), 3000);
     return () => clearInterval(t);
   }, []);
 
-  const wordVariants: Variants = {
-    hidden: { opacity: 0, y: 40 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5, ease: "easeOut" },
-    },
-  };
-
-  const containerVariants: Variants = {
-    hidden: {},
-    visible: {
-      transition: { staggerChildren: 0.12 },
-    },
-  };
-
   return (
     <section
       ref={heroRef}
       className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden"
+      style={{ background: "linear-gradient(160deg, #FAF7FF 0%, #F0E8FF 40%, #E8E0FF 100%)" }}
     >
       {/* Dot grid parallax */}
       <div
@@ -99,7 +81,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
       />
 
       {/* Radial gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(16_100%_50%/0.08),transparent_70%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,71,255,0.08),transparent_70%)]" />
 
       {/* Particles */}
       <Suspense fallback={null}>
@@ -115,15 +97,15 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               initial={{ opacity: 0, y: 20 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 1.4, duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8 animate-float-gentle"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[rgba(139,71,255,0.08)] border border-[rgba(139,71,255,0.25)] mb-8 animate-float-gentle"
             >
               <span className="w-2 h-2 rounded-full bg-primary blink-dot" />
-              <span className="text-xs text-muted-foreground font-medium">
+              <span className="text-xs text-primary font-medium">
                 🔥 47 thumbnails generated in last hour
               </span>
             </motion.div>
 
-            {/* Headline - Single line */}
+            {/* Headline */}
             <motion.h1
               className="mb-6"
               initial={{ opacity: 0, y: 40 }}
@@ -135,7 +117,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               </span>
             </motion.h1>
 
-            {/* CTA Button - Right below title */}
+            {/* CTA Button */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
@@ -152,7 +134,8 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               <button
                 ref={magnetRef}
                 onClick={onOpenAuth}
-                className="group relative bg-gradient-to-r from-primary to-[hsl(22,100%,52%)] text-primary-foreground font-bold px-8 py-4 rounded-full text-base hover:shadow-[0_20px_40px_hsl(16_100%_50%/0.4)] transition-all duration-300 active:scale-[0.97] animate-breathing-glow"
+                className="group relative text-primary-foreground font-bold px-8 py-4 rounded-full text-base transition-all duration-300 active:scale-[0.97] animate-breathing-glow"
+                style={{ background: "linear-gradient(135deg, #8B47FF, #6366F1, #4F46E5)" }}
               >
                 Try for $2 — 30 Credits
                 <span className="inline-block ml-2 transition-transform group-hover:translate-x-1">
@@ -161,7 +144,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               </button>
             </motion.div>
 
-            {/* Model badges - Below button */}
+            {/* Model badges */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
@@ -197,26 +180,18 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               transition={{ delay: 1.2, duration: 0.5 }}
               className="glass-card rounded-xl p-4 mb-6 max-w-lg mx-auto lg:mx-0"
             >
-              <span className="text-xs text-muted-foreground mb-2 block">✨ Try it</span>
+              <span className="text-xs text-primary mb-2 block">✨ Try it</span>
               <div className="text-sm text-foreground min-h-[40px] font-mono">
                 <TypeAnimation
                   sequence={[
                     "Shocked man holding ₹1 lakh cash, bold text 'I MADE THIS'",
-                    2000,
-                    "",
-                    200,
+                    2000, "", 200,
                     "Gamer with explosion behind them, neon purple lighting",
-                    2000,
-                    "",
-                    200,
+                    2000, "", 200,
                     "Fitness influencer, dramatic gym background, motivational",
-                    2000,
-                    "",
-                    200,
+                    2000, "", 200,
                     "Tech guy pointing at holographic AI screen, blue glow",
-                    2000,
-                    "",
-                    200,
+                    2000, "", 200,
                   ]}
                   speed={60}
                   repeat={Infinity}
@@ -229,9 +204,10 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
                     key={s}
                     className={`text-[10px] px-2 py-0.5 rounded-full border font-mono transition-all duration-300 ${
                       i === activeStyle
-                        ? "bg-primary/20 border-primary text-primary"
+                        ? "text-primary-foreground border-primary"
                         : "border-border text-muted-foreground"
                     }`}
+                    style={i === activeStyle ? { background: "linear-gradient(135deg, #8B47FF, #6366F1, #4F46E5)" } : {}}
                   >
                     {s}
                   </span>
@@ -252,7 +228,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
                     .getElementById("examples")
                     ?.scrollIntoView({ behavior: "smooth" })
                 }
-                className="border border-muted-foreground/30 text-foreground hover:border-primary hover:text-primary rounded-full px-8 py-4 text-base font-medium transition-all duration-300"
+                className="border-[1.5px] border-[#D4C8FF] text-muted-foreground hover:border-primary hover:text-primary rounded-full px-8 py-4 text-base font-medium transition-all duration-300"
               >
                 See Examples ↓
               </button>
@@ -269,7 +245,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div
                     key={i}
-                    className="w-8 h-8 rounded-full border-2 border-background bg-gradient-to-br from-primary/40 to-gold/40"
+                    className="w-8 h-8 rounded-full border-2 border-background bg-gradient-to-br from-primary/30 to-[#C4B5FD]/50"
                     style={{ zIndex: 5 - i }}
                   />
                 ))}
@@ -316,7 +292,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
           style={{ opacity: scrollOpacity }}
         >
           <p className="text-xs text-muted-foreground/50 mb-2">Scroll to explore</p>
-          <ChevronDown className="h-5 w-5 text-muted-foreground/50 mx-auto animate-bounce-down" />
+          <ChevronDown className="h-5 w-5 text-primary/50 mx-auto animate-bounce-down" />
         </motion.div>
       </div>
     </section>

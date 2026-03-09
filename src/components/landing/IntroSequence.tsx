@@ -12,7 +12,6 @@ const IntroSequence = ({ onComplete }: IntroSequenceProps) => {
   const hasExploded = useRef(false);
 
   useEffect(() => {
-    // Loading bar fills in 600ms
     const start = Date.now();
     const fill = () => {
       const elapsed = Date.now() - start;
@@ -20,7 +19,6 @@ const IntroSequence = ({ onComplete }: IntroSequenceProps) => {
       setProgress(p);
       if (p < 1) requestAnimationFrame(fill);
       else {
-        // Start explosion phase
         setPhase("exploding");
         if (!hasExploded.current) {
           hasExploded.current = true;
@@ -28,7 +26,7 @@ const IntroSequence = ({ onComplete }: IntroSequenceProps) => {
             particleCount: 80,
             spread: 100,
             origin: { x: 0.5, y: 0.5 },
-            colors: ["#FF4500", "#FFD700", "#FFFFFF"],
+            colors: ["#8B47FF", "#C4A8FF", "#F59E0B", "#6366F1", "#EDE9FE"],
             startVelocity: 35,
             gravity: 0.8,
             ticks: 60,
@@ -76,8 +74,8 @@ const IntroSequence = ({ onComplete }: IntroSequenceProps) => {
             </div>
             <div className="w-48 h-1 bg-muted rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-primary rounded-full"
-                style={{ width: `${progress * 100}%` }}
+                className="h-full rounded-full"
+                style={{ width: `${progress * 100}%`, background: "linear-gradient(90deg, #8B47FF, #6366F1, #4F46E5)" }}
               />
             </div>
           </motion.div>
