@@ -73,8 +73,8 @@ const BrandKitPage = () => {
       const kit = brandKits.find((k) => k.id === activeKitId);
       if (kit) {
         setKitName(kit.kit_name);
-        setPrimaryColor(kit.primary_color || "#FF4500");
-        setSecondaryColor(kit.secondary_color || "#FFD700");
+        setPrimaryColor(kit.primary_color || "#8B47FF");
+        setSecondaryColor(kit.secondary_color || "#F59E0B");
         setTextColor(kit.text_color || "#FFFFFF");
         setFontStyle(kit.font_style || "bold-sans");
         setFrameStyle(kit.frame_style || "none");
