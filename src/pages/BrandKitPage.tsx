@@ -213,8 +213,8 @@ const BrandKitPage = () => {
   const createNewKit = () => {
     setActiveKitId(null);
     setKitName("");
-    setPrimaryColor("#FF4500");
-    setSecondaryColor("#FFD700");
+    setPrimaryColor("#8B47FF");
+    setSecondaryColor("#F59E0B");
     setTextColor("#FFFFFF");
     setFontStyle("bold-sans");
     setFrameStyle("none");
