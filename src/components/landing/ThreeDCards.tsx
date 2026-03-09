@@ -1,14 +1,14 @@
-import { useRef, Suspense } from "react";
+import { useRef, Suspense, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { RoundedBox, Text } from "@react-three/drei";
+import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 
 const categories = [
-  { label: "💰 Finance", color: "#FF4500" },
-  { label: "🎮 Gaming", color: "#8B5CF6" },
-  { label: "💪 Fitness", color: "#10B981" },
-  { label: "🤖 Tech", color: "#3B82F6" },
-  { label: "✈️ Travel", color: "#F59E0B" },
+  { label: "💰 Finance", color: "#E8DEFF" },
+  { label: "🎮 Gaming", color: "#FDE68A" },
+  { label: "💪 Fitness", color: "#A7F3D0" },
+  { label: "🤖 Tech", color: "#BFDBFE" },
+  { label: "✈️ Travel", color: "#FBCFE8" },
 ];
 
 function Card({
@@ -88,8 +88,6 @@ function Scene() {
   );
 }
 
-import { useState } from "react";
-
 const ThreeDCards = () => {
   return (
     <div className="w-full aspect-[4/3]">
@@ -101,7 +99,7 @@ const ThreeDCards = () => {
       >
         <ambientLight intensity={0.5} />
         <directionalLight position={[5, 5, 5]} intensity={0.8} />
-        <pointLight position={[-3, 2, 4]} intensity={0.4} color="#FF4500" />
+        <pointLight position={[-3, 2, 4]} intensity={0.4} color="#8B47FF" />
         <Suspense fallback={null}>
           <Scene />
         </Suspense>

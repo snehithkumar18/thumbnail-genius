@@ -4,9 +4,7 @@ import { loadSlim } from "@tsparticles/slim";
 import type { Engine, ISourceOptions } from "@tsparticles/engine";
 
 const ParticleBackground = () => {
-  const particlesLoaded = useCallback(async () => {
-    // Particles loaded callback
-  }, []);
+  const particlesLoaded = useCallback(async () => {}, []);
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
@@ -17,7 +15,7 @@ const ParticleBackground = () => {
       particles: {
         number: { value: isMobile ? 40 : 80, density: { enable: true } },
         color: {
-          value: ["#FF4500", "#FF4500", "#FF4500", "#FFD700", "#FFFFFF"],
+          value: ["#8B47FF", "#8B47FF", "#C4A8FF", "#6366F1", "#C4A8FF"],
         },
         opacity: { value: { min: 0.15, max: 0.4 } },
         size: { value: { min: 1, max: 3 } },
@@ -30,7 +28,7 @@ const ParticleBackground = () => {
         links: {
           enable: true,
           distance: 120,
-          color: "#FF4500",
+          color: "#8B47FF",
           opacity: 0.08,
         },
       },

@@ -4,8 +4,8 @@ import "./index.css";
 
 // Restore theme preference
 const savedTheme = localStorage.getItem("thumbai-theme");
-if (savedTheme === "light") {
-  document.documentElement.classList.add("light");
+if (savedTheme === "dark") {
+  document.documentElement.classList.add("dark");
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

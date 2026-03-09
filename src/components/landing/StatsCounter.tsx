@@ -15,9 +15,25 @@ const StatsCounter = () => {
   return (
     <section
       ref={ref}
-      className="py-16 bg-gradient-to-r from-primary to-[hsl(22,100%,52%)]"
+      className="py-16 relative overflow-hidden"
+      style={{ background: "linear-gradient(135deg, #0F0A1E 0%, #1A1035 100%)" }}
     >
-      <div className="container mx-auto px-4">
+      {/* Orb */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,71,255,0.25),transparent_70%)]" />
+
+      {/* Badge */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={inView ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.5 }}
+        className="text-center mb-8 relative z-10"
+      >
+        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium" style={{ background: "rgba(139,71,255,0.3)", border: "1px solid rgba(139,71,255,0.5)", color: "#C4A8FF" }}>
+          ✨ Growing every hour
+        </span>
+      </motion.div>
+
+      <div className="container mx-auto px-4 relative z-10">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto">
           {stats.map((stat, i) => (
             <motion.div

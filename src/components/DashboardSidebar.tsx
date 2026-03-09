@@ -44,7 +44,7 @@ export function DashboardSidebar() {
   const { data: profile } = useProfile();
   const { totalCredits, plan, hasSubscription, subscriptionCredits, topupCredits } = usePlanAccess();
   const [showWhatsNew, setShowWhatsNew] = useState(false);
-  const [isDark, setIsDark] = useState(!document.documentElement.classList.contains("light"));
+  const [isDark, setIsDark] = useState(document.documentElement.classList.contains("dark"));
 
   const isLowCredits = totalCredits < 5;
 
@@ -52,9 +52,9 @@ export function DashboardSidebar() {
     const next = !isDark;
     setIsDark(next);
     if (next) {
-      document.documentElement.classList.remove("light");
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.add("light");
+      document.documentElement.classList.remove("dark");
     }
     localStorage.setItem("thumbai-theme", next ? "dark" : "light");
   };

@@ -22,9 +22,9 @@ const Cell = ({ value, highlight }: { value: boolean | string; highlight?: boole
     );
   }
   return value ? (
-    <Check className="h-5 w-5 text-primary mx-auto" />
+    <Check className="h-5 w-5 text-emerald-500 mx-auto" />
   ) : (
-    <X className="h-5 w-5 text-muted-foreground/40 mx-auto" />
+    <X className="h-5 w-5 text-destructive/40 mx-auto" />
   );
 };
 
@@ -32,7 +32,7 @@ const ComparisonTable = () => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.15 });
 
   return (
-    <section className="py-24" ref={ref}>
+    <section className="py-24" ref={ref} style={{ background: "#F8F7FF" }}>
       <div className="container mx-auto px-4 max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 60 }}
@@ -45,11 +45,11 @@ const ComparisonTable = () => {
           </h2>
         </motion.div>
 
-        <div className="glass-card rounded-2xl overflow-hidden">
+        <div className="bg-card rounded-2xl overflow-hidden border border-border shadow-[0_4px_16px_rgba(15,10,30,0.06)]">
           {/* Header */}
-          <div className="grid grid-cols-4 gap-4 p-5 border-b border-border text-sm font-heading font-semibold">
+          <div className="grid grid-cols-4 gap-4 p-5 border-b border-border text-sm font-heading font-semibold" style={{ background: "#F2F0FF" }}>
             <div className="text-muted-foreground">Feature</div>
-            <div className="text-center text-primary">ThumbAI</div>
+            <div className="text-center text-primary-foreground rounded-lg py-1" style={{ background: "linear-gradient(135deg, #8B47FF, #6366F1)" }}>ThumbAI</div>
             <div className="text-center text-muted-foreground">Pikzels</div>
             <div className="text-center text-muted-foreground">Canva AI</div>
           </div>
@@ -61,7 +61,7 @@ const ComparisonTable = () => {
               animate={inView ? { opacity: 1, x: 0 } : {}}
               transition={{ delay: 0.3 + i * 0.08, duration: 0.4 }}
               className={`grid grid-cols-4 gap-4 p-5 border-b border-border/50 last:border-0 text-sm ${
-                row.feature === "Price" ? "bg-gold/5" : ""
+                row.feature === "Price" ? "bg-[#FAF7FF] border-l-[3px] border-l-primary" : ""
               }`}
             >
               <div className="text-foreground font-medium">{row.feature}</div>

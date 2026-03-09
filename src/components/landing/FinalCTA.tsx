@@ -18,7 +18,7 @@ const FinalCTA = ({ onOpenAuth }: FinalCTAProps) => {
         particleCount: 50,
         spread: 80,
         origin: { x: 0.5, y: 0.6 },
-        colors: ["#FF4500", "#FFD700"],
+        colors: ["#8B47FF", "#C4A8FF", "#6366F1", "#F59E0B", "#EDE9FE"],
         startVelocity: 25,
         gravity: 1,
         ticks: 50,
@@ -27,7 +27,6 @@ const FinalCTA = ({ onOpenAuth }: FinalCTAProps) => {
   }, [inView]);
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Ripple effect
     const btn = e.currentTarget;
     const rect = btn.getBoundingClientRect();
     const ripple = document.createElement("span");
@@ -51,9 +50,10 @@ const FinalCTA = ({ onOpenAuth }: FinalCTAProps) => {
     <section
       ref={ref}
       className="min-h-[80vh] flex items-center justify-center relative overflow-hidden"
+      style={{ background: "#F8F7FF" }}
     >
       {/* Glowing orb */}
-      <div className="absolute inset-0 bg-[radial-gradient(600px_circle_at_center,hsl(16_100%_50%/0.12),transparent)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(600px_circle_at_center,rgba(139,71,255,0.10),rgba(99,102,241,0.05)_50%,transparent)]" />
 
       <div className="container mx-auto px-4 relative z-10 text-center">
         <motion.div
@@ -76,7 +76,8 @@ const FinalCTA = ({ onOpenAuth }: FinalCTAProps) => {
             onClick={handleClick}
             whileHover={{ y: -3, scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            className="relative bg-gradient-to-r from-primary to-[hsl(22,100%,52%)] text-primary-foreground font-bold px-12 py-5 rounded-full text-xl hover:shadow-[0_20px_60px_hsl(16_100%_50%/0.5)] transition-shadow duration-300"
+            className="relative text-primary-foreground font-bold px-12 py-5 rounded-full text-xl transition-shadow duration-300 glow-purple hover:shadow-[0_20px_60px_rgba(139,71,255,0.4)]"
+            style={{ background: "linear-gradient(135deg, #8B47FF, #6366F1, #4F46E5)" }}
           >
             Try ThumbAI for $2 →
           </motion.button>

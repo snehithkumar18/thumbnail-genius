@@ -31,7 +31,7 @@ const ExampleGallery = () => {
   const filtered = activeTab === "All" ? examples : examples.filter((e) => e.category === activeTab);
 
   return (
-    <section id="examples" className="py-24" ref={ref}>
+    <section id="examples" className="py-24 bg-background" ref={ref}>
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 60 }}
@@ -54,9 +54,10 @@ const ExampleGallery = () => {
               onClick={() => { setActiveTab(cat); setVisible(8); }}
               className={`relative px-5 py-2 text-sm rounded-full transition-all duration-300 ${
                 activeTab === cat
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground bg-card border border-border"
+                  ? "text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground bg-muted border border-border"
               }`}
+              style={activeTab === cat ? { background: "linear-gradient(135deg, #8B47FF, #6366F1, #4F46E5)" } : {}}
             >
               {cat}
             </button>
@@ -81,15 +82,15 @@ const ExampleGallery = () => {
                   loading="lazy"
                 />
                 <div className="absolute top-2 left-2">
-                  <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/80 text-primary-foreground">
+                  <span className="px-2 py-0.5 text-xs font-semibold rounded-full text-primary-foreground" style={{ background: "rgba(139,71,255,0.85)" }}>
                     {ex.category}
                   </span>
                 </div>
-                <div className="absolute inset-0 bg-background/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center p-4">
-                  <p className="text-sm text-foreground text-center font-medium mb-3">
+                <div className="absolute inset-0 bg-[rgba(139,71,255,0.85)] backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center p-4">
+                  <p className="text-sm text-white text-center font-medium mb-3">
                     "{ex.prompt}"
                   </p>
-                  <span className="text-xs text-primary font-semibold">
+                  <span className="px-4 py-1.5 rounded-full bg-white text-primary text-xs font-semibold">
                     Recreate Similar →
                   </span>
                 </div>
@@ -102,7 +103,7 @@ const ExampleGallery = () => {
           <div className="text-center mt-10">
             <button
               onClick={() => setVisible(filtered.length)}
-              className="border border-muted-foreground/30 text-foreground hover:border-primary hover:text-primary rounded-full px-8 py-3 font-medium transition-all duration-300"
+              className="border border-[#D4C8FF] text-muted-foreground hover:border-primary hover:text-primary rounded-full px-8 py-3 font-medium transition-all duration-300"
             >
               Load More
             </button>

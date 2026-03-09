@@ -15,7 +15,7 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        hero: "bg-primary text-primary-foreground hover:bg-primary/90 glow-red rounded-full px-8 py-3 text-base font-bold",
+        hero: "bg-primary text-primary-foreground hover:bg-primary/90 glow-purple rounded-full px-8 py-3 text-base font-bold",
         heroGhost: "border border-muted-foreground/30 text-foreground hover:bg-muted/50 rounded-full px-8 py-3 text-base font-medium",
         pill: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-full",
         ghostNav: "text-muted-foreground hover:text-foreground bg-transparent",

@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { useRef } from "react";
 import { useInView } from "react-intersection-observer";
 import { MessageSquare, Sparkles, Rocket } from "lucide-react";
@@ -41,7 +41,8 @@ const StepVisual = ({ type }: { type: string }) => {
       <div className="w-full max-w-xs space-y-3">
         <div className="h-2 bg-muted rounded-full overflow-hidden">
           <motion.div
-            className="h-full bg-primary rounded-full"
+            className="h-full rounded-full"
+            style={{ background: "linear-gradient(90deg, #8B47FF, #6366F1)" }}
             animate={{ width: ["0%", "100%"] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           />
@@ -62,9 +63,12 @@ const StepVisual = ({ type }: { type: string }) => {
   }
   return (
     <div className="flex flex-col items-center gap-3 w-full max-w-xs">
-      <div className="aspect-video w-full rounded-lg bg-gradient-to-br from-primary/20 to-gold/20 border border-border" />
+      <div className="aspect-video w-full rounded-lg bg-gradient-to-br from-primary/20 to-[#C4B5FD]/30 border border-border" />
       <div className="flex gap-2">
-        <span className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-full font-medium">
+        <span
+          className="px-3 py-1.5 text-xs text-primary-foreground rounded-full font-medium"
+          style={{ background: "linear-gradient(135deg, #8B47FF, #6366F1)" }}
+        >
           ⬇️ Download
         </span>
         <span className="px-3 py-1.5 text-xs bg-card border border-border rounded-full text-foreground">
@@ -80,7 +84,7 @@ const HowItWorks = () => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.15 });
 
   return (
-    <section className="py-24 bg-card/30" ref={ref}>
+    <section className="py-24" ref={ref} style={{ background: "#F8F7FF" }}>
       <div className="container mx-auto px-4" ref={containerRef}>
         <motion.div
           initial={{ opacity: 0, y: 60 }}
@@ -111,7 +115,7 @@ const HowItWorks = () => {
                 <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
                   <step.icon className="h-7 w-7 text-primary" />
                 </div>
-                <div className="text-6xl font-display text-primary/20 font-bold mb-2">
+                <div className="text-6xl font-display gradient-text font-bold mb-2">
                   {String(i + 1).padStart(2, "0")}
                 </div>
                 <h3 className="text-2xl font-heading font-bold text-foreground mb-2">
