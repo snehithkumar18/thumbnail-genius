@@ -1,0 +1,40 @@
+project_id = "jmdvwkolahvabnisawev"
+
+[functions.generate-thumbnail]
+verify_jwt = false
+
+[functions.recreate-thumbnail]
+verify_jwt = false
+
+[functions.edit-thumbnail]
+verify_jwt = false
+
+[functions.face-swap]
+verify_jwt = false
+
+[functions.generate-titles]
+verify_jwt = false
+
+[functions.score-thumbnail]
+verify_jwt = false
+
+[functions.get-trends]
+verify_jwt = false
+
+[functions.create-checkout-session]
+verify_jwt = false
+
+[functions.dodo-webhook]
+verify_jwt = false
+
+[functions.deduct-credits]
+verify_jwt = false
+
+[functions.remove-background]
+verify_jwt = false
+
+[functions.upscale-image]
+verify_jwt = false
+
+[functions.debug-env]
+verify_jwt = false

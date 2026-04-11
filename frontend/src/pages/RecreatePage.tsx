@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits } from "@/hooks/useSupabaseData";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { useQueryClient } from "@tanstack/react-query";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
 
@@ -32,7 +33,10 @@ const LOADING_MESSAGES = [
 const RecreatePage = () => {
   const { user } = useAuth();
   const { data: credits } = useCredits();
+  const { plan } = usePlanAccess();
+  const isFreePlan = ['none'].includes(plan?.toLowerCase() || '');
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [url, setUrl] = useState("");
   const [videoId, setVideoId] = useState<string | null>(null);
@@ -348,9 +352,16 @@ const RecreatePage = () => {
               <Button variant="outline" size="sm" className="border-border" onClick={() => handleDownload(result.image_url)}>
                 <Download className="h-3.5 w-3.5 mr-1.5" /> Download
               </Button>
-              <Button variant="outline" size="sm" className="border-border">
-                <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit Further
-              </Button>
+              <button 
+                className="flex items-center justify-center bg-gradient-to-br from-[#8B47FF] to-[#6366F1] text-white font-sans text-[13px] font-semibold px-[14px] py-[7px] rounded-lg border-none cursor-pointer transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(139,71,255,0.35)] active:translate-y-0 disabled:opacity-80 disabled:cursor-not-allowed"
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (isFreePlan) { navigate('/pricing'); return; }
+                  navigate(`/dashboard/smart-editor?thumbnail_id=${result.thumbnail_id}&image_url=${encodeURIComponent(result.image_url || '')}`); 
+                }}
+              >
+                {isFreePlan ? <><Lock className="h-3.5 w-3.5 mr-1.5" /> Smart Edit</> : <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> ✨ Smart Edit</>}
+              </button>
               <Button variant="outline" size="sm" className="border-border" onClick={() => handleFavorite(result.thumbnail_id)}>
                 <Heart className="h-3.5 w-3.5 mr-1.5" /> Save
               </Button>

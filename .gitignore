@@ -22,3 +22,24 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
+.env
+.env.*
+!.env.example
+frontend/.env
+backend/.env
+
+# Recursive env/secret files across workspace
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+**/.envrc
+**/*.env
+**/*.env.*
+
+# Common local secret files
+**/secrets.*
+**/*.secret
+**/*credentials*.json
