@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Layers, Lock, Zap, X, Download, Heart, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle, DrawerHeader } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -44,7 +44,7 @@ const BatchGenerator = ({ visible, onClose, basePrompt, quality, format }: Batch
   const { data: credits } = useCredits();
   const { canUseBatch, maxBatchSize, plan } = usePlanAccess();
   const queryClient = useQueryClient();
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useIsMobile();
 
   const [mode, setMode] = useState<BatchMode>("styles");
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);

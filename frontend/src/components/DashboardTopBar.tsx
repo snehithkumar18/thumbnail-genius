@@ -46,11 +46,22 @@ export function DashboardTopBar() {
   return (
     <>
       <PaymentSuccessOverlay />
+      <header className="h-[60px] border-b border-border bg-card flex items-center justify-between px-4 sticky top-0 z-[40]">
+        <div className="flex items-center gap-4">
+          <SidebarTrigger className="tab:hidden h-9 w-9 border-border" />
+          <h1 className="text-lg font-bold font-heading text-foreground hidden sm:block">
+            {title}
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {isLowCredits && (
+            <Button
               size="sm"
               className="hidden md:flex text-xs text-muted-foreground hover:text-foreground"
               onClick={() => navigate('/pricing')}
             >
-              ⚡ Upgrade from $10/mo
+              Upgrade from $10/mo
             </Button>
           )}
 
@@ -62,9 +73,9 @@ export function DashboardTopBar() {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
           </Button>
 
-          <CreditsBadge 
-            balance={totalCredits} 
-            onClick={() => navigate('/pricing')} 
+          <CreditsBadge
+            balance={totalCredits}
+            onClick={() => navigate('/pricing')}
           />
 
           <DropdownMenu>

@@ -1,6 +1,6 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const SHORTCUTS = [
   { keys: ["⌘", "Enter"], desc: "Generate thumbnail" },
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function KeyboardShortcutsModal({ open, onClose }: Props) {
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useIsMobile();
 
   const Content = () => (
     <div className="space-y-4 mt-2">
@@ -59,6 +59,7 @@ export default function KeyboardShortcutsModal({ open, onClose }: Props) {
       <DialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-foreground">⌨️ Keyboard Shortcuts</DialogTitle>
+          <DialogDescription className="sr-only">List of available keyboard shortcuts.</DialogDescription>
         </DialogHeader>
         <Content />
       </DialogContent>

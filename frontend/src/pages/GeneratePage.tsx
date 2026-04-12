@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Type, Monitor, Smartphone, Zap, Star, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, Pencil, User, Globe, Layers, Lock } from "lucide-react";
+import { Sparkles, Type, Monitor, Smartphone, Zap, Star, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, Pencil, User, Globe, Layers, Lock, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -238,7 +238,7 @@ const GeneratePage = () => {
           >
             {tab === "controls" ? "⚙️ Controls" : "🖼️ Preview"}
           </button>
-        )}
+        ))}
       </div>
 
       {/* LEFT — Controls */}

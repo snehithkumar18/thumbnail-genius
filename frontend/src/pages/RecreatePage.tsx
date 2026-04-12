@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Link2, ClipboardPaste, Check, Download, Heart, Pencil, ArrowLeftRight } from "lucide-react";
+import { RefreshCw, Link2, ClipboardPaste, Check, Download, Heart, Pencil, ArrowLeftRight, Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,7 @@ import { useCredits } from "@/hooks/useSupabaseData";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { useQueryClient } from "@tanstack/react-query";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
+import { useNavigate } from "react-router-dom";
 
 const CREDIT_COST = 3;
 

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { usePlanAccess } from '@/hooks/usePlanAccess';
 import { useCredits, useThumbnails } from '@/hooks/useSupabaseData';
 import Tesseract from 'tesseract.js';
@@ -149,6 +149,7 @@ export default function SmartEditorPage() {
                   <DialogContent className="sm:max-w-md">
                       <DialogHeader>
                           <DialogTitle>Quick Editor Tour</DialogTitle>
+                          <DialogDescription className="sr-only">Steps to get started with the Smart Editor.</DialogDescription>
                       </DialogHeader>
                       <div className="grid gap-6 py-4">
                           {[
@@ -365,7 +366,10 @@ export default function SmartEditorPage() {
                                 </div>
                               </DialogTrigger>
                               <DialogContent>
-                                  <DialogHeader><DialogTitle>Load from YouTube</DialogTitle></DialogHeader>
+                                                                    <DialogHeader>
+                                                                        <DialogTitle>Load from YouTube</DialogTitle>
+                                                                        <DialogDescription className="sr-only">Paste a YouTube URL to load a thumbnail.</DialogDescription>
+                                                                    </DialogHeader>
                                   <div className="space-y-4 py-4">
                                       <Input placeholder="https://youtube.com/watch?v=..." value={inputUrl} onChange={e => setInputUrl(e.target.value)} />
                                       <Button onClick={handleUrlLoad} disabled={!inputUrl} className="w-full bg-[#8B47FF] hover:bg-[#7236d6]">Load Thumbnail</Button>
@@ -560,7 +564,9 @@ export default function SmartEditorPage() {
               )}
           </div>
 
-        {/* -------------------- MOBILE DRAWER -------------------- */}
+                </div>
+
+                {/* -------------------- MOBILE DRAWER -------------------- */}
         {editor.sessionId && (
             <Drawer open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
                 <div className="fixed bottom-0 inset-x-0 tab:hidden p-3 bg-background border-t border-border z-30 flex items-center justify-between">
@@ -632,7 +638,12 @@ export default function SmartEditorPage() {
                                     )}
                                     {/* (Rest of types simplified) */}
                                     <Button className="w-full h-12 bg-primary" onClick={() => {
-                                        const typeMap: any = { 'text': 'replace_text', 'person': 'replace_person', 'background': 'replace_background', 'object': 'replace_object' };
+                                        const typeMap: Record<Layer['type'], 'replace_text' | 'replace_person' | 'replace_background' | 'replace_object'> = {
+                                            text: 'replace_text',
+                                            person: 'replace_person',
+                                            background: 'replace_background',
+                                            object: 'replace_object'
+                                        };
                                         editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type], replaceInstruction);
                                         setIsMobileSheetOpen(false);
                                     }} disabled={editor.isReplacing}>
@@ -650,17 +661,20 @@ export default function SmartEditorPage() {
       {/* -------------------- STEP 5: MY THUMBNAILS MODAL -------------------- */}
       <Dialog open={showThumbModal} onOpenChange={setShowThumbModal}>
           <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                  <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                       <FolderOpen className="h-5 w-5 text-primary" /> My Thumbnails
-                  </DialogTitle>
-                  <Input 
-                    placeholder="Search..." 
-                    value={thumbSearch}
-                    onChange={e => setThumbSearch(e.target.value)}
-                    className="w-64 h-9" 
-                  />
-              </div>
+              <DialogHeader className="p-6 border-b border-border">
+                  <div className="flex items-center justify-between gap-4">
+                      <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                          <FolderOpen className="h-5 w-5 text-primary" /> My Thumbnails
+                      </DialogTitle>
+                      <Input 
+                        placeholder="Search..." 
+                        value={thumbSearch}
+                        onChange={e => setThumbSearch(e.target.value)}
+                        className="w-64 h-9" 
+                      />
+                  </div>
+                  <DialogDescription className="sr-only">Select a thumbnail to load into the editor.</DialogDescription>
+              </DialogHeader>
               <div className="flex-1 overflow-y-auto p-6">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {filteredMyThumbs.map(thumb => (

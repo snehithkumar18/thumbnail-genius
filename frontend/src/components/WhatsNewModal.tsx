@@ -1,7 +1,7 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const CHANGELOG = [
@@ -31,7 +31,7 @@ interface Props {
 }
 
 export default function WhatsNewModal({ open, onClose }: Props) {
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useIsMobile();
 
   const Content = () => (
     <div className="space-y-6 mt-2">
@@ -83,6 +83,7 @@ export default function WhatsNewModal({ open, onClose }: Props) {
       <DialogContent className="sm:max-w-lg bg-card border-border max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-foreground">🆕 What's New</DialogTitle>
+          <DialogDescription className="sr-only">Recent updates and changes.</DialogDescription>
         </DialogHeader>
         <Content />
       </DialogContent>

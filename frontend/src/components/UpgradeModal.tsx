@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { X, Lock, Check, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -22,7 +22,7 @@ const planInfo: Record<string, { price: string; credits: string; features: strin
 const UpgradeModal = ({ open, onClose, featureName, minimumPlan }: UpgradeModalProps) => {
   const navigate = useNavigate();
   const info = planInfo[minimumPlan] ?? planInfo.basic;
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useIsMobile();
 
   if (!open) return null;
 

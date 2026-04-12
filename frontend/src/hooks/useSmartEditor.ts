@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { detectTextInImage } from '@/utils/detectText';
+import type { TextLayer } from '@/utils/detectText';
 import { toast } from 'sonner';
 
 export interface Layer {
@@ -16,6 +17,13 @@ export interface Layer {
   isEdited: boolean;
   replacementUrl?: string;
 }
+
+type BackendLayer = {
+  type: Layer['type'];
+  label: string;
+  mask_url?: string;
+  bbox?: Layer['boundingBox'];
+};
 
 interface EditorState {
   sessionId: string | null;
@@ -79,8 +87,9 @@ export function useSmartEditor() {
       });
 
       return session.id;
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to initialize smart editor session');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to initialize smart editor session';
+      toast.error(message);
       console.error(err);
       return null;
     }
@@ -101,8 +110,8 @@ export function useSmartEditor() {
                 toast.success('Layers loaded from cache (Instant ✨)');
                 return;
             }
-        } catch (e) {
-            console.error("Cache parse error", e);
+        } catch (e: unknown) {
+          console.error("Cache parse error", e);
         }
     }
 
@@ -141,7 +150,8 @@ export function useSmartEditor() {
 
       if (error) throw new Error(error.message);
 
-      let sam2Layers: Layer[] = (backendLayersData || []).map((layer: any, idx: number) => ({
+      const rawLayers: BackendLayer[] = Array.isArray(backendLayersData) ? backendLayersData : [];
+      const sam2Layers: Layer[] = rawLayers.map((layer) => ({
         id: crypto.randomUUID(),
         type: layer.type,
         label: layer.label,
@@ -155,15 +165,15 @@ export function useSmartEditor() {
       const backgroundLayer = sam2Layers.find(l => l.type === 'background') || null;
 
       // Merge text layers with SAM2 object layers
-      let textLayers: any[] = [];
+        let textLayers: TextLayer[] = [];
       try {
           textLayers = await textLayersPromise;
-      } catch(err) {
+        } catch (err: unknown) {
           console.error("OCR detection failed:", err);
       }
 
       // Format text layers to match State Layer
-      const formattedTextLayers: Layer[] = textLayers.map((l: any) => ({
+        const formattedTextLayers: Layer[] = textLayers.map((l) => ({
           id: crypto.randomUUID(),
           type: 'text',
           label: l.label,
@@ -201,8 +211,9 @@ export function useSmartEditor() {
       }));
 
       toast.success('Image components detected successfully');
-    } catch (err: any) {
-      toast.error(err.message || 'Detection failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Detection failed';
+      toast.error(message);
       console.error(err);
     } finally {
       updateState({ isDetecting: false });
@@ -240,8 +251,9 @@ export function useSmartEditor() {
         creditsUsed: state.creditsUsed + (editType === 'replace_text' ? 5 : (editType === 'replace_person' ? 7 : 6))
       });
       toast.success('Edit applied successfully');
-    } catch (err: any) {
-      toast.error(err.message || 'Replacement failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Replacement failed';
+      toast.error(message);
       console.error(err);
     } finally {
       updateState({ isReplacing: false });
@@ -288,9 +300,10 @@ export function useSmartEditor() {
 
         updateState({ currentImageUrl: data.url });
         toast.success('Successfully upscaled to 4K');
-    } catch(err: any) {
-        toast.dismiss('upscale');
-        toast.error(err.message || 'Upscaling failed');
+    } catch (err: unknown) {
+      toast.dismiss('upscale');
+      const message = err instanceof Error ? err.message : 'Upscaling failed';
+      toast.error(message);
     }
   };
 
@@ -316,8 +329,9 @@ export function useSmartEditor() {
         
         if (error) throw new Error(error.message);
         toast.success('Session saved successfully');
-    } catch (err: any) {
-        toast.error(err.message || 'Saving failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Saving failed';
+      toast.error(message);
     } finally {
         updateState({ isSaving: false });
     }

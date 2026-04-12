@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface AuthModalProps {
   open: boolean;
@@ -22,7 +22,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useIsMobile();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +96,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
           >
             {t === "signup" ? "Sign Up" : "Login"}
           </button>
-        )}
+        ))}
       </div>
 
       {tab === "signup" && (

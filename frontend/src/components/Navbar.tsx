@@ -3,8 +3,11 @@ import { Link, useLocation } from "react-router-dom";
 import { Sparkles, Menu, X } from "lucide-react";
 import {
   Dialog,
+  DialogDescription,
   DialogContent,
+  DialogHeader,
   DialogTrigger,
+  DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,6 +64,10 @@ const Navbar = ({ onOpenAuth }: NavbarProps) => {
               </Button>
             </DialogTrigger>
             <DialogContent className="fixed inset-0 z-50 w-full h-full bg-white p-0 border-none sm:rounded-none m-0 shadow-none">
+              <DialogHeader className="sr-only">
+                 <DialogTitle>Mobile navigation</DialogTitle>
+                 <DialogDescription>Primary navigation links and actions.</DialogDescription>
+              </DialogHeader>
                 <div className="flex flex-col h-full safe-top">
                    <div className="flex items-center justify-between px-6 py-4 border-b">
                       <div className="flex items-center gap-2">

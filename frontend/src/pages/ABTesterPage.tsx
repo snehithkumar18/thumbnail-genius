@@ -15,14 +15,14 @@ import { nanoid } from "nanoid";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle, DrawerHeader } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { hapticFeedback } from "@/lib/utils";
 
 const ABTesterPage = () => {
   const { user } = useAuth();
   const { data: thumbnails } = useThumbnails();
   const queryClient = useQueryClient();
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useIsMobile();
 
   // Create test state
   const [thumbA, setThumbA] = useState<string | null>(null);

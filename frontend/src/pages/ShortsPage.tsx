@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -454,6 +454,10 @@ const ShortsPage = () => {
       {/* YouTube Shorts Preview Modal */}
       <Dialog open={showYTPreview} onOpenChange={setShowYTPreview}>
         <DialogContent className="max-w-sm p-0 bg-black border-none overflow-hidden rounded-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Shorts preview</DialogTitle>
+            <DialogDescription>Preview of the generated YouTube Shorts thumbnail.</DialogDescription>
+          </DialogHeader>
           {/* Fake YT Shorts player */}
           <div className="relative aspect-[9/16]">
             {activeUrl && <img src={activeUrl} alt="Shorts preview" className="w-full h-full object-cover" />}

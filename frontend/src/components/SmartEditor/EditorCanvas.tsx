@@ -3,6 +3,7 @@ import { Stage, Layer as KonvaLayer, Image as KonvaImage, Rect, Text } from 'rea
 import useImage from 'use-image';
 import { Layer } from '@/hooks/useSmartEditor';
 import Konva from 'konva';
+import type { KonvaEventObject } from 'konva/lib/Node';
 import { ZoomIn, ZoomOut, Maximize, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Blurhash } from 'react-blurhash';
@@ -106,7 +107,7 @@ export function EditorCanvas({
     if (stageRef.current) stageRef.current.to({ scaleX: 1, scaleY: 1, position: { x: 0, y: 0 }, duration: 0.3 });
   };
 
-  const handleMouseMove = (e: any) => {
+  const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
     if (!currentImage) return;
     const sX = stageWidth / currentImage.width;
     const sY = stageHeight / currentImage.height;
@@ -145,9 +146,10 @@ export function EditorCanvas({
      if (stageRef.current) stageRef.current.container().style.cursor = 'default';
   };
 
-  const handleClick = () => {
-     onLayerClick(hoveredLayerId as any);
-  };
+    const handleClick = () => {
+      if (!hoveredLayerId) return;
+      onLayerClick(hoveredLayerId);
+    };
 
   const drawHighlights = useMemo(() => {
     if (!currentImage) return null;

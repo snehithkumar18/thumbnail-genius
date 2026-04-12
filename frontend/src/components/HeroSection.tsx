@@ -77,7 +77,7 @@ const HeroSection = ({ onOpenAuth }: HeroSectionProps) => {
             >
               See Examples
             </Button>
-          </motion.div>
+          </motion.p>
 
           <motion.p
             initial={{ opacity: 0 }}

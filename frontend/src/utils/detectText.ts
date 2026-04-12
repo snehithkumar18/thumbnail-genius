@@ -14,7 +14,7 @@ export async function detectTextInImage(
   imageHeight: number,
   worker?: Tesseract.Worker
 ): Promise<TextLayer[]> {
-  let result;
+  let result: Tesseract.RecognizeResult;
   if (worker) {
     result = await worker.recognize(imageUrl);
   } else {
@@ -59,10 +59,17 @@ export async function detectTextInImage(
   return textLayers;
 }
 
-function groupWordsIntoBlocks(words: Tesseract.Word[]) {
+type TextBlock = {
+  text: string;
+  bbox: Tesseract.BoundingBox;
+  confidence: number;
+  words: Tesseract.Word[];
+};
+
+function groupWordsIntoBlocks(words: Tesseract.Word[]): TextBlock[] {
   if (words.length === 0) return [];
   
-  const blocks: any[] = [];
+  const blocks: TextBlock[] = [];
   let currentBlock = {
     text: words[0].text,
     bbox: { ...words[0].bbox },

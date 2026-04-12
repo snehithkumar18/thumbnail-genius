@@ -78,6 +78,13 @@ export function FeatureTour() {
              animate={{ opacity: 1, y: 0 }}
              className="bg-white rounded-lg shadow-xl border border-[#8B47FF] p-4 text-center relative"
           >
+              <button
+                onClick={finishTour}
+                aria-label="Close tour"
+                className="absolute right-2 top-2 text-[#8B47FF]/70 hover:text-[#8B47FF] text-xs"
+              >
+               x
+              </button>
               <p className="text-sm font-semibold text-[#0F0A1E] mb-4">
                  {currentStep.text}
               </p>
@@ -87,6 +94,12 @@ export function FeatureTour() {
                  className="bg-[#8B47FF] hover:bg-[#7236d6] text-white text-xs font-semibold px-4 py-2 rounded-md w-full transition"
               >
                   {step < TOUR_STEPS.length - 1 ? 'Next →' : 'Got it! Let me try →'}
+              </button>
+              <button
+                onClick={finishTour}
+                className="mt-2 text-[11px] text-muted-foreground hover:text-foreground underline"
+              >
+                Skip tour
               </button>
           </motion.div>
       </div>

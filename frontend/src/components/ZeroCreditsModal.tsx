@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { X, Gem, Zap, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ZeroCreditsModalProps {
   open: boolean;
@@ -12,7 +12,7 @@ interface ZeroCreditsModalProps {
 
 const ZeroCreditsModal = ({ open, onClose }: ZeroCreditsModalProps) => {
   const navigate = useNavigate();
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useIsMobile();
 
   if (!open) return null;
 
