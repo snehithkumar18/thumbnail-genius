@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCacheKey,
+  getCache,
+  setCache,
+  runImageProviders,
+} from "../_shared/aiRouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,10 +174,6 @@ serve(async (req) => {
       bypassCredits,
     });
 
-    if (!falApiKey) {
-      throw new Error("FAL_KEY not configured");
-    }
-
     const supabaseAnonKey =
       Deno.env.get("SB_ANON_JWT") ??
       Deno.env.get("SUPABASE_ANON_KEY") ??
@@ -325,6 +327,7 @@ serve(async (req) => {
     const forceTextModel = !!(language && langName);
     const useIdeogram = hasTextOverlay || forceTextModel;
     const hasSubscriptionPlan = ["basic", "creator", "pro", "studio"].includes(credits.plan_type);
+    const allowPaidFallback = hasSubscriptionPlan;
 
     // Step 2: Generate images using Lovable AI image generation
     const results: Array<{
@@ -336,101 +339,163 @@ serve(async (req) => {
       const startTime = Date.now();
 
       try {
+        console.log("[generate-thumbnail] Generating image", { useIdeogram, quality, hasSubscriptionPlan });
+        const width = format === "9:16" ? 720 : 1280;
+        const height = format === "9:16" ? 1280 : 720;
+        const cacheKey = await buildCacheKey("generate-thumbnail", {
+          prompt: imagePrompt,
+          format,
+          width,
+          height,
+          text_overlay,
+          text_content,
+          style,
+          niche,
+          brand_kit_active,
+          brand_kit,
+          language,
+        });
+        const inputHash = cacheKey.split(":").slice(2).join(":");
+        const cached = await getCache(supabaseAdmin, cacheKey);
+
         let imageUrl: string | null = null;
         let modelUsed = "unknown";
-        console.log("[generate-thumbnail] Generating image", { useIdeogram, quality, hasSubscriptionPlan });
+        let provider = "cache";
 
-        if (useIdeogram) {
-          const falData = await runFalJob(
-            "fal-ai/ideogram/v3",
-            {
-              prompt: imagePrompt,
-              aspect_ratio: format === "9:16" ? "ASPECT_9_16" : "ASPECT_16_9",
-              style_type: "REALISTIC",
-              magic_prompt_option: "OFF",
-            },
-            falApiKey,
-          );
-          imageUrl = extractFalImageUrl(falData);
-          modelUsed = "Ideogram 3.0";
-        } else if (quality === "pro" && hasSubscriptionPlan) {
-          const falData = await runFalJob(
-            "fal-ai/flux-2-pro",
-            {
-              prompt: imagePrompt,
-              image_size: format === "9:16" ? "portrait_9_16" : "landscape_16_9",
-              output_format: "png",
-            },
-            falApiKey,
-          );
-          imageUrl = extractFalImageUrl(falData);
-          modelUsed = "FLUX.2 Pro";
+        if (cached) {
+          imageUrl = cached.image_url;
+          modelUsed = cached.model_used;
+          provider = cached.provider;
         } else {
-          if (!togetherApiKey) {
-            throw new Error("TOGETHER_API_KEY not configured");
-          }
-          const togetherResp = await fetch("https://api.together.xyz/v1/images/generations", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${togetherApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "black-forest-labs/FLUX.1-schnell",
+          const result = await runImageProviders(supabaseAdmin, {
+            gemini: {
               prompt: imagePrompt,
-              width: format === "9:16" ? 720 : 1280,
-              height: format === "9:16" ? 1280 : 720,
-              steps: 4,
-            }),
+              aspectRatio: format === "9:16" ? "9:16" : "16:9",
+              imageSize: "1K",
+            },
+            pollinations: {
+              prompt: imagePrompt,
+              width,
+              height,
+              model: "flux",
+            },
+            allowPaidFallback,
+            paidFallback: async () => {
+              if (!allowPaidFallback) {
+                throw new Error("Paid fallback disabled");
+              }
+              if (!falApiKey && !togetherApiKey) {
+                throw new Error("Paid providers not configured");
+              }
+
+              if (useIdeogram) {
+                if (!falApiKey) throw new Error("FAL_KEY not configured");
+                const falData = await runFalJob(
+                  "fal-ai/ideogram/v3",
+                  {
+                    prompt: imagePrompt,
+                    aspect_ratio: format === "9:16" ? "ASPECT_9_16" : "ASPECT_16_9",
+                    style_type: "REALISTIC",
+                    magic_prompt_option: "OFF",
+                  },
+                  falApiKey,
+                );
+                const url = extractFalImageUrl(falData);
+                if (!url) throw new Error("No image returned from Ideogram");
+                return { imageUrl: url, provider: "fal", modelUsed: "Ideogram 3.0" };
+              }
+
+              if (quality === "pro" && hasSubscriptionPlan) {
+                if (!falApiKey) throw new Error("FAL_KEY not configured");
+                const falData = await runFalJob(
+                  "fal-ai/flux-2-pro",
+                  {
+                    prompt: imagePrompt,
+                    image_size: format === "9:16" ? "portrait_9_16" : "landscape_16_9",
+                    output_format: "png",
+                  },
+                  falApiKey,
+                );
+                const url = extractFalImageUrl(falData);
+                if (!url) throw new Error("No image returned from FLUX.2 Pro");
+                return { imageUrl: url, provider: "fal", modelUsed: "FLUX.2 Pro" };
+              }
+
+              if (!togetherApiKey) {
+                throw new Error("TOGETHER_API_KEY not configured");
+              }
+              const togetherResp = await fetch("https://api.together.xyz/v1/images/generations", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${togetherApiKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "black-forest-labs/FLUX.1-schnell",
+                  prompt: imagePrompt,
+                  width,
+                  height,
+                  steps: 4,
+                }),
+              });
+
+              if (!togetherResp.ok) {
+                const errText = await togetherResp.text();
+                throw new Error(`Together AI failed (${togetherResp.status}): ${errText}`);
+              }
+
+              const togetherData = await togetherResp.json();
+              const first = togetherData?.data?.[0];
+              const url = first?.url || (first?.b64_json ? `data:image/png;base64,${first.b64_json}` : null);
+              if (!url) throw new Error("Together AI returned no image");
+              return { imageUrl: url, provider: "together", modelUsed: "FLUX.1 Schnell" };
+            },
           });
 
-          if (!togetherResp.ok) {
-            const errText = await togetherResp.text();
-            throw new Error(`Together AI failed (${togetherResp.status}): ${errText}`);
+          imageUrl = result.imageUrl;
+          modelUsed = result.modelUsed;
+          provider = result.provider;
+        }
+
+        if (!imageUrl) throw new Error("No image returned from provider");
+
+        let publicUrl = imageUrl;
+        let generationTime = Date.now() - startTime;
+        if (!cached) {
+          let imageBytes: Uint8Array;
+          if (imageUrl.startsWith("data:")) {
+            imageBytes = normalizeDataUrlToBytes(imageUrl);
+          } else {
+            const imageFetch = await fetch(imageUrl);
+            if (!imageFetch.ok) {
+              throw new Error("Failed to download generated image");
+            }
+            imageBytes = new Uint8Array(await imageFetch.arrayBuffer());
           }
 
-          const togetherData = await togetherResp.json();
-          const first = togetherData?.data?.[0];
-          if (first?.url) imageUrl = first.url;
-          if (!imageUrl && first?.b64_json) imageUrl = `data:image/png;base64,${first.b64_json}`;
-          modelUsed = "FLUX.1 Schnell";
-        }
+          const fileName = `${user.id}/${crypto.randomUUID()}.png`;
 
-        if (!imageUrl) {
-          throw new Error("No image returned from provider");
-        }
+          const { error: uploadError } = await supabaseAdmin.storage
+            .from("thumbnails")
+            .upload(fileName, imageBytes, {
+              contentType: "image/png",
+              upsert: false,
+            });
 
-        let imageBytes: Uint8Array;
-        if (imageUrl.startsWith("data:")) {
-          imageBytes = normalizeDataUrlToBytes(imageUrl);
+          if (uploadError) {
+            console.error("Upload error:", uploadError);
+            throw new Error("Failed to upload image");
+          }
+
+          const { data: publicUrlData } = supabaseAdmin.storage
+            .from("thumbnails")
+            .getPublicUrl(fileName);
+
+          publicUrl = publicUrlData.publicUrl;
+          await setCache(supabaseAdmin, cacheKey, "generate-thumbnail", inputHash, provider, modelUsed, publicUrl);
         } else {
-          const imageFetch = await fetch(imageUrl);
-          if (!imageFetch.ok) {
-            throw new Error("Failed to download generated image");
-          }
-          imageBytes = new Uint8Array(await imageFetch.arrayBuffer());
+          generationTime = 0;
         }
-
-        const fileName = `${user.id}/${crypto.randomUUID()}.png`;
-
-        const { error: uploadError } = await supabaseAdmin.storage
-          .from("thumbnails")
-          .upload(fileName, imageBytes, {
-            contentType: "image/png",
-            upsert: false,
-          });
-
-        if (uploadError) {
-          console.error("Upload error:", uploadError);
-          throw new Error("Failed to upload image");
-        }
-
-        const { data: publicUrlData } = supabaseAdmin.storage
-          .from("thumbnails")
-          .getPublicUrl(fileName);
-
-        const publicUrl = publicUrlData.publicUrl;
-        const generationTime = Date.now() - startTime;
 
         // Insert thumbnail record
         const { data: thumbRecord, error: insertError } = await supabaseAdmin

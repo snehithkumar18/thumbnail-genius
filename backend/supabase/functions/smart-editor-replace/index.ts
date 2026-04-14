@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCacheKey,
+  getCache,
+  setCache,
+  runImageProviders,
+  loadImagePartFromUrl,
+} from "../_shared/aiRouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,8 +61,6 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SB_ANON_JWT") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? supabaseServiceKey;
     const falApiKey = Deno.env.get("FAL_KEY");
 
-    if (!falApiKey) throw new Error("FAL_KEY not configured");
-
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -95,86 +100,130 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Insufficient credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    let modelPath = "";
-    let falInput = {};
+    const hasSubscriptionPlan = ["basic", "creator", "pro", "studio"].includes(creditsData.plan_type);
+    const allowPaidFallback = hasSubscriptionPlan;
 
-    if (edit_type === 'replace_text') {
-        modelPath = "fal-ai/flux-pro/kontext";
-        falInput = { prompt: instruction, image_url: current_image_url, strength: 0.85 };
-    } else if (edit_type === 'replace_background') {
-        modelPath = "fal-ai/flux-pro/kontext";
-        falInput = { prompt: instruction, image_url: current_image_url, strength: 0.9 };
-    } else if (edit_type === 'replace_person') {
-        if (replacement_image_url) {
-            modelPath = "fal-ai/hy-wu";
-            falInput = { image_url: current_image_url, reference_image_url: replacement_image_url, task: "face_swap" };
-        } else {
-            modelPath = "fal-ai/flux-pro/kontext";
-            falInput = { prompt: instruction, image_url: current_image_url, strength: 0.85 };
-        }
-    } else if (edit_type === 'replace_object') {
-        modelPath = "fal-ai/flux-pro/kontext";
-        falInput = { prompt: instruction, image_url: current_image_url, strength: 0.8 };
-    } else {
-        throw new Error("Invalid edit type");
-    }
-
-    // Attempt the fal operation
-    const requestOptions = {
-        method: "POST",
-        headers: {
-            "Authorization": `Key ${falApiKey}`,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(modelPath.includes('hy-wu') ? falInput : { input: falInput }) // hy-wu sometimes accepts direct vs payload depending on the endpoint, defaulting to standard Queue API structure if not specific. Wait, all fal endpoints recommend standard input wrapper.
-    };
-
-    // Use queue API for safety just like generate-thumbnail does. Or standard POST. Standard POST is faster for direct endpoints.
-    const runResp = await fetch(`https://fal.run/${modelPath}`, {
-        method: "POST",
-        headers: {
-            "Authorization": `Key ${falApiKey}`,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(falInput) // the direct API needs flattened input often, or `{ input }`? The instruction says: "input: { image_url: current_image_url ... }". I'll use standard structure.
+    const cacheKey = await buildCacheKey("smart-editor-replace", {
+      edit_type,
+      instruction,
+      current_image_url,
+      replacement_image_url,
     });
+    const inputHash = cacheKey.split(":").slice(2).join(":");
+    const cached = await getCache(supabaseAdmin, cacheKey);
 
-    if (!runResp.ok) {
-        console.error("Fal request failed:", await runResp.text());
-        throw new Error("Fal API failed");
-    }
-
-    const falData = await runResp.json();
-    const resultImageUrl = extractFalImageUrl(falData) || falData.image?.url || falData.image;
+    let resultImageUrl = cached?.image_url || null;
+    let modelUsed = cached?.model_used || "unknown";
+    let provider = cached?.provider || "cache";
 
     if (!resultImageUrl) {
-        throw new Error("No image returned from Fal API");
+      const baseImage = await loadImagePartFromUrl(current_image_url);
+      const images = replacement_image_url
+        ? [baseImage, await loadImagePartFromUrl(replacement_image_url)]
+        : [baseImage];
+
+      const pollinationsPrompt = replacement_image_url
+        ? `${instruction} Reference image: ${replacement_image_url}`
+        : instruction;
+
+      const result = await runImageProviders(supabaseAdmin, {
+        gemini: {
+          prompt: instruction,
+          aspectRatio: "16:9",
+          imageSize: "1K",
+          images,
+        },
+        pollinations: {
+          prompt: pollinationsPrompt,
+          width: 1280,
+          height: 720,
+          model: "kontext",
+          imageUrl: current_image_url,
+        },
+        allowPaidFallback,
+        paidFallback: async () => {
+          if (!falApiKey) throw new Error("FAL_KEY not configured");
+
+          let modelPath = "";
+          let falInput: Record<string, unknown> = {};
+
+          if (edit_type === "replace_text") {
+            modelPath = "fal-ai/flux-pro/kontext";
+            falInput = { prompt: instruction, image_url: current_image_url, strength: 0.85 };
+          } else if (edit_type === "replace_background") {
+            modelPath = "fal-ai/flux-pro/kontext";
+            falInput = { prompt: instruction, image_url: current_image_url, strength: 0.9 };
+          } else if (edit_type === "replace_person") {
+            if (replacement_image_url) {
+              modelPath = "fal-ai/hy-wu";
+              falInput = { image_url: current_image_url, reference_image_url: replacement_image_url, task: "face_swap" };
+            } else {
+              modelPath = "fal-ai/flux-pro/kontext";
+              falInput = { prompt: instruction, image_url: current_image_url, strength: 0.85 };
+            }
+          } else if (edit_type === "replace_object") {
+            modelPath = "fal-ai/flux-pro/kontext";
+            falInput = { prompt: instruction, image_url: current_image_url, strength: 0.8 };
+          } else {
+            throw new Error("Invalid edit type");
+          }
+
+          const runResp = await fetch(`https://fal.run/${modelPath}`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Key ${falApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(falInput),
+          });
+
+          if (!runResp.ok) {
+            console.error("Fal request failed:", await runResp.text());
+            throw new Error("Fal API failed");
+          }
+
+          const falData = await runResp.json();
+          const url = extractFalImageUrl(falData) || falData.image?.url || falData.image;
+          if (!url) throw new Error("No image returned from Fal API");
+          return { imageUrl: url, provider: "fal", modelUsed: modelPath };
+        }
+      });
+
+      resultImageUrl = result.imageUrl;
+      modelUsed = result.modelUsed;
+      provider = result.provider;
     }
+
+    if (!resultImageUrl) throw new Error("No image returned from provider");
 
     // Upload to Supabase Storage
-    let imageBytes: Uint8Array;
-    if (resultImageUrl.startsWith("data:")) {
+    let finalImageUrl = resultImageUrl;
+    if (!cached) {
+      let imageBytes: Uint8Array;
+      if (resultImageUrl.startsWith("data:")) {
         const base64Data = resultImageUrl.replace(/^data:image\/\w+;base64,/, "");
         imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-    } else {
+      } else {
         const imageFetch = await fetch(resultImageUrl);
         imageBytes = new Uint8Array(await imageFetch.arrayBuffer());
-    }
+      }
 
-    const timestamp = Date.now();
-    const fileName = `${user.id}/${session_id}/edit_${timestamp}.png`;
+      const timestamp = Date.now();
+      const fileName = `${user.id}/${session_id}/edit_${timestamp}.png`;
 
-    const { error: uploadError } = await supabaseAdmin.storage
+      const { error: uploadError } = await supabaseAdmin.storage
         .from("smart_editor")
         .upload(fileName, imageBytes, { contentType: "image/png" });
-    
-    // We can proceed even if it fails the upload and just use fal URL, but saving to storage is better.
-    let finalImageUrl = resultImageUrl;
-    if (!uploadError) {
+        
+      // We can proceed even if it fails the upload and just use fal URL, but saving to storage is better.
+      if (!uploadError) {
         const { data: publicUrlData } = supabaseAdmin.storage
-            .from("smart_editor")
-            .getPublicUrl(fileName);
+          .from("smart_editor")
+          .getPublicUrl(fileName);
         finalImageUrl = publicUrlData.publicUrl;
+      }
+
+      await setCache(supabaseAdmin, cacheKey, "smart-editor-replace", inputHash, provider, modelUsed, finalImageUrl);
     }
 
     // Save to smart_editor_edits

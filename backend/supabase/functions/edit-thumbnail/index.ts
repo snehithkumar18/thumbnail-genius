@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCacheKey,
+  getCache,
+  setCache,
+  runImageProviders,
+  loadImagePartFromUrl,
+} from "../_shared/aiRouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -122,10 +129,6 @@ serve(async (req) => {
     const groqApiKey = Deno.env.get("GROQ_API_KEY");
     const falApiKey = Deno.env.get("FAL_KEY");
 
-    if (!falApiKey) {
-      throw new Error("FAL_KEY not configured");
-    }
-
     const supabaseAnonKey =
       (Deno.env.get("SB_ANON_JWT") ?? Deno.env.get("SUPABASE_ANON_KEY")) ??
       Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
@@ -224,44 +227,93 @@ serve(async (req) => {
       console.error("Enhancement failed:", e);
     }
 
-    // Generate edited image with FLUX Kontext
+    const hasSubscriptionPlan = ["basic", "creator", "pro", "studio"].includes(credits.plan_type);
+    const allowPaidFallback = hasSubscriptionPlan;
+
+    const cacheKey = await buildCacheKey("edit-thumbnail", {
+      prompt: enhancedInstruction,
+      current_image_url,
+    });
+    const inputHash = cacheKey.split(":").slice(2).join(":");
+    const cached = await getCache(supabaseAdmin, cacheKey);
+
     const startTime = Date.now();
-    const falData = await runFalJob(
-      "fal-ai/flux-pro/kontext",
-      {
-        prompt: enhancedInstruction,
-        image_url: current_image_url,
-        strength: 0.7,
-      },
-      falApiKey,
-    );
+    let editedImageUrl = cached?.image_url || null;
+    let modelUsed = cached?.model_used || "unknown";
+    let provider = cached?.provider || "cache";
 
-    const editedImageUrl = extractFalImageUrl(falData);
-    if (!editedImageUrl) throw new Error("No image returned from FLUX Kontext");
+    if (!editedImageUrl) {
+      const imagePart = await loadImagePartFromUrl(current_image_url);
+      const result = await runImageProviders(supabaseAdmin, {
+        gemini: {
+          prompt: enhancedInstruction,
+          aspectRatio: "16:9",
+          imageSize: "1K",
+          images: [imagePart],
+        },
+        pollinations: {
+          prompt: enhancedInstruction,
+          width: 1280,
+          height: 720,
+          model: "kontext",
+          imageUrl: current_image_url,
+        },
+        allowPaidFallback,
+        paidFallback: async () => {
+          if (!falApiKey) throw new Error("FAL_KEY not configured");
+          const falData = await runFalJob(
+            "fal-ai/flux-pro/kontext",
+            {
+              prompt: enhancedInstruction,
+              image_url: current_image_url,
+              strength: 0.7,
+            },
+            falApiKey,
+          );
 
-    const imageResp = await fetch(editedImageUrl);
-    if (!imageResp.ok) throw new Error("Failed to fetch edited image");
-    const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
-    const fileName = `${user.id}/${crypto.randomUUID()}.png`;
+          const url = extractFalImageUrl(falData);
+          if (!url) throw new Error("No image returned from FLUX Kontext");
+          return { imageUrl: url, provider: "fal", modelUsed: "FLUX.1 Kontext Pro" };
+        },
+      });
 
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("thumbnails")
-      .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
+      editedImageUrl = result.imageUrl;
+      modelUsed = result.modelUsed;
+      provider = result.provider;
+    }
 
-    if (uploadError) throw new Error("Failed to upload image");
+    if (!editedImageUrl) throw new Error("No image returned from provider");
 
-    const { data: publicUrlData } = supabaseAdmin.storage.from("thumbnails").getPublicUrl(fileName);
-    const generationTime = Date.now() - startTime;
+    let publicUrl = editedImageUrl;
+    let generationTime = Date.now() - startTime;
+    if (!cached) {
+      const imageResp = await fetch(editedImageUrl);
+      if (!imageResp.ok) throw new Error("Failed to fetch edited image");
+      const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
+      const fileName = `${user.id}/${crypto.randomUUID()}.png`;
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("thumbnails")
+        .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
+
+      if (uploadError) throw new Error("Failed to upload image");
+
+      const { data: publicUrlData } = supabaseAdmin.storage.from("thumbnails").getPublicUrl(fileName);
+      publicUrl = publicUrlData.publicUrl;
+      await setCache(supabaseAdmin, cacheKey, "edit-thumbnail", inputHash, provider, modelUsed, publicUrl);
+    } else {
+      generationTime = 0;
+    }
 
     // Save as new thumbnail (edited version)
     const { data: thumbRecord, error: insertError } = await supabaseAdmin
       .from("thumbnails")
       .insert({
         user_id: user.id,
-        image_url: publicUrlData.publicUrl,
+        image_url: publicUrl,
         prompt: edit_instruction,
         enhanced_prompt: enhancedInstruction,
-        model_used: "FLUX.1 Kontext Pro",
+        model_used: modelUsed,
         style: "edited",
         format_type: "16:9",
         generation_time_ms: generationTime,
@@ -294,7 +346,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        image_url: publicUrlData.publicUrl,
+        image_url: publicUrl,
         thumbnail_id: thumbRecord.id,
         credits_remaining: remainingCredits,
       }),

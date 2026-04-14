@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCacheKey,
+  getCache,
+  setCache,
+  runImageProviders,
+  loadImagePartFromUrl,
+} from "../_shared/aiRouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -124,10 +131,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SB_SERVICE_ROLE_JWT") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const groqApiKey = Deno.env.get("GROQ_API_KEY");
     const falApiKey = Deno.env.get("FAL_KEY");
-
-    if (!falApiKey) {
-      throw new Error("FAL_KEY not configured");
-    }
 
     const supabaseAnonKey =
       Deno.env.get("SB_ANON_JWT") ??
@@ -267,43 +270,94 @@ serve(async (req) => {
 
     const finalPrompt = `${enhancedInstruction}. Keep YouTube 16:9 framing and preserve recognizable layout intent. ${languageInstruction}`;
 
-    // Generate image with FLUX Kontext
+    const hasSubscriptionPlan = ["basic", "creator", "pro", "studio"].includes(credits.plan_type);
+    const allowPaidFallback = hasSubscriptionPlan;
+
+    const cacheKey = await buildCacheKey("recreate-thumbnail", {
+      prompt: finalPrompt,
+      originalThumbUrl,
+      similarity_strength,
+      language_change,
+    });
+    const inputHash = cacheKey.split(":").slice(2).join(":");
+    const cached = await getCache(supabaseAdmin, cacheKey);
+
     const startTime = Date.now();
-    const falData = await runFalJob(
-      "fal-ai/flux-pro/kontext",
-      {
-        prompt: finalPrompt,
-        image_url: originalThumbUrl,
-        strength: Math.max(0.1, Math.min(1, similarity_strength / 100)),
-      },
-      falApiKey,
-    );
+    let generatedImageUrl = cached?.image_url || null;
+    let modelUsed = cached?.model_used || "unknown";
+    let provider = cached?.provider || "cache";
 
-    const generatedImageUrl = extractFalImageUrl(falData);
-    if (!generatedImageUrl) throw new Error("No image returned from FLUX Kontext");
+    if (!generatedImageUrl) {
+      const imagePart = await loadImagePartFromUrl(originalThumbUrl);
+      const result = await runImageProviders(supabaseAdmin, {
+        gemini: {
+          prompt: finalPrompt,
+          aspectRatio: "16:9",
+          imageSize: "1K",
+          images: [imagePart],
+        },
+        pollinations: {
+          prompt: finalPrompt,
+          width: 1280,
+          height: 720,
+          model: "kontext",
+          imageUrl: originalThumbUrl,
+        },
+        allowPaidFallback,
+        paidFallback: async () => {
+          if (!falApiKey) throw new Error("FAL_KEY not configured");
+          const falData = await runFalJob(
+            "fal-ai/flux-pro/kontext",
+            {
+              prompt: finalPrompt,
+              image_url: originalThumbUrl,
+              strength: Math.max(0.1, Math.min(1, similarity_strength / 100)),
+            },
+            falApiKey,
+          );
 
-    const imageResp = await fetch(generatedImageUrl);
-    if (!imageResp.ok) throw new Error("Failed to fetch recreated image");
-    const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
-    const fileName = `${user.id}/${crypto.randomUUID()}.png`;
+          const url = extractFalImageUrl(falData);
+          if (!url) throw new Error("No image returned from FLUX Kontext");
+          return { imageUrl: url, provider: "fal", modelUsed: "FLUX.1 Kontext Pro" };
+        },
+      });
 
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("thumbnails")
-      .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
+      generatedImageUrl = result.imageUrl;
+      modelUsed = result.modelUsed;
+      provider = result.provider;
+    }
 
-    if (uploadError) throw new Error("Failed to upload image");
+    if (!generatedImageUrl) throw new Error("No image returned from provider");
 
-    const { data: publicUrlData } = supabaseAdmin.storage.from("thumbnails").getPublicUrl(fileName);
-    const generationTime = Date.now() - startTime;
+    let publicUrl = generatedImageUrl;
+    let generationTime = Date.now() - startTime;
+    if (!cached) {
+      const imageResp = await fetch(generatedImageUrl);
+      if (!imageResp.ok) throw new Error("Failed to fetch recreated image");
+      const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
+      const fileName = `${user.id}/${crypto.randomUUID()}.png`;
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("thumbnails")
+        .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
+
+      if (uploadError) throw new Error("Failed to upload image");
+
+      const { data: publicUrlData } = supabaseAdmin.storage.from("thumbnails").getPublicUrl(fileName);
+      publicUrl = publicUrlData.publicUrl;
+      await setCache(supabaseAdmin, cacheKey, "recreate-thumbnail", inputHash, provider, modelUsed, publicUrl);
+    } else {
+      generationTime = 0;
+    }
 
     const { data: thumbRecord, error: insertError } = await supabaseAdmin
       .from("thumbnails")
       .insert({
         user_id: user.id,
-        image_url: publicUrlData.publicUrl,
+        image_url: publicUrl,
         prompt: change_instruction || "Recreated from YouTube",
         enhanced_prompt: enhancedInstruction,
-        model_used: "FLUX.1 Kontext Pro",
+        model_used: modelUsed,
         style: `similarity-${similarity_strength}`,
         format_type: "16:9",
         generation_time_ms: generationTime,
@@ -336,7 +390,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        image_url: publicUrlData.publicUrl,
+        image_url: publicUrl,
         thumbnail_id: thumbRecord.id,
         original_url: originalThumbUrl,
         credits_remaining: remainingCredits,

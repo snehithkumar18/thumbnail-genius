@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCacheKey,
+  getCache,
+  setCache,
+  runImageProviders,
+  loadImagePartFromUrl,
+} from "../_shared/aiRouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,9 +91,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SB_SERVICE_ROLE_JWT") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const falApiKey = Deno.env.get("FAL_KEY");
 
-    if (!falApiKey) {
-      throw new Error("FAL_KEY not configured");
-    }
+    const hasFal = !!falApiKey;
 
     const authHeader = req.headers.get("Authorization");
     const supabaseAnonKey = Deno.env.get("SB_ANON_JWT") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
@@ -154,44 +159,87 @@ serve(async (req) => {
       });
     }
 
-    const modelUsed = "fal-ai/hy-wu-edit";
-    const prompt = "Using image 1 as the base image, replace the face with the person from image 2 while keeping the subject, pose, and background unchanged.";
+    const hasSubscriptionPlan = ["basic", "creator", "pro", "studio"].includes(credits?.plan_type);
+    const allowPaidFallback = !!hasSubscriptionPlan;
 
-    const hyWuEdit = await runFalJob(
-      modelUsed,
-      {
-        prompt,
-        image_urls: [target_url, face_url],
-      },
-      falApiKey,
-    );
+    const cacheKey = await buildCacheKey("face-swap", { target_url, face_url });
+    const inputHash = cacheKey.split(":").slice(2).join(":");
+    const cached = await getCache(supabase, cacheKey);
 
-    const imageUrl = extractFalImageUrl(hyWuEdit);
+    let imageUrl = cached?.image_url || null;
+    let modelUsed = cached?.model_used || "unknown";
+    let provider = cached?.provider || "cache";
+
     if (!imageUrl) {
-      throw new Error("HY-WU edit returned no image");
+      const baseImage = await loadImagePartFromUrl(target_url);
+      const faceImage = await loadImagePartFromUrl(face_url);
+      const prompt = "Replace the face of the person in the first image with the face from the second image. Keep pose, lighting, and background unchanged.";
+
+      const result = await runImageProviders(supabase, {
+        gemini: {
+          prompt,
+          aspectRatio: "16:9",
+          imageSize: "1K",
+          images: [baseImage, faceImage],
+        },
+        pollinations: {
+          prompt: `${prompt} Reference face url: ${face_url}`,
+          width: 1280,
+          height: 720,
+          model: "kontext",
+          imageUrl: target_url,
+        },
+        allowPaidFallback,
+        paidFallback: async () => {
+          if (!hasFal) throw new Error("FAL_KEY not configured");
+          const modelPath = "fal-ai/hy-wu-edit";
+          const hyWuEdit = await runFalJob(
+            modelPath,
+            {
+              prompt,
+              image_urls: [target_url, face_url],
+            },
+            falApiKey,
+          );
+          const url = extractFalImageUrl(hyWuEdit);
+          if (!url) throw new Error("HY-WU edit returned no image");
+          return { imageUrl: url, provider: "fal", modelUsed: "fal-ai/hy-wu-edit" };
+        },
+      });
+
+      imageUrl = result.imageUrl;
+      modelUsed = result.modelUsed;
+      provider = result.provider;
     }
 
-    const imageResp = await fetch(imageUrl);
-    if (!imageResp.ok) {
-      throw new Error("Failed to fetch face-swap image");
+    if (!imageUrl) throw new Error("Face swap returned no image");
+
+    let publicUrl = imageUrl;
+    if (!cached) {
+      const imageResp = await fetch(imageUrl);
+      if (!imageResp.ok) {
+        throw new Error("Failed to fetch face-swap image");
+      }
+      const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
+      const fileName = `${user.id}/faceswap/${crypto.randomUUID()}.png`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("thumbnails")
+        .upload(fileName, imageBytes, { contentType: "image/png" });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from("thumbnails").getPublicUrl(fileName);
+      publicUrl = urlData.publicUrl;
+      await setCache(supabase, cacheKey, "face-swap", inputHash, provider, modelUsed, publicUrl);
     }
-    const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
-    const fileName = `${user.id}/faceswap/${crypto.randomUUID()}.png`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("thumbnails")
-      .upload(fileName, imageBytes, { contentType: "image/png" });
-
-    if (uploadError) throw uploadError;
-
-    const { data: urlData } = supabase.storage.from("thumbnails").getPublicUrl(fileName);
 
     // Save thumbnail
     const { data: thumbnail, error: insertError } = await supabase
       .from("thumbnails")
       .insert({
         user_id: user.id,
-        image_url: urlData.publicUrl,
+        image_url: publicUrl,
         prompt: "Face swap",
         model_used: modelUsed,
         format_type: "16:9",
@@ -227,7 +275,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        image_url: urlData.publicUrl,
+        image_url: publicUrl,
         thumbnail_id: thumbnail.id,
         credits_remaining: remainingCredits,
       }),
