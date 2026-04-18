@@ -6,7 +6,7 @@ import {
   setCache,
   runImageProviders,
   loadImagePartFromUrl,
-} from "../_shared/aiRouter.ts";
+} from "./aiRouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

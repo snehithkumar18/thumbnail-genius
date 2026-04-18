@@ -39,8 +39,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  const clearAuthStorage = () => {
+    const purge = (storage: Storage) => {
+      for (let i = storage.length - 1; i >= 0; i -= 1) {
+        const key = storage.key(i);
+        if (!key) continue;
+        if (key.startsWith('sb-') || key.includes('supabase.auth')) {
+          storage.removeItem(key);
+        }
+      }
+    };
+    purge(localStorage);
+    purge(sessionStorage);
+  };
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      clearAuthStorage();
+      window.location.assign('/');
+    }
   };
 
   return (

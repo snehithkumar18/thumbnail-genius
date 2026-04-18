@@ -7,6 +7,90 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+type DetectedLayer = {
+  type: "text" | "person" | "object" | "background";
+  label: string;
+  mask_url?: string | null;
+  bbox?: { x: number; y: number; w: number; h: number } | null;
+};
+
+const extractJson = (text: string): any => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[1] || match[0]);
+    } catch {
+      return null;
+    }
+  }
+};
+
+const fetchImageAsBase64 = async (imageUrl: string): Promise<{ data: string; mimeType: string }> => {
+  const resp = await fetch(imageUrl);
+  if (!resp.ok) throw new Error("Failed to fetch image for Gemini detect");
+  const mimeType = resp.headers.get("content-type") || "image/jpeg";
+  const bytes = new Uint8Array(await resp.arrayBuffer());
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
+  }
+  return { data: btoa(binary), mimeType };
+};
+
+const detectWithGemini = async (imageUrl: string): Promise<DetectedLayer[]> => {
+  const apiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY");
+  if (!apiKey) return [];
+
+  const image = await fetchImageAsBase64(imageUrl);
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inline_data: {
+                mime_type: image.mimeType,
+                data: image.data,
+              },
+            },
+            {
+              text: "Detect major editable thumbnail elements and return only JSON in this shape: {\"layers\":[{\"type\":\"person|object|background|text\",\"label\":\"...\",\"bbox\":{\"x\":0.0,\"y\":0.0,\"w\":0.0,\"h\":0.0}}]}. bbox values must be normalized from 0 to 1. Include at least one background layer and up to 12 major layers. Avoid tiny or duplicate items.",
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+
+  if (!response.ok) return [];
+  const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("\n") || "";
+  const parsed = extractJson(text);
+  const layers = Array.isArray(parsed?.layers) ? parsed.layers : [];
+  return layers
+    .filter((l: any) => l?.type && l?.label && l?.bbox)
+    .map((l: any) => ({
+      type: ["text", "person", "background"].includes(String(l.type)) ? l.type : "object",
+      label: String(l.label),
+      bbox: {
+        x: Number(l.bbox.x),
+        y: Number(l.bbox.y),
+        w: Number(l.bbox.w),
+        h: Number(l.bbox.h),
+      },
+    }));
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -41,7 +125,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Unauthorized user" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Call Fal.ai sequentially or in parallel
+    // Try Fal.ai first; fall back to Gemini if Fal returns no useful layers.
     const [evfRes, birefnetRes] = await Promise.all([
       fetch("https://fal.run/fal-ai/evf-sam", {
         method: "POST",
@@ -68,19 +152,14 @@ serve(async (req) => {
       })
     ]);
 
-    if (!evfRes.ok || !birefnetRes.ok) {
-        console.error("Fal API errors", await evfRes.text(), await birefnetRes.text());
-        throw new Error("Fal AI APIs failed");
-    }
+    const evfData = evfRes.ok ? await evfRes.json() : null;
+    const birefnetData = birefnetRes.ok ? await birefnetRes.json() : null;
 
-    const evfData = await evfRes.json();
-    const birefnetData = await birefnetRes.json();
-
-    const layers = [];
+    const layers: DetectedLayer[] = [];
 
     // Background mask from BiRefNet (we'll just label the overall result as 'background' layer optionally, or add object maps)
     // Actually, BiRefNet just returns the object with no bg. Let's create a 'background' type layer assuming there's a mask.
-    if (birefnetData.image && birefnetData.image.url) {
+    if (birefnetData?.image?.url) {
         layers.push({
             type: 'background',
             label: 'Background',
@@ -89,23 +168,45 @@ serve(async (req) => {
     }
 
     // Maps from EVF-SAM2
-    if (evfData.masks && Array.isArray(evfData.masks)) {
-        evfData.masks.forEach((m: any, index: number) => {
+    const masks = Array.isArray(evfData?.masks)
+      ? evfData.masks
+      : Array.isArray(evfData?.output?.masks)
+      ? evfData.output.masks
+      : [];
+    if (masks.length > 0) {
+        masks.forEach((m: any, index: number) => {
            // Basic logic, infer type from label (EVF-SAM might return specific labels based on the prompt)
            const txtLabel = String(m.label || "Object").toLowerCase();
            let type = 'object';
            if (txtLabel.includes('person') || txtLabel.includes('face')) type = 'person';
            else if (txtLabel.includes('text')) type = 'text';
 
+           let bbox = null;
+           if (Array.isArray(m.box) && m.box.length === 4) {
+             const [x1, y1, x2, y2] = m.box.map((n: any) => Number(n));
+             bbox = { x: x1, y: y1, w: Math.max(0, x2 - x1), h: Math.max(0, y2 - y1) };
+           } else if (m.box && typeof m.box === "object") {
+             const x = Number((m.box.x ?? m.box.left ?? 0));
+             const y = Number((m.box.y ?? m.box.top ?? 0));
+             const w = Number((m.box.w ?? m.box.width ?? 0));
+             const h = Number((m.box.h ?? m.box.height ?? 0));
+             bbox = { x, y, w, h };
+           }
+
            if (type !== 'text') { // Text detection done strictly frontend via Tesseract
              layers.push({
                type,
                label: m.label || `Object ${index + 1}`,
                mask_url: m.mask_url || null,
-               bbox: m.box || null // Might be normalized or coordinates
+               bbox,
              });
            }
         });
+    }
+
+    if (layers.length === 0) {
+      const geminiLayers = await detectWithGemini(image_url);
+      layers.push(...geminiLayers.filter((l) => l.type !== "text"));
     }
 
     // Insert layers into the table

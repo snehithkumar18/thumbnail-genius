@@ -38,3 +38,15 @@ verify_jwt = false
 
 [functions.debug-env]
 verify_jwt = false
+
+[functions.smart-editor-detect]
+verify_jwt = false
+
+[functions.smart-editor-replace]
+verify_jwt = false
+
+[functions.smart-editor-save-session]
+verify_jwt = false
+
+[functions.smart-editor-upscale]
+verify_jwt = false

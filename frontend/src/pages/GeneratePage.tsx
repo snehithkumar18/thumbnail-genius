@@ -32,7 +32,7 @@ type GeneratedImage = {
 const GeneratePage = () => {
   const { user } = useAuth();
   const { data: credits } = useCredits();
-  const { canUseBatch } = usePlanAccess();
+  const { canUseBatch, plan } = usePlanAccess();
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();

@@ -26,9 +26,14 @@ export async function detectTextInImage(
 
   const textLayers: TextLayer[] = [];
 
+  const rawWords = result?.data?.words;
+  if (!Array.isArray(rawWords) || rawWords.length === 0) {
+    return [];
+  }
+
   // Filter by confidence > 60% and minimum word length
-  const words = result.data.words.filter(
-    word => word.confidence > 60 && word.text.trim().length > 1
+  const words = rawWords.filter(
+    (word) => word.confidence > 60 && word.text.trim().length > 1
   );
 
   // Group nearby words into text blocks

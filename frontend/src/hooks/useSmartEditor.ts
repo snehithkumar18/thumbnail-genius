@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { detectTextInImage } from '@/utils/detectText';
 import type { TextLayer } from '@/utils/detectText';
+import type { Worker } from 'tesseract.js';
 import { toast } from 'sonner';
 
 export interface Layer {
@@ -95,17 +96,23 @@ export function useSmartEditor() {
     }
   };
 
-  const detectLayers = async () => {
-    if (!state.sessionId || !state.currentImageUrl) return;
+  const detectLayers = async (
+    worker?: Worker,
+    overrides?: { sessionId?: string; imageUrl?: string; force?: boolean }
+  ) => {
+    const sessionId = overrides?.sessionId ?? state.sessionId;
+    const imageUrl = overrides?.imageUrl ?? state.currentImageUrl;
+    if (!sessionId || !imageUrl) return;
 
     // STEP 10: SAM2 Result Caching
-    const cacheKey = `sam2_${btoa(state.currentImageUrl)}`;
-    const cachedData = localStorage.getItem(cacheKey);
-    if (cachedData) {
+    const canUseLocalCache = !imageUrl.startsWith("data:");
+    const cacheKey = canUseLocalCache ? `sam2_${imageUrl}` : null;
+    const cachedData = cacheKey ? localStorage.getItem(cacheKey) : null;
+    if (cachedData && !overrides?.force) {
         try {
             const { layers, timestamp } = JSON.parse(cachedData);
             const isFresh = Date.now() - timestamp < 24 * 60 * 60 * 1000;
-            if (isFresh) {
+        if (isFresh && Array.isArray(layers) && layers.length > 0) {
                 updateState({ layers });
                 toast.success('Layers loaded from cache (Instant ✨)');
                 return;
@@ -117,15 +124,58 @@ export function useSmartEditor() {
 
     updateState({ isDetecting: true });
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        throw new Error('Please sign in again to use Smart Editor');
+      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Session expired. Please sign in again');
+      }
+
+      const decodeJwtHeader = (token: string) => {
+        try {
+          const header = token.split('.')[0];
+          const base64 = header.replace(/-/g, '+').replace(/_/g, '/');
+          const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+          return JSON.parse(atob(padded));
+        } catch {
+          return null;
+        }
+      };
+
+      const clearAuthStorage = () => {
+        const purge = (storage: Storage) => {
+          for (let i = storage.length - 1; i >= 0; i -= 1) {
+            const key = storage.key(i);
+            if (!key) continue;
+            if (key.startsWith('sb-') || key.includes('supabase.auth')) {
+              storage.removeItem(key);
+            }
+          }
+        };
+        purge(localStorage);
+        purge(sessionStorage);
+      };
+
+      const tokenHeader = decodeJwtHeader(accessToken);
+      if (tokenHeader?.alg && !['HS256', 'ES256'].includes(tokenHeader.alg)) {
+        await supabase.auth.signOut();
+        clearAuthStorage();
+        throw new Error('Invalid auth token. Please refresh and sign in again');
+      }
       
       // Parallel execution setup
       const backendPromise = supabase.functions.invoke('smart-editor-detect', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: {
-          image_url: state.currentImageUrl,
-          session_id: state.sessionId,
-          user_id: userData.user?.id
-        }
+          image_url: imageUrl,
+          session_id: sessionId,
+          user_id: userData.user.id,
+        },
       });
 
       // Load image for dimensions and Tesseract
@@ -134,7 +184,7 @@ export function useSmartEditor() {
       const imageLoadPromise = new Promise<HTMLImageElement>((resolve, reject) => {
           img.onload = () => resolve(img);
           img.onerror = () => reject(new Error('Failed to load image dimensions'));
-          img.src = state.currentImageUrl!;
+            img.src = imageUrl;
       });
 
       const [imgEl, backendResult] = await Promise.all([imageLoadPromise, backendPromise]);
@@ -142,21 +192,31 @@ export function useSmartEditor() {
       
       // Run Tesseract text detection in parallel after getting dimensions
       // Wait, user instructions say: "After EVF-SAM2 and BiRefNet complete (Promise.all done)"
-      const textLayersPromise = detectTextInImage(
-          state.currentImageUrl, 
-          imgEl.naturalWidth, 
-          imgEl.naturalHeight
-      );
+          const textLayersPromise = detectTextInImage(
+            imageUrl,
+          imgEl.naturalWidth,
+          imgEl.naturalHeight,
+          worker
+        );
 
       if (error) throw new Error(error.message);
 
       const rawLayers: BackendLayer[] = Array.isArray(backendLayersData) ? backendLayersData : [];
       const sam2Layers: Layer[] = rawLayers.map((layer) => ({
+        ...(layer.bbox && layer.bbox.w <= 1 && layer.bbox.h <= 1
+          ? {
+              boundingBox: {
+                x: layer.bbox.x * imgEl.naturalWidth,
+                y: layer.bbox.y * imgEl.naturalHeight,
+                w: layer.bbox.w * imgEl.naturalWidth,
+                h: layer.bbox.h * imgEl.naturalHeight,
+              },
+            }
+          : { boundingBox: layer.bbox }),
         id: crypto.randomUUID(),
         type: layer.type,
         label: layer.label,
         maskUrl: layer.mask_url,
-        boundingBox: layer.bbox,
         isVisible: true,
         isLocked: false,
         isEdited: false,
@@ -172,21 +232,35 @@ export function useSmartEditor() {
           console.error("OCR detection failed:", err);
       }
 
+      const scaleTextBoxIfNormalized = (bbox: TextLayer['boundingBox']) => {
+        if (bbox.w <= 1 && bbox.h <= 1) {
+          return {
+            x: bbox.x * imgEl.naturalWidth,
+            y: bbox.y * imgEl.naturalHeight,
+            w: bbox.w * imgEl.naturalWidth,
+            h: bbox.h * imgEl.naturalHeight,
+          };
+        }
+        return bbox;
+      };
+
       // Format text layers to match State Layer
-        const formattedTextLayers: Layer[] = textLayers.map((l) => ({
+      const formattedTextLayers: Layer[] = textLayers.map((l) => ({
           id: crypto.randomUUID(),
           type: 'text',
           label: l.label,
           originalContent: l.originalContent,
-          boundingBox: l.boundingBox,
+          boundingBox: scaleTextBoxIfNormalized(l.boundingBox),
           isVisible: true,
           isLocked: false,
           isEdited: false,
       }));
 
+      const hasTextLayers = formattedTextLayers.length > 0;
+
       // Deduplicate: remove SAM2 "text" detections if Tesseract found better ones
       // Also separate out background to append at the end
-      const filteredSam2 = sam2Layers.filter(l => l.type !== 'text' && l.type !== 'background');
+      const filteredSam2 = sam2Layers.filter(l => (hasTextLayers ? l.type !== 'text' : true) && l.type !== 'background');
       
       const mergedLayers = [
         ...filteredSam2,
@@ -202,13 +276,19 @@ export function useSmartEditor() {
         ...mergedLayers.filter(l => l.type === 'background'),
       ];
 
+      if (!sortedLayers.length) {
+        throw new Error('No layers detected. Try Scan again or use a clearer image.');
+      }
+
       updateState({ layers: sortedLayers });
 
       // Cache for 24 hours
-      localStorage.setItem(cacheKey, JSON.stringify({
-          layers: sortedLayers,
-          timestamp: Date.now()
-      }));
+      if (cacheKey) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+            layers: sortedLayers,
+            timestamp: Date.now()
+        }));
+      }
 
       toast.success('Image components detected successfully');
     } catch (err: unknown) {

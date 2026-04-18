@@ -19,6 +19,7 @@ import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle } from '@/components/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { hapticFeedback } from '@/lib/utils';
 import useImage from 'use-image';
+import { supabase } from '@/integrations/supabase/client';
 
 const BACKGROUND_STYLES = [
   { id: 'city_night', label: '🌃 City Night', desc: 'Dark city skyline at night with lights' },
@@ -60,7 +61,7 @@ export default function SmartEditorPage() {
   const currentCredits = creditsData?.credits_remaining ?? 0;
   const filteredMyThumbs = myThumbs.filter(t => t.prompt?.toLowerCase().includes(thumbSearch.toLowerCase()) || !thumbSearch);
 
-  const isLockedPlan = ['none'].includes(plan?.toLowerCase() || 'none');
+    const isLockedPlan = false;
 
   // Pre-load Tesseract worker
   useEffect(() => {
@@ -79,27 +80,116 @@ export default function SmartEditorPage() {
     };
   }, []);
 
-  // Load from URL params on mount
+    const uploadSmartEditorImage = async (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please upload an image file');
+            return null;
+        }
+
+        const { data: userData, error: authError } = await supabase.auth.getUser();
+        if (authError || !userData?.user) {
+            toast.error('Please sign in again');
+            return null;
+        }
+
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+        const path = `${userData.user.id}/smart-editor/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+            .from('thumbnails')
+            .upload(path, file, { contentType: file.type });
+
+        if (uploadError) {
+            toast.error(uploadError.message || 'Failed to upload image');
+            return null;
+        }
+
+        try {
+            const { data: signedData, error: signedError } = await supabase.storage
+                .from('thumbnails')
+                .createSignedUrl(path, 60 * 60);
+            if (!signedError && signedData?.signedUrl) {
+                return signedData.signedUrl;
+            }
+        } catch {
+            // Fall back to public URL below.
+        }
+
+        const { data } = supabase.storage.from('thumbnails').getPublicUrl(path);
+        return data.publicUrl || null;
+    };
+
+    const extractYoutubeThumbnail = (rawUrl: string) => {
+        try {
+            const url = new URL(rawUrl);
+            const host = url.hostname.replace('www.', '');
+            let videoId = '';
+
+            if (host === 'youtu.be') {
+                videoId = url.pathname.replace('/', '');
+            } else if (host === 'youtube.com' || host === 'm.youtube.com') {
+                if (url.pathname === '/watch') videoId = url.searchParams.get('v') || '';
+                if (url.pathname.startsWith('/shorts/')) videoId = url.pathname.split('/')[2] || '';
+            }
+
+            if (!videoId) return null;
+            return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+        } catch {
+            return null;
+        }
+    };
+
+    const normalizeInputImageUrl = async (rawUrl: string) => {
+        const youtubeThumb = extractYoutubeThumbnail(rawUrl);
+        if (!youtubeThumb) return rawUrl;
+
+        try {
+            const head = await fetch(youtubeThumb, { method: 'HEAD' });
+            if (head.ok) return youtubeThumb;
+        } catch {
+            // Ignore and fall back.
+        }
+
+        const fallback = youtubeThumb.replace('/maxresdefault.jpg', '/hqdefault.jpg');
+        return fallback;
+    };
+
+    const runDetectWithWorker = async (
+        sessionId?: string,
+        imageUrl?: string,
+        force?: boolean
+    ) => {
+        await editor.detectLayers(workerRef.current || undefined, {
+            sessionId,
+            imageUrl,
+            force,
+        });
+    };
+
+    // Load from URL params on mount
   useEffect(() => {
     const thumbId = searchParams.get('thumbnail_id');
     const imgUrl = searchParams.get('image_url');
     if (thumbId && !editor.sessionId) {
       if (imgUrl) {
-          editor.initSession(imgUrl, 'from_thumbnail', thumbId).then(() => {
-              editor.detectLayers();
-          });
+                      editor.initSession(imgUrl, 'from_thumbnail', thumbId).then((sessionId) => {
+                          if (!sessionId) return;
+                          runDetectWithWorker(sessionId, imgUrl);
+                      });
       }
     } else if (imgUrl && !editor.sessionId) {
-      editor.initSession(imgUrl, 'from_url').then(() => {
-          editor.detectLayers();
-      });
+                  editor.initSession(imgUrl, 'from_url').then((sessionId) => {
+                      if (!sessionId) return;
+                      runDetectWithWorker(sessionId, imgUrl);
+                  });
     }
   }, [searchParams]);
 
   const handleUrlLoad = async () => {
     if (!inputUrl) return;
-    await editor.initSession(inputUrl, 'from_url');
-    await editor.detectLayers();
+        const normalizedUrl = await normalizeInputImageUrl(inputUrl.trim());
+        const sessionId = await editor.initSession(normalizedUrl, 'from_url');
+        if (!sessionId) return;
+        await runDetectWithWorker(sessionId, normalizedUrl);
   };
 
   const selectedLayer = editor.layers.find(l => l.id === editor.selectedLayerId);
@@ -176,10 +266,10 @@ export default function SmartEditorPage() {
           </div>
       </header>
 
-      <div className="flex-1 flex flex-col tab:flex-row overflow-hidden relative">
+    <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
       
         {/* -------------------- LEFT COLUMN: LAYERS (Desktop) -------------------- */}
-        <div id="tour-layers" className="hidden tab:flex w-[240px] border-r border-border bg-card flex-col shrink-0 h-full">
+        <div id="tour-layers" className="hidden lg:flex w-[240px] border-r border-border bg-card flex-col shrink-0 h-full">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-[#0F0A1E]" />
@@ -261,27 +351,37 @@ export default function SmartEditorPage() {
         </div>
 
         {/* -------------------- CENTER COLUMN: CANVAS -------------------- */}
-        <div id="tour-canvas" className="flex-1 flex flex-col relative bg-muted/10 h-full min-w-0 pb-16 tab:pb-0">
+        <div id="tour-canvas" className="flex-1 flex flex-col relative bg-muted/10 h-full min-w-0 pb-16 lg:pb-0">
           
           {/* Top Controls */}
           {editor.currentImageUrl && (
-            <div className="h-12 tab:h-14 border-b border-border bg-background/50 backdrop-blur-sm flex items-center justify-between px-3 tab:px-4 shrink-0 transition-all z-10">
-                <div className="flex items-center bg-muted p-0.5 rounded-full text-[10px] tab:text-xs">
+            <div className="h-12 lg:h-14 border-b border-border bg-background/50 backdrop-blur-sm flex items-center justify-between px-3 lg:px-4 shrink-0 transition-all z-10">
+                <div className="flex items-center bg-muted p-0.5 rounded-full text-[10px] lg:text-xs">
                     <button 
-                        className={`px-2 tab:px-3 py-1 rounded-full transition-all ${viewMode === 'original' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`px-2 lg:px-3 py-1 rounded-full transition-all ${viewMode === 'original' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         onClick={() => setViewMode('original')}
                     >
                         Original
                     </button>
                     <button 
-                        className={`px-2 tab:px-3 py-1 rounded-full transition-all ${viewMode === 'edited' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`px-2 lg:px-3 py-1 rounded-full transition-all ${viewMode === 'edited' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         onClick={() => setViewMode('edited')}
                     >
                         Edited
                     </button>
                 </div>
 
-                <div className="flex items-center gap-1 tab:gap-2">
+                <div className="flex items-center gap-1 lg:gap-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => runDetectWithWorker(editor.sessionId || undefined, editor.currentImageUrl || undefined, true)}
+                        disabled={editor.isDetecting || !editor.currentImageUrl}
+                        title="Scan layers"
+                    >
+                        <Search className="h-3.5 w-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editor.undoLastEdit()} disabled={editor.editHistory.length <= 1}>
                         <RotateCcw className="h-3.5 w-3.5" />
                     </Button>
@@ -292,8 +392,14 @@ export default function SmartEditorPage() {
             </div>
           )}
 
-          {/* Canvas Area */}
-          <div className="flex-1 relative flex items-center justify-center p-0">
+                    {/* Canvas Area */}
+                    <div className="flex-1 relative flex items-center justify-center p-0">
+                            {editor.isDetecting && (
+                                <div className="absolute inset-0 z-30 bg-white/50 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+                                    <div className="h-10 w-10 border-4 border-[#8B47FF] border-t-transparent rounded-full animate-spin" />
+                                    <p className="text-xs font-medium text-[#8B47FF]">Scanning for layers...</p>
+                                </div>
+                            )}
               
               {editor.currentImageUrl ? (
                   <>
@@ -343,14 +449,16 @@ export default function SmartEditorPage() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl">
                           <label className="cursor-pointer group">
-                               <input type="file" className="hidden" onChange={(e) => {
+                               <input type="file" className="hidden" onChange={async (e) => {
                                    const file = e.target.files?.[0];
-                                   if (file) {
-                                       const url = URL.createObjectURL(file); // simplified for demo
-                                       editor.initSession(url, 'upload').then(() => editor.detectLayers());
-                                   }
+                                   if (!file) return;
+                                   const uploadedUrl = await uploadSmartEditorImage(file);
+                                   if (!uploadedUrl) return;
+                                   const sessionId = await editor.initSession(uploadedUrl, 'upload');
+                                   if (!sessionId) return;
+                                   await runDetectWithWorker(sessionId, uploadedUrl);
                                }} />
-                               <div className="p-6 bg-card border border-border rounded-2xl hover:border-[#8B47FF] hover:shadow-xl hover:shadow-[#8B47FF]/5 transition-all text-center h-full flex flex-col items-center">
+                                         <div className="p-6 bg-card border border-border rounded-2xl hover:border-[#8B47FF] hover:shadow-xl hover:shadow-[#8B47FF]/5 transition-all text-center h-full flex flex-col items-center">
                                   <UploadCloud className="h-8 w-8 text-[#8B47FF] mb-3 group-hover:scale-110 transition-transform" />
                                   <h3 className="font-semibold text-sm mb-1">Upload Image</h3>
                                   <p className="text-[10px] text-muted-foreground">Select local file</p>
@@ -389,7 +497,7 @@ export default function SmartEditorPage() {
 
           {/* Bottom Edit History (Desktop only) */}
           {editor.editHistory.length > 0 && (
-            <div className="hidden tab:flex h-28 bg-card border-t border-border shrink-0 flex-col p-0 z-10 transition-all">
+            <div className="hidden lg:flex h-28 bg-card border-t border-border shrink-0 flex-col p-0 z-10 transition-all">
                 <HistoryStrip 
                     history={editor.editHistory}
                     currentIndex={editor.editHistory.length - 1} // latest
@@ -402,7 +510,7 @@ export default function SmartEditorPage() {
         {/* -------------------- RIGHT COLUMN: EDIT CONTROLS (Desktop) -------------------- */}
         <div 
           id="tour-controls"
-          className="hidden tab:flex w-[320px] border-l border-border bg-card flex-col shrink-0 h-full relative"
+          className="hidden lg:flex w-[320px] border-l border-border bg-card flex-col shrink-0 h-full relative"
         >
           <div className="flex-1 overflow-y-auto w-full p-4">
               {!selectedLayer ? (
@@ -569,7 +677,7 @@ export default function SmartEditorPage() {
                 {/* -------------------- MOBILE DRAWER -------------------- */}
         {editor.sessionId && (
             <Drawer open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
-                <div className="fixed bottom-0 inset-x-0 tab:hidden p-3 bg-background border-t border-border z-30 flex items-center justify-between">
+                <div className="fixed bottom-0 inset-x-0 lg:hidden p-3 bg-background border-t border-border z-30 flex items-center justify-between">
                     <DrawerTrigger asChild>
                         <Button variant="hero" size="sm" className="flex-1">
                             <Sparkles className="h-3.5 w-3.5 mr-2" />

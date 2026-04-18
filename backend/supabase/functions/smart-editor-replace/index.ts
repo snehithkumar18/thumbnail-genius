@@ -6,7 +6,7 @@ import {
   setCache,
   runImageProviders,
   loadImagePartFromUrl,
-} from "../_shared/aiRouter.ts";
+} from "./aiRouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -217,10 +217,18 @@ serve(async (req) => {
         
       // We can proceed even if it fails the upload and just use fal URL, but saving to storage is better.
       if (!uploadError) {
-        const { data: publicUrlData } = supabaseAdmin.storage
+        const { data: signedData, error: signedError } = await supabaseAdmin.storage
           .from("smart_editor")
-          .getPublicUrl(fileName);
-        finalImageUrl = publicUrlData.publicUrl;
+          .createSignedUrl(fileName, 60 * 60);
+
+        if (!signedError && signedData?.signedUrl) {
+          finalImageUrl = signedData.signedUrl;
+        } else {
+          const { data: publicUrlData } = supabaseAdmin.storage
+            .from("smart_editor")
+            .getPublicUrl(fileName);
+          finalImageUrl = publicUrlData.publicUrl;
+        }
       }
 
       await setCache(supabaseAdmin, cacheKey, "smart-editor-replace", inputHash, provider, modelUsed, finalImageUrl);

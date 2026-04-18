@@ -5,7 +5,7 @@ import {
   getCache,
   setCache,
   runImageProviders,
-} from "../_shared/aiRouter.ts";
+} from "./aiRouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -356,7 +356,11 @@ serve(async (req) => {
           language,
         });
         const inputHash = cacheKey.split(":").slice(2).join(":");
-        const cached = await getCache(supabaseAdmin, cacheKey);
+        let cached = await getCache(supabaseAdmin, cacheKey);
+        if (cached?.provider === "pollinations") {
+          // Prefer Gemini-first behavior over stale Pollinations cache entries.
+          cached = null;
+        }
 
         let imageUrl: string | null = null;
         let modelUsed = "unknown";
