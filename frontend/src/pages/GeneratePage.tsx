@@ -225,7 +225,7 @@ const GeneratePage = () => {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-full lg:h-[calc(100vh-60px-48px)] overflow-hidden">
+    <div className="flex flex-col lg:flex-row gap-6 min-h-0 overflow-hidden">
       {/* Mobile Tab Switcher */}
       <div className="lg:hidden flex p-1 bg-muted rounded-xl mb-2">
         {(["controls", "preview"] as const).map((tab) => (
@@ -335,7 +335,7 @@ const GeneratePage = () => {
         {/* Style Presets */}
         <div>
           <Label className="text-sm font-medium text-foreground mb-3 block">Style</Label>
-          <div className="flex lg:grid lg:grid-cols-3 gap-3 overflow-x-auto scroll-x scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0">
+          <div className="flex lg:grid lg:grid-cols-3 gap-3 overflow-x-auto scroll-x scrollbar-hide">
             {STYLE_PRESETS.map((s) => (
               <button
                 key={s.id}

@@ -96,9 +96,9 @@ const MyThumbnails = () => {
   };
 
   return (
-    <div className="flex flex-col tab:flex-row gap-6 h-full lg:h-[calc(100vh-60px-48px)] overflow-hidden px-4 tab:px-0">
+    <div className="flex flex-col tab:flex-row gap-6 min-h-0 overflow-hidden px-4 tab:px-0">
       {/* Folder navigation (Desktop: Sidebar, Mobile: Horizontal Scroll) */}
-      <div className="flex tab:flex-col tab:w-[220px] shrink-0 gap-1.5 overflow-x-auto tab:overflow-y-auto scrollbar-hide -mx-4 px-4 tab:mx-0 tab:px-0 pb-1 tab:pb-0">
+      <div className="flex tab:flex-col tab:w-[220px] shrink-0 gap-1.5 overflow-x-auto tab:overflow-y-auto scrollbar-hide px-2 tab:px-0 pb-1 tab:pb-0">
         <button
           onClick={() => setActiveFilter("all")}
           className={`shrink-0 tab:w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs tab:text-sm transition-colors whitespace-nowrap ${

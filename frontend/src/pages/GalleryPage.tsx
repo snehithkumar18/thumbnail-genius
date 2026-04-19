@@ -31,13 +31,13 @@ const GalleryPage = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen-d bg-background overflow-x-hidden">
       <SEOHead
         title="AI Thumbnail Gallery — Community Creations"
         description="Browse viral YouTube thumbnails created by the ThumbAI community. Get inspired and recreate similar styles."
       />
       <Navbar onOpenAuth={(tab) => { setAuthOpen(true); }} />
-      <main className="container mx-auto px-4 pt-24 pb-16">
+      <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-heading font-bold text-foreground mb-3">Community Gallery</h1>
           <p className="text-muted-foreground max-w-lg mx-auto">
@@ -62,7 +62,7 @@ const GalleryPage = () => {
         </div>
 
         {isLoading ? (
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+          <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
             {Array.from({ length: 12 }).map((_, i) => (
               <Skeleton key={i} className="w-full aspect-video rounded-xl" />
             ))}
@@ -72,7 +72,7 @@ const GalleryPage = () => {
             <p className="text-muted-foreground">No public thumbnails yet. Be the first!</p>
           </div>
         ) : (
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+          <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
             {thumbnails.map((t) => (
               <div key={t.id} className="break-inside-avoid group">
                 <div className="rounded-xl overflow-hidden border border-border bg-card hover:border-primary/30 transition-all">

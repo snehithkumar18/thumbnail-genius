@@ -31,15 +31,15 @@ const ExampleGallery = () => {
   const filtered = activeTab === "All" ? examples : examples.filter((e) => e.category === activeTab);
 
   return (
-    <section id="examples" className="py-24 bg-background" ref={ref}>
-      <div className="container mx-auto px-4">
+    <section id="examples" className="py-16 sm:py-20 lg:py-24 bg-background" ref={ref}>
+      <div className="container mx-auto px-4 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: 60 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8 }}
           className="text-center mb-12"
         >
-          <h2 className="text-4xl md:text-6xl font-display font-bold mb-4">
+          <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold mb-4">
             Real thumbnails.{" "}
             <span className="gradient-text">Real results.</span>
           </h2>

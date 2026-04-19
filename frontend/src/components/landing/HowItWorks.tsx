@@ -84,8 +84,8 @@ const HowItWorks = () => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.15 });
 
   return (
-    <section className="py-24" ref={ref} style={{ background: "#F8F7FF" }}>
-      <div className="container mx-auto px-4" ref={containerRef}>
+    <section className="py-16 sm:py-20 lg:py-24" ref={ref} style={{ background: "#F8F7FF" }}>
+      <div className="container mx-auto px-4 sm:px-6" ref={containerRef}>
         <motion.div
           initial={{ opacity: 0, y: 60 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
@@ -95,7 +95,7 @@ const HowItWorks = () => {
           <p className="text-xs font-heading tracking-[4px] text-primary mb-4 uppercase">
             How it works
           </p>
-          <h2 className="text-4xl md:text-6xl font-display font-bold">
+          <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold">
             Three steps.{" "}
             <span className="text-muted-foreground">That's it.</span>
           </h2>

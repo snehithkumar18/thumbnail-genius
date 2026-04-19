@@ -270,14 +270,14 @@ const ABTesterPage = () => {
           {selectingFor && (
             <>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-background/60 z-40" onClick={() => setSelectingFor(null)} />
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-                className="fixed inset-x-4 top-[10%] bottom-[10%] md:inset-x-[20%] bg-card border border-border rounded-2xl z-50 flex flex-col overflow-hidden"
+              <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
+                className="fixed inset-x-3 sm:inset-x-6 top-4 bottom-4 md:inset-x-[15%] md:top-[6%] md:bottom-[6%] bg-card border border-border rounded-2xl z-50 flex flex-col overflow-hidden"
               >
                 <div className="flex items-center justify-between p-4 border-b border-border">
                   <h3 className="font-semibold text-foreground">Select Thumbnail for {selectingFor}</h3>
                   <Button variant="ghost" size="icon" onClick={() => setSelectingFor(null)}><X className="h-4 w-4" /></Button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 md:grid-cols-4 gap-3">
+                <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {(thumbnails || []).filter(t => t.image_url).map(t => (
                     <button key={t.id} onClick={() => handleSelectFromLibrary(t.image_url!)}
                       className="rounded-lg overflow-hidden border-2 border-border hover:border-primary transition-all">
@@ -359,9 +359,9 @@ const ABTesterPage = () => {
                            </Button>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
-                          <div className="mt-4 p-3 bg-muted/20 border border-border rounded-lg scale-90 md:scale-95 origin-left">
+                          <div className="mt-4 p-3 bg-muted/20 border border-border rounded-lg origin-left">
                              <p className="text-[10px] uppercase font-bold text-muted-foreground mb-2">WhatsApp/Twitter Preview</p>
-                             <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm flex flex-col max-w-[280px]">
+                             <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm flex flex-col w-full max-w-sm">
                                 <div className="aspect-video relative bg-slate-100 flex items-center justify-center">
                                    <img src={test.thumb_a_url} className="absolute inset-0 w-full h-full object-cover opacity-20 blur-sm" />
                                    <div className="relative z-10 flex gap-1 p-4">

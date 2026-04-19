@@ -86,7 +86,7 @@ const ReferralPage = () => {
         className="glass-card rounded-xl p-6"
       >
         <h3 className="font-heading font-semibold text-foreground mb-4">Your Referral Link</h3>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Input
             value={referralLink}
             readOnly
@@ -156,7 +156,7 @@ const ReferralPage = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="grid grid-cols-3 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
       >
         {[
           { label: "Total Referrals", value: totalReferrals },

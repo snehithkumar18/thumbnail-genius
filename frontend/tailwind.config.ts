@@ -8,18 +8,25 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
-    screens: {
-      "xs": "320px",
-      "sm": "375px",
-      "md": "430px",
-      "tab": "768px",
-      "lg": "1024px",
-      "xl": "1280px",
-      "2xl": "1440px",
-      "3xl": "1920px",
-      "4k": "2560px",
-    },
+      padding: {
+        DEFAULT: "1rem",
+        sm: "1.25rem",
+        md: "1.5rem",
+        lg: "2rem",
+        xl: "2.5rem",
+        "2xl": "3rem",
+      },
+      screens: {
+        "xs": "320px",
+        "sm": "375px",
+        "md": "430px",
+        "tab": "768px",
+        "lg": "1024px",
+        "xl": "1280px",
+        "2xl": "1440px",
+        "3xl": "1920px",
+        "4k": "2560px",
+      },
     },
     extend: {
       fontFamily: {

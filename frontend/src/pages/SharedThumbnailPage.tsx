@@ -27,8 +27,8 @@ const SharedThumbnailPage = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Skeleton className="w-[600px] aspect-video rounded-xl" />
+      <div className="min-h-screen-d bg-background flex items-center justify-center px-4">
+        <Skeleton className="w-full max-w-2xl aspect-video rounded-xl" />
       </div>
     );
   }
@@ -43,13 +43,13 @@ const SharedThumbnailPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen-d bg-background">
       <SEOHead
         title={thumbnail.prompt ? `${thumbnail.prompt.slice(0, 50)}... — ThumbAI` : "AI Thumbnail — ThumbAI"}
         description={thumbnail.prompt || "AI-generated YouTube thumbnail created with ThumbAI"}
         image={thumbnail.image_url || undefined}
       />
-      <div className="container mx-auto px-4 py-12 max-w-3xl">
+      <div className="container mx-auto px-4 sm:px-6 py-12 max-w-3xl">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-6 cursor-pointer" onClick={() => navigate("/")}>
             <Zap className="h-6 w-6 text-primary fill-primary" />

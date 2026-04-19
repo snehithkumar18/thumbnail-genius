@@ -163,7 +163,7 @@ const ThumbnailScorerPage = () => {
             </TabsContent>
 
             <TabsContent value="library" className="mt-4">
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-3 max-h-64 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-64 overflow-y-auto">
                 {(thumbnails || []).filter(t => t.image_url).slice(0, 20).map(t => (
                   <button
                     key={t.id}
@@ -258,7 +258,7 @@ const ThumbnailScorerPage = () => {
             </div>
 
             {/* Improvements */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {result.improvements.map((imp, i) => (
                 <div key={i} className="bg-card border border-border rounded-xl p-4 space-y-3">
                   <Badge variant="outline" className={imp.priority === "high" ? "border-red-500/30 text-red-400" : imp.priority === "medium" ? "border-yellow-500/30 text-yellow-400" : "border-green-500/30 text-green-400"}>

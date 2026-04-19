@@ -165,7 +165,7 @@ const EditorPage = () => {
   // Thumbnail selector
   if (selectingThumbnail) {
     return (
-      <div className="h-[calc(100vh-60px-48px)] flex flex-col">
+      <div className="min-h-0 flex flex-col">
         <div className="mb-6">
           <h1 className="text-xl font-heading font-bold text-foreground flex items-center gap-2">
             ✏️ AI Editor
@@ -173,7 +173,7 @@ const EditorPage = () => {
           <p className="text-sm text-muted-foreground mt-1">Select a thumbnail to edit</p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {allThumbnails?.filter((t) => t.image_url).map((thumb) => (
               <button
                 key={thumb.id}
@@ -199,7 +199,7 @@ const EditorPage = () => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-60px-48px)]">
+    <div className="flex flex-col lg:flex-row gap-4 min-h-0">
       {/* LEFT — Image + Versions */}
       <div className="lg:w-[50%] shrink-0 flex flex-col">
         <div className="flex items-center justify-between mb-3">
@@ -261,7 +261,7 @@ const EditorPage = () => {
                     setCurrentImageUrl(v.url);
                     setCurrentThumbId(v.id);
                   }}
-                  className={`shrink-0 w-20 aspect-video rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`shrink-0 w-16 sm:w-20 aspect-video rounded-lg overflow-hidden border-2 transition-all ${
                     i === activeVersion ? "border-primary shadow-lg shadow-primary/20" : "border-border hover:border-muted-foreground/40"
                   }`}
                 >

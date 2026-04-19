@@ -6,7 +6,7 @@ const NAV_ITEMS = [
   { label: "Generate", icon: Sparkles, path: "/dashboard", color: "#8B47FF" },
   { label: "Shorts", icon: Zap, path: "/dashboard/shorts", color: "#6366F1" },
   { label: "Recreate", icon: History, path: "/dashboard/recreate", color: "#8B47FF" },
-  { label: "Gallery", icon: Library, path: "/dashboard/my-thumbnails", color: "#6366F1" },
+  { label: "Gallery", icon: Library, path: "/dashboard/thumbnails", color: "#6366F1" },
   { label: "More", icon: LayoutGrid, path: "#", color: "#8B47FF" },
 ];
 
@@ -14,7 +14,7 @@ export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E8E2FF] h-[calc(56px+env(safe-area-inset-bottom))] px-2 z-50 tab:hidden safe-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E8E2FF] h-[calc(56px+env(safe-area-inset-bottom))] px-1 sm:px-2 z-50 tab:hidden safe-bottom">
       <div className="flex items-center justify-around h-14 max-w-md mx-auto">
         {NAV_ITEMS.map((item) => {
           const isActive = location.pathname === item.path;

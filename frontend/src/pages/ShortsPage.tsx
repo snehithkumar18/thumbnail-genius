@@ -185,9 +185,9 @@ const ShortsPage = () => {
   const activeUrl = results[activeImage]?.image_url;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-60px-48px)]">
+    <div className="flex flex-col lg:flex-row gap-6 min-h-0">
       {/* LEFT — Controls */}
-      <div className="lg:w-[40%] shrink-0 overflow-y-auto space-y-5 pr-2">
+      <div className="lg:w-[40%] shrink-0 overflow-y-auto space-y-5 pr-0 lg:pr-2">
         {/* Header */}
         <div>
           <div className="flex items-center gap-3 mb-1">
@@ -360,7 +360,7 @@ const ShortsPage = () => {
       {/* RIGHT — Phone Mockup Preview */}
       <div className="flex-1 min-w-0 flex flex-col items-center justify-center">
         {/* Phone Frame */}
-        <div className="relative mx-auto" style={{ width: "min(280px, 100%)" }}>
+        <div className="relative mx-auto" style={{ width: "min(300px, 100%)" }}>
           {/* Phone bezel */}
           <div className="rounded-[2.5rem] border-[6px] border-foreground/20 bg-background overflow-hidden shadow-2xl shadow-primary/5">
             {/* Notch */}

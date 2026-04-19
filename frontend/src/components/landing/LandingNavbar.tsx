@@ -43,14 +43,14 @@ const LandingNavbar = ({ onOpenAuth, visible }: LandingNavbarProps) => {
       initial={{ y: -100 }}
       animate={visible ? { y: 0 } : { y: -100 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 safe-top ${
         scrolled
           ? "backdrop-blur-xl border-b border-border"
           : "bg-transparent"
       }`}
       style={scrolled ? { background: "rgba(255,255,255,0.85)" } : {}}
     >
-      <div className="container mx-auto flex items-center justify-between h-16 px-4">
+      <div className="container mx-auto flex items-center justify-between h-14 sm:h-16 px-3 sm:px-4">
         {/* Logo */}
         <div
           className="flex items-center gap-1 cursor-pointer group"

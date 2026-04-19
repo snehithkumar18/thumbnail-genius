@@ -81,15 +81,15 @@ const FAQSection = () => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 });
 
   return (
-    <section className="py-24" ref={ref}>
-      <div className="container mx-auto px-4 max-w-3xl">
+    <section className="py-16 sm:py-20 lg:py-24" ref={ref}>
+      <div className="container mx-auto px-4 sm:px-6 max-w-3xl">
         <motion.div
           initial={{ opacity: 0, y: 60 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8 }}
           className="text-center mb-12"
         >
-          <h2 className="text-4xl md:text-6xl font-display font-bold mb-4">
+          <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold mb-4">
             Frequently asked <span className="gradient-text">questions</span>
           </h2>
         </motion.div>

@@ -88,7 +88,7 @@ const PricingPage = () => {
   const sym = currency === 'inr' ? '₹' : '$';
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen-d bg-background overflow-x-hidden">
       <Navbar onOpenAuth={openAuth} />
 
       <section className="pt-32 pb-16">
@@ -335,22 +335,22 @@ const PricingPage = () => {
           <h2 className="text-2xl md:text-3xl font-heading font-bold text-center mb-8">Why ThumbAI vs others?</h2>
           <div className="glass-card rounded-2xl overflow-hidden border-border bg-card/50">
             <div className="overflow-x-auto scrollbar-none">
-              <table className="w-full text-sm min-w-[500px]">
+              <table className="w-full text-xs sm:text-sm min-w-[420px]">
                 <thead>
                   <tr className="bg-muted/30">
-                    <th className="text-left p-5 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">Feature</th>
-                    <th className="p-5 text-primary font-heading font-black text-base italic">ThumbAI</th>
-                    <th className="p-5 text-muted-foreground font-medium opacity-50">Pikzels</th>
-                    <th className="p-5 text-muted-foreground font-medium opacity-50">Canva AI</th>
+                    <th className="text-left p-3 sm:p-5 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">Feature</th>
+                    <th className="p-3 sm:p-5 text-primary font-heading font-black text-sm sm:text-base italic">ThumbAI</th>
+                    <th className="p-3 sm:p-5 text-muted-foreground font-medium opacity-50">Pikzels</th>
+                    <th className="p-3 sm:p-5 text-muted-foreground font-medium opacity-50">Canva AI</th>
                   </tr>
                 </thead>
                 <tbody>
                   {competitors.map((row) => (
                     <tr key={row.feature} className="border-b border-border/40 hover:bg-primary/5 transition-colors group">
-                      <td className="p-5 text-foreground font-medium group-hover:text-primary transition-colors">{row.feature}</td>
-                      <td className="p-5 text-center text-foreground font-bold bg-primary/5">{row.thumbai}</td>
-                      <td className="p-5 text-center text-muted-foreground/60">{row.pikzels}</td>
-                      <td className="p-5 text-center text-muted-foreground/60">{row.canva}</td>
+                      <td className="p-3 sm:p-5 text-foreground font-medium group-hover:text-primary transition-colors">{row.feature}</td>
+                      <td className="p-3 sm:p-5 text-center text-foreground font-bold bg-primary/5">{row.thumbai}</td>
+                      <td className="p-3 sm:p-5 text-center text-muted-foreground/60">{row.pikzels}</td>
+                      <td className="p-3 sm:p-5 text-center text-muted-foreground/60">{row.canva}</td>
                     </tr>
                   ))}
                 </tbody>

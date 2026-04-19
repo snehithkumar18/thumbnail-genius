@@ -20,11 +20,11 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 });
 
   return (
-    <section id="pricing" className="py-24 relative bg-background" ref={ref}>
+    <section id="pricing" className="py-16 sm:py-20 lg:py-24 relative bg-background" ref={ref}>
       {/* Subtle glow */}
       <div className="absolute inset-0 bg-[radial-gradient(800px_circle_at_center,rgba(139,71,255,0.06),transparent)]" />
 
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 60 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
@@ -34,7 +34,7 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
           <p className="text-xs font-heading tracking-[4px] text-primary mb-4 uppercase">
             Pricing
           </p>
-          <h2 className="text-4xl md:text-6xl font-display font-bold mb-4">
+          <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold mb-4">
             Start for $2. Scale when ready.
           </h2>
           <p className="text-muted-foreground max-w-lg mx-auto">

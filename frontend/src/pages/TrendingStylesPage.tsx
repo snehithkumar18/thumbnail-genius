@@ -98,17 +98,17 @@ const TrendingStylesPage = () => {
 
       {/* Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {Array.from({ length: 9 }).map((_, i) => (
             <div key={i} className="bg-card border border-border rounded-xl p-5 space-y-3 animate-pulse">
-              <div className={`h-28 rounded-lg bg-gradient-to-br ${PLACEHOLDER_GRADIENTS[i]}`} />
+              <div className={`h-24 sm:h-28 rounded-lg bg-gradient-to-br ${PLACEHOLDER_GRADIENTS[i]}`} />
               <div className="h-4 bg-muted rounded w-3/4" />
               <div className="h-3 bg-muted rounded w-full" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {trends.map((trend, i) => (
             <motion.div
               key={i}
@@ -118,7 +118,7 @@ const TrendingStylesPage = () => {
               className="bg-card border border-border rounded-xl p-5 space-y-3 hover:border-primary/30 transition-colors"
             >
               {/* Visual mockup */}
-              <div className={`h-28 rounded-lg bg-gradient-to-br ${PLACEHOLDER_GRADIENTS[i % PLACEHOLDER_GRADIENTS.length]} flex items-center justify-center`}>
+              <div className={`h-24 sm:h-28 rounded-lg bg-gradient-to-br ${PLACEHOLDER_GRADIENTS[i % PLACEHOLDER_GRADIENTS.length]} flex items-center justify-center`}>
                 <span className="text-3xl">{TREND_ICONS[trend.trend_status] || "📌"}</span>
               </div>
 

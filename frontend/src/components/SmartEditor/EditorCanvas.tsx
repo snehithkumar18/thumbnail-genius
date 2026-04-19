@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Stage, Layer as KonvaLayer, Image as KonvaImage, Rect, Text } from 'react-konva';
 import useImage from 'use-image';
 import { Layer } from '@/hooks/useSmartEditor';
@@ -49,14 +49,15 @@ export function EditorCanvas({
   const [originalImage] = useImage(originalImageUrl || '', 'anonymous');
 
   // Measure space
-  useEffect(() => {
+  const measureStage = useCallback(() => {
     if (!containerRef.current) return;
     const parent = containerRef.current.parentElement;
     if (!parent) return;
 
-    let targetW = parent.clientWidth - 32;
+    const padding = 24;
+    let targetW = Math.max(280, parent.clientWidth - padding);
     let targetH = targetW * (9 / 16);
-    const maxH = parent.clientHeight - 80;
+    const maxH = Math.max(220, parent.clientHeight - padding);
     if (targetH > maxH) {
       targetH = maxH;
       targetW = targetH * (16 / 9);
@@ -64,6 +65,21 @@ export function EditorCanvas({
     setStageWidth(targetW);
     setStageHeight(targetH);
   }, []);
+
+  useEffect(() => {
+    measureStage();
+    const parent = containerRef.current?.parentElement;
+    if (!parent) return;
+
+    const resizeObserver = new ResizeObserver(() => measureStage());
+    resizeObserver.observe(parent);
+    window.addEventListener('resize', measureStage);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', measureStage);
+    };
+  }, [measureStage, currentImageUrl]);
 
   // Crossfade
   useEffect(() => {
@@ -198,7 +214,7 @@ export function EditorCanvas({
             </div>
         )}
 
-        <div className="absolute top-4 right-4 z-10 flex items-center bg-background/80 backdrop-blur border border-border rounded-lg shadow-sm">
+        <div className="absolute top-3 right-3 z-10 flex items-center bg-background/80 backdrop-blur border border-border rounded-lg shadow-sm">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleFit}>
                 <Maximize className="h-4 w-4" />
             </Button>
@@ -223,7 +239,7 @@ export function EditorCanvas({
             </div>
         )}
 
-        <div ref={containerRef} className="w-full max-w-[800px] aspect-video relative shadow-2xl">
+        <div ref={containerRef} className="w-full max-w-[960px] aspect-video relative shadow-2xl mx-auto">
             <Stage 
                 ref={stageRef} width={stageWidth} height={stageHeight}
                 onMouseMove={handleMouseMove} onMouseLeave={handleMouseOut} onClick={handleClick}

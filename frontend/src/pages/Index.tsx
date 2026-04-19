@@ -36,7 +36,7 @@ const Index = () => {
   // useEffect(() => { setIntroComplete(true); }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen-d bg-background overflow-x-hidden">
       <SEOHead
         title="ThumbAI — AI YouTube Thumbnail Generator | Free"
         description="Generate viral YouTube thumbnails in seconds with AI. Hindi, English & 8 languages. Free plan available. Trusted by 12,000+ creators."

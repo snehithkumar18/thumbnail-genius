@@ -37,11 +37,11 @@ const DashboardLayout = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen-d flex w-full bg-background overflow-hidden">
+      <div className="min-h-screen-d flex w-full bg-background overflow-x-hidden">
         <DashboardSidebar />
         <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
           <DashboardTopBar />
-          <main className="flex-1 overflow-auto p-4 md:p-6 pb-[calc(56px+env(safe-area-inset-bottom)+1rem)] tab:pb-6">
+          <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 pb-[calc(56px+env(safe-area-inset-bottom)+0.75rem)] sm:pb-6">
             <ErrorBoundary>
               <Suspense fallback={
                 <div className="space-y-6">

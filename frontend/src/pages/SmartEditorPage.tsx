@@ -194,20 +194,20 @@ export default function SmartEditorPage() {
 
   const selectedLayer = editor.layers.find(l => l.id === editor.selectedLayerId);
 
-  return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
+    return (
+        <div className="flex flex-col min-h-screen-d overflow-x-hidden bg-background">
       
       {/* -------------------- STEP 7: FEATURE TOUR -------------------- */}
       <FeatureTour />
 
       {/* -------------------- STEP 4: HEADER -------------------- */}
-      <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-50">
-          <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-muted">
+      <header className="h-14 sm:h-16 border-b border-border bg-card flex items-center justify-between px-3 sm:px-4 shrink-0 z-50">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-muted h-9 w-9">
                   <ArrowLeft className="h-4 w-4" />
               </Button>
-              <div className="flex items-center gap-3">
-                  <h1 className="text-sm font-bold font-sans text-[#0F0A1E] flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                  <h1 className="text-[13px] sm:text-sm font-bold font-sans text-[#0F0A1E] flex items-center gap-2 truncate">
                        <Sparkles className="h-4 w-4 text-[#8B47FF]" /> ✨ Smart Thumbnail Editor
                   </h1>
                   {editor.sessionId && editor.currentImageUrl && (
@@ -223,7 +223,7 @@ export default function SmartEditorPage() {
               </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
               {/* STEP 8: CREDIT DEDUCTION CHIP */}
               <CreditsBadge balance={currentCredits} />
 
@@ -266,10 +266,10 @@ export default function SmartEditorPage() {
           </div>
       </header>
 
-    <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+    <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative min-h-0">
       
         {/* -------------------- LEFT COLUMN: LAYERS (Desktop) -------------------- */}
-        <div id="tour-layers" className="hidden lg:flex w-[240px] border-r border-border bg-card flex-col shrink-0 h-full">
+        <div id="tour-layers" className="hidden lg:flex w-[240px] border-r border-border bg-card flex-col shrink-0 h-full min-h-0">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-[#0F0A1E]" />
@@ -351,11 +351,11 @@ export default function SmartEditorPage() {
         </div>
 
         {/* -------------------- CENTER COLUMN: CANVAS -------------------- */}
-        <div id="tour-canvas" className="flex-1 flex flex-col relative bg-muted/10 h-full min-w-0 pb-16 lg:pb-0">
+        <div id="tour-canvas" className="flex-1 flex flex-col relative bg-muted/10 h-full min-w-0 pb-16 lg:pb-0 min-h-0">
           
           {/* Top Controls */}
           {editor.currentImageUrl && (
-            <div className="h-12 lg:h-14 border-b border-border bg-background/50 backdrop-blur-sm flex items-center justify-between px-3 lg:px-4 shrink-0 transition-all z-10">
+            <div className="h-12 lg:h-14 border-b border-border bg-background/50 backdrop-blur-sm flex items-center justify-between px-3 lg:px-4 shrink-0 transition-all z-10 gap-2">
                 <div className="flex items-center bg-muted p-0.5 rounded-full text-[10px] lg:text-xs">
                     <button 
                         className={`px-2 lg:px-3 py-1 rounded-full transition-all ${viewMode === 'original' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
@@ -393,7 +393,7 @@ export default function SmartEditorPage() {
           )}
 
                     {/* Canvas Area */}
-                    <div className="flex-1 relative flex items-center justify-center p-0">
+                    <div className="flex-1 relative flex items-center justify-center px-3 sm:px-4 lg:px-6 py-3 lg:py-4 min-h-0">
                             {editor.isDetecting && (
                                 <div className="absolute inset-0 z-30 bg-white/50 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
                                     <div className="h-10 w-10 border-4 border-[#8B47FF] border-t-transparent rounded-full animate-spin" />
@@ -447,7 +447,7 @@ export default function SmartEditorPage() {
                           AI will automatically detect every element — text, people, objects, and background.
                       </p>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-3xl">
                           <label className="cursor-pointer group">
                                <input type="file" className="hidden" onChange={async (e) => {
                                    const file = e.target.files?.[0];
@@ -510,7 +510,7 @@ export default function SmartEditorPage() {
         {/* -------------------- RIGHT COLUMN: EDIT CONTROLS (Desktop) -------------------- */}
         <div 
           id="tour-controls"
-          className="hidden lg:flex w-[320px] border-l border-border bg-card flex-col shrink-0 h-full relative"
+          className="hidden lg:flex w-[320px] border-l border-border bg-card flex-col shrink-0 h-full relative min-h-0"
         >
           <div className="flex-1 overflow-y-auto w-full p-4">
               {!selectedLayer ? (
@@ -677,7 +677,7 @@ export default function SmartEditorPage() {
                 {/* -------------------- MOBILE DRAWER -------------------- */}
         {editor.sessionId && (
             <Drawer open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
-                <div className="fixed bottom-0 inset-x-0 lg:hidden p-3 bg-background border-t border-border z-30 flex items-center justify-between">
+                <div className="fixed bottom-0 inset-x-0 lg:hidden p-3 bg-background border-t border-border z-30 flex items-center justify-between safe-bottom">
                     <DrawerTrigger asChild>
                         <Button variant="hero" size="sm" className="flex-1">
                             <Sparkles className="h-3.5 w-3.5 mr-2" />
@@ -769,17 +769,17 @@ export default function SmartEditorPage() {
       {/* -------------------- STEP 5: MY THUMBNAILS MODAL -------------------- */}
       <Dialog open={showThumbModal} onOpenChange={setShowThumbModal}>
           <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
-              <DialogHeader className="p-6 border-b border-border">
+              <DialogHeader className="p-4 sm:p-6 border-b border-border">
                   <div className="flex items-center justify-between gap-4">
                       <DialogTitle className="text-xl font-bold flex items-center gap-2">
                           <FolderOpen className="h-5 w-5 text-primary" /> My Thumbnails
                       </DialogTitle>
-                      <Input 
-                        placeholder="Search..." 
-                        value={thumbSearch}
-                        onChange={e => setThumbSearch(e.target.value)}
-                        className="w-64 h-9" 
-                      />
+                                            <Input 
+                                                placeholder="Search..." 
+                                                value={thumbSearch}
+                                                onChange={e => setThumbSearch(e.target.value)}
+                                                className="w-full sm:w-64 h-9" 
+                                            />
                   </div>
                   <DialogDescription className="sr-only">Select a thumbnail to load into the editor.</DialogDescription>
               </DialogHeader>

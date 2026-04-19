@@ -160,9 +160,9 @@ const RecreatePage = () => {
   const simKey = similarity[0] <= 30 ? 30 : similarity[0] <= 60 ? 60 : 90;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-60px-48px)]">
+    <div className="flex flex-col lg:flex-row gap-6 min-h-0">
       {/* LEFT — Controls */}
-      <div className="lg:w-[40%] shrink-0 overflow-y-auto space-y-5 pr-2">
+      <div className="lg:w-[40%] shrink-0 overflow-y-auto space-y-5 pr-0 lg:pr-2">
         {/* Header */}
         <div>
           <h1 className="text-xl font-heading font-bold text-foreground flex items-center gap-2">

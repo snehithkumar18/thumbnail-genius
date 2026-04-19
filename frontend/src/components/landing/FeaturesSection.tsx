@@ -72,8 +72,8 @@ const FeaturesSection = () => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 });
 
   return (
-    <section id="features" className="py-24 relative bg-background" ref={ref}>
-      <div className="container mx-auto px-4">
+    <section id="features" className="py-16 sm:py-20 lg:py-24 relative bg-background" ref={ref}>
+      <div className="container mx-auto px-4 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: 60 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
@@ -83,7 +83,7 @@ const FeaturesSection = () => {
           <p className="text-xs font-heading tracking-[4px] text-primary mb-4 uppercase">
             Everything you need
           </p>
-          <h2 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold leading-tight">
+          <h2 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-display font-bold leading-tight">
             One Tool.
             <br />
             <span className="gradient-text">Infinite Thumbnails.</span>

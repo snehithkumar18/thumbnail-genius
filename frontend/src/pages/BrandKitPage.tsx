@@ -296,7 +296,7 @@ const BrandKitPage = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Form */}
         <div className="lg:col-span-2 space-y-5">
           <Card className="border-border bg-card">
@@ -359,7 +359,7 @@ const BrandKitPage = () => {
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {[
                     { label: "Primary", value: primaryColor, set: setPrimaryColor },
                     { label: "Secondary", value: secondaryColor, set: setSecondaryColor },
@@ -388,7 +388,7 @@ const BrandKitPage = () => {
               {/* Font */}
               <div className="space-y-2">
                 <Label className="text-foreground">Font Style</Label>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                   {FONT_STYLES.map((f) => (
                     <button
                       key={f.id}
@@ -408,7 +408,7 @@ const BrandKitPage = () => {
               {/* Frame */}
               <div className="space-y-2">
                 <Label className="text-foreground">Frame / Border Style</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {FRAME_STYLES.map((f) => (
                     <button
                       key={f.id}

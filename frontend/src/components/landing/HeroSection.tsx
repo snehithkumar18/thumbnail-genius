@@ -72,7 +72,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
   return (
     <section
       ref={heroRef}
-      className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden"
+      className="relative min-h-screen-d flex items-center justify-center pt-20 sm:pt-24 overflow-hidden"
       style={{ background: "linear-gradient(160deg, #FAF7FF 0%, #F0E8FF 40%, #E8E0FF 100%)" }}
     >
       {/* Dot grid parallax */}
@@ -89,8 +89,8 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
         <ParticleBackground />
       </Suspense>
 
-      <div className="container mx-auto px-4 py-20 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-7xl mx-auto">
+      <div className="container mx-auto px-4 sm:px-6 py-16 sm:py-20 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-center max-w-7xl mx-auto">
           {/* LEFT COLUMN */}
           <div className="text-center lg:text-left">
             {/* Floating badge */}
@@ -167,7 +167,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               transition={{ delay: 1.1, duration: 0.6 }}
               className="mb-6"
             >
-              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
+              <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed">
                 AI thumbnails that get clicks.
                 <br />
                 No design skills. No Photoshop. No guessing.

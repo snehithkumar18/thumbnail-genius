@@ -41,6 +41,14 @@ const fetchImageAsBase64 = async (imageUrl: string): Promise<{ data: string; mim
   return { data: btoa(binary), mimeType };
 };
 
+const safeJson = async (resp: Response): Promise<any | null> => {
+  try {
+    return await resp.json();
+  } catch {
+    return null;
+  }
+};
+
 const detectWithGemini = async (imageUrl: string): Promise<DetectedLayer[]> => {
   const apiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY");
   if (!apiKey) return [];
@@ -152,8 +160,30 @@ serve(async (req) => {
       })
     ]);
 
-    const evfData = evfRes.ok ? await evfRes.json() : null;
-    const birefnetData = birefnetRes.ok ? await birefnetRes.json() : null;
+    const evfData = await safeJson(evfRes);
+    const birefnetData = await safeJson(birefnetRes);
+
+    const extractFalError = (data: any) => {
+      const msg =
+        data?.error?.message ||
+        data?.error ||
+        data?.message ||
+        data?.detail ||
+        null;
+      return typeof msg === "string" ? msg : null;
+    };
+
+    const evfErr = !evfRes.ok ? extractFalError(evfData) : null;
+    const birefErr = !birefnetRes.ok ? extractFalError(birefnetData) : null;
+    const combinedErr = evfErr || birefErr;
+    if (combinedErr) {
+      const lower = combinedErr.toLowerCase();
+      const isCredits = lower.includes("insufficient") || lower.includes("credits") || lower.includes("balance") || lower.includes("quota");
+      return new Response(
+        JSON.stringify({ error: isCredits ? "FAL insufficient credits" : `FAL error: ${combinedErr}` }),
+        { status: isCredits ? 402 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const layers: DetectedLayer[] = [];
 
@@ -174,34 +204,34 @@ serve(async (req) => {
       ? evfData.output.masks
       : [];
     if (masks.length > 0) {
-        masks.forEach((m: any, index: number) => {
-           // Basic logic, infer type from label (EVF-SAM might return specific labels based on the prompt)
-           const txtLabel = String(m.label || "Object").toLowerCase();
-           let type = 'object';
-           if (txtLabel.includes('person') || txtLabel.includes('face')) type = 'person';
-           else if (txtLabel.includes('text')) type = 'text';
+      for (const [index, m] of masks.entries()) {
+        const rawLabel = String(m?.label || m?.text || m?.caption || "");
+        const txtLabel = rawLabel.toLowerCase();
+        let type: DetectedLayer["type"] = "object";
+        if (txtLabel.includes("person") || txtLabel.includes("face")) type = "person";
+        else if (txtLabel.includes("text")) type = "text";
 
-           let bbox = null;
-           if (Array.isArray(m.box) && m.box.length === 4) {
-             const [x1, y1, x2, y2] = m.box.map((n: any) => Number(n));
-             bbox = { x: x1, y: y1, w: Math.max(0, x2 - x1), h: Math.max(0, y2 - y1) };
-           } else if (m.box && typeof m.box === "object") {
-             const x = Number((m.box.x ?? m.box.left ?? 0));
-             const y = Number((m.box.y ?? m.box.top ?? 0));
-             const w = Number((m.box.w ?? m.box.width ?? 0));
-             const h = Number((m.box.h ?? m.box.height ?? 0));
-             bbox = { x, y, w, h };
-           }
+        let bbox = null;
+        if (Array.isArray(m.box) && m.box.length === 4) {
+          const [x1, y1, x2, y2] = m.box.map((n: any) => Number(n));
+          bbox = { x: x1, y: y1, w: Math.max(0, x2 - x1), h: Math.max(0, y2 - y1) };
+        } else if (m.box && typeof m.box === "object") {
+          const x = Number((m.box.x ?? m.box.left ?? 0));
+          const y = Number((m.box.y ?? m.box.top ?? 0));
+          const w = Number((m.box.w ?? m.box.width ?? 0));
+          const h = Number((m.box.h ?? m.box.height ?? 0));
+          bbox = { x, y, w, h };
+        }
 
-           if (type !== 'text') { // Text detection done strictly frontend via Tesseract
-             layers.push({
-               type,
-               label: m.label || `Object ${index + 1}`,
-               mask_url: m.mask_url || null,
-               bbox,
-             });
-           }
-        });
+        if (type !== "text") {
+          layers.push({
+            type,
+            label: rawLabel || `Object ${index + 1}`,
+            mask_url: m.mask_url || null,
+            bbox,
+          });
+        }
+      }
     }
 
     if (layers.length === 0) {

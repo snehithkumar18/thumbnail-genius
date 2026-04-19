@@ -46,15 +46,15 @@ export function DashboardTopBar() {
   return (
     <>
       <PaymentSuccessOverlay />
-      <header className="h-[60px] border-b border-border bg-card flex items-center justify-between px-4 sticky top-0 z-[40]">
-        <div className="flex items-center gap-4">
+      <header className="h-[56px] sm:h-[60px] border-b border-border bg-card flex items-center justify-between px-3 sm:px-4 sticky top-0 z-[40]">
+        <div className="flex items-center gap-3 sm:gap-4">
           <SidebarTrigger className="tab:hidden h-9 w-9 border-border" />
           <h1 className="text-lg font-bold font-heading text-foreground hidden sm:block">
             {title}
           </h1>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {isLowCredits && (
             <Button
               size="sm"
@@ -65,10 +65,10 @@ export function DashboardTopBar() {
             </Button>
           )}
 
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hidden sm:flex">
             <Search className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative hidden sm:flex">
             <Bell className="h-4 w-4" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
           </Button>
