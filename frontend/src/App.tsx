@@ -18,6 +18,7 @@ const RecreatePage = lazy(() => import("./pages/RecreatePage"));
 const EditorPage = lazy(() => import("./pages/EditorPage"));
 const FaceSwapPage = lazy(() => import("./pages/FaceSwapPage"));
 const BrandKitPage = lazy(() => import("./pages/BrandKitPage"));
+const BackgroundRemovalPage = lazy(() => import("./pages/BackgroundRemovalPage"));
 const MyThumbnails = lazy(() => import("./pages/MyThumbnails"));
 const TitleGeneratorPage = lazy(() => import("./pages/TitleGeneratorPage"));
 const ThumbnailScorerPage = lazy(() => import("./pages/ThumbnailScorerPage"));
@@ -56,6 +57,7 @@ const App = () => (
                   <Route path="editor" element={<EditorPage />} />
                   <Route path="smart-editor" element={<SmartEditorPage />} />
                   <Route path="faceswap" element={<FaceSwapPage />} />
+                  <Route path="background-removal" element={<BackgroundRemovalPage />} />
                   <Route path="titles" element={<TitleGeneratorPage />} />
                   <Route path="scorer" element={<ThumbnailScorerPage />} />
                   <Route path="trending" element={<TrendingStylesPage />} />

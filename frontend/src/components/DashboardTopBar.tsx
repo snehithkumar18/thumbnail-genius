@@ -22,6 +22,7 @@ const routeTitles: Record<string, string> = {
   "/dashboard/recreate": "Recreate",
   "/dashboard/editor": "AI Editor",
   "/dashboard/faceswap": "Face Swap",
+  "/dashboard/background-removal": "Background Removal",
   "/dashboard/titles": "Titles & Scripts",
   "/dashboard/scorer": "Thumbnail Scorer",
   "/dashboard/trending": "Trending Styles",

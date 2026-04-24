@@ -18,7 +18,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 
-const SWAP_STRENGTHS = [
+  const SWAP_STRENGTHS = [
   { value: 70, label: "Natural", desc: "Subtle blend, keeps target features" },
   { value: 90, label: "Strong", desc: "Clear face replacement" },
   { value: 100, label: "Maximum", desc: "Full face override" },
@@ -168,7 +168,7 @@ const FaceSwapPage = () => {
 
   const handleSwap = async () => {
     if (!user || !activeFaceUrl || !activeTargetUrl) return;
-    if ((credits?.credits_remaining ?? 0) < 3) {
+    if ((credits?.credits_remaining ?? 0) < 1) {
       setShowZeroCredits(true);
       return;
     }
@@ -261,7 +261,7 @@ const FaceSwapPage = () => {
       <div>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-foreground">🧑 Face Swap</h1>
-          <Badge className="bg-primary/20 text-primary border-primary/30">3 credits</Badge>
+          <Badge className="bg-primary/20 text-primary border-primary/30">1 credit</Badge>
         </div>
         <p className="text-muted-foreground mt-1">Put your face in any AI-generated thumbnail</p>
       </div>

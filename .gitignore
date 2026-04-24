@@ -43,3 +43,24 @@ backend/.env
 **/secrets.*
 **/*.secret
 **/*credentials*.json
+
+# Python
+.venv/
+.venv*
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Machine Learning / Data
+*.pt
+*.pth
+*.onnx
+*.weights
+*.h5
+*.pkl
+*.sqlite3

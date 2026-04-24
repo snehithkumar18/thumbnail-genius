@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,43 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [activeField, setActiveField] = useState<"name" | "email" | "password" | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => {
+      if (tab === "signup") {
+        nameRef.current?.focus();
+      } else {
+        emailRef.current?.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [open, tab]);
+
+  const handleFocus = (field: "name" | "email" | "password") => {
+    setActiveField(field);
+  };
+
+  const handleBlur = (field: "name" | "email" | "password", next: EventTarget | null) => {
+    if (!open) return;
+    const nextElement = next as HTMLElement | null;
+    if (nextElement && contentRef.current?.contains(nextElement)) return;
+
+    requestAnimationFrame(() => {
+      if (!open) return;
+      if (document.activeElement !== document.body) return;
+      if (field === "name") nameRef.current?.focus();
+      if (field === "email") emailRef.current?.focus();
+      if (field === "password") passwordRef.current?.focus();
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +114,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
   if (!open) return null;
 
   const AuthContent = () => (
-    <div className="p-1">
+    <div className="p-1" ref={contentRef}>
       <div className="flex items-center gap-2 mb-6">
         <Zap className="h-5 w-5 text-primary fill-primary" />
         <span className="font-heading font-bold text-foreground">ThumbAI</span>
@@ -112,6 +147,9 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
             placeholder="Full name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onFocus={() => handleFocus("name")}
+            onBlur={(e) => handleBlur("name", e.relatedTarget)}
+            ref={nameRef}
             required
             className="bg-background border-border text-foreground placeholder:text-muted-foreground h-12"
           />
@@ -121,6 +159,9 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onFocus={() => handleFocus("email")}
+          onBlur={(e) => handleBlur("email", e.relatedTarget)}
+          ref={emailRef}
           required
           className="bg-background border-border text-foreground placeholder:text-muted-foreground h-12"
         />
@@ -129,6 +170,9 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onFocus={() => handleFocus("password")}
+          onBlur={(e) => handleBlur("password", e.relatedTarget)}
+          ref={passwordRef}
           required
           minLength={6}
           className="bg-background border-border text-foreground placeholder:text-muted-foreground h-12"

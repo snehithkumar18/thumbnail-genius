@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Zap, Smartphone, RefreshCw, Pencil, User, Type, BarChart3, TrendingUp, FolderOpen, Palette, FlaskConical, Settings, Gem, CreditCard, BookOpen, Gift, Megaphone, Sun, Moon, Sparkles } from "lucide-react";
+import { Zap, Smartphone, RefreshCw, Pencil, User, Type, BarChart3, TrendingUp, FolderOpen, Palette, FlaskConical, Settings, Gem, CreditCard, BookOpen, Gift, Megaphone, Sun, Moon, Sparkles, Eraser } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const navItems = [
   { title: "✨ Smart Edit", url: "/dashboard/smart-editor", icon: Sparkles, badge: "NEW" },
   { title: "AI Editor", url: "/dashboard/editor", icon: Pencil },
   { title: "Face Swap", url: "/dashboard/faceswap", icon: User },
+  { title: "Background Removal", url: "/dashboard/background-removal", icon: Eraser },
   { title: "Titles & Scripts", url: "/dashboard/titles", icon: Type },
   { title: "Thumbnail Scorer", url: "/dashboard/scorer", icon: BarChart3 },
   { title: "Trending Styles", url: "/dashboard/trending", icon: TrendingUp },
@@ -76,7 +77,7 @@ export function DashboardSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {navItems.slice(0, 10).map((item) => (
+                {navItems.slice(0, 11).map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <NavLink
@@ -106,7 +107,7 @@ export function DashboardSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {navItems.slice(10).map((item) => (
+                {navItems.slice(11).map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <NavLink

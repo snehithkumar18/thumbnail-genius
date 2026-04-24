@@ -48,6 +48,7 @@
     "@tanstack/react-query": "^5.83.0",
     "@tsparticles/react": "^3.0.0",
     "@tsparticles/slim": "^3.9.1",
+    "@imgly/background-removal": "^1.6.0",
     "blurhash": "^2.0.5",
     "browser-image-compression": "^2.0.2",
     "canvas-confetti": "^1.9.4",
@@ -64,6 +65,7 @@
     "lucide-react": "^0.462.0",
     "nanoid": "^5.1.6",
     "next-themes": "^0.3.0",
+    "onnxruntime-web": "1.21.0-dev.20250206-d981b153d3",
     "react": "^18.3.1",
     "react-blurhash": "^0.3.0",
     "react-countup": "^6.5.3",
@@ -85,6 +87,7 @@
     "three": "^0.170.0",
     "use-image": "^1.1.4",
     "vaul": "^0.9.9",
+    "zustand": "^4.5.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {

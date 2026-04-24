@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSmartEditor, Layer } from '@/hooks/useSmartEditor';
@@ -10,7 +10,6 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { usePlanAccess } from '@/hooks/usePlanAccess';
 import { useCredits, useThumbnails } from '@/hooks/useSupabaseData';
-import Tesseract from 'tesseract.js';
 import { EditorCanvas } from '@/components/SmartEditor/EditorCanvas';
 import { HistoryStrip } from '@/components/SmartEditor/HistoryStrip';
 import { CreditsBadge } from '@/components/CreditsBadge';
@@ -18,7 +17,6 @@ import { FeatureTour } from '@/components/SmartEditor/FeatureTour';
 import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle } from '@/components/ui/drawer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { hapticFeedback } from '@/lib/utils';
-import useImage from 'use-image';
 import { supabase } from '@/integrations/supabase/client';
 
 const BACKGROUND_STYLES = [
@@ -50,35 +48,17 @@ export default function SmartEditorPage() {
   const [selectedBgStyle, setSelectedBgStyle] = useState('');
   const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'original' | 'edited'>('edited');
-  const [isTesseractReady, setIsTesseractReady] = useState(false);
   const [showThumbModal, setShowThumbModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [thumbSearch, setThumbSearch] = useState('');
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'layers' | 'edit'>('layers');
   
-  const workerRef = useRef<Tesseract.Worker | null>(null);
   const currentCredits = creditsData?.credits_remaining ?? 0;
   const filteredMyThumbs = myThumbs.filter(t => t.prompt?.toLowerCase().includes(thumbSearch.toLowerCase()) || !thumbSearch);
 
     const isLockedPlan = false;
 
-  // Pre-load Tesseract worker
-  useEffect(() => {
-    let active = true;
-    Tesseract.createWorker('eng+hin').then(worker => {
-      if (!active) {
-        worker.terminate();
-        return;
-      }
-      workerRef.current = worker;
-      setIsTesseractReady(true);
-    });
-    return () => {
-      active = false;
-      workerRef.current?.terminate();
-    };
-  }, []);
 
     const uploadSmartEditorImage = async (file: File) => {
         if (!file.type.startsWith('image/')) {
@@ -158,7 +138,7 @@ export default function SmartEditorPage() {
         imageUrl?: string,
         force?: boolean
     ) => {
-        await editor.detectLayers(workerRef.current || undefined, {
+        await editor.detectLayers({
             sessionId,
             imageUrl,
             force,
@@ -336,6 +316,16 @@ export default function SmartEditorPage() {
                 <div className="h-full flex flex-col items-center justify-center text-center px-4 opacity-50 space-y-2">
                     <Layers className="h-8 w-8 mb-2" />
                     <p className="text-xs">No layers detected yet.</p>
+                                        {editor.currentImageUrl && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="mt-2"
+                                                onClick={() => runDetectWithWorker(editor.sessionId || undefined, editor.currentImageUrl || undefined, true)}
+                                            >
+                                                Scan Again
+                                            </Button>
+                                        )}
                 </div>
             )}
           </div>
@@ -654,7 +644,7 @@ export default function SmartEditorPage() {
                              {editor.isReplacing ? (
                                  <><RotateCcw className="mr-2 h-4 w-4 animate-spin" /> Replacing...</>
                              ) : (
-                                 <>✨ Replace {selectedLayer.type.charAt(0).toUpperCase() + selectedLayer.type.slice(1)} — {selectedLayer.type === 'text' ? '5' : 6} credits</>
+                                 <>✨ Replace {selectedLayer.type.charAt(0).toUpperCase() + selectedLayer.type.slice(1)} — {selectedLayer.type === 'text' ? '5' : (selectedLayer.type === 'person' ? '7' : '6')} credits</>
                              )}
                           </Button>
                           
@@ -723,6 +713,19 @@ export default function SmartEditorPage() {
                                         {editor.selectedLayerId === layer.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
                                     </div>
                                 ))}
+                                                                {editor.layers.length === 0 && editor.currentImageUrl && (
+                                                                    <div className="flex flex-col items-center justify-center text-center py-6 text-muted-foreground">
+                                                                        <Layers className="h-6 w-6 mb-2" />
+                                                                        <p className="text-xs mb-2">No layers detected yet.</p>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={() => runDetectWithWorker(editor.sessionId || undefined, editor.currentImageUrl || undefined, true)}
+                                                                        >
+                                                                            Scan Again
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
                              </div>
                         </TabsContent>
 
@@ -755,7 +758,7 @@ export default function SmartEditorPage() {
                                         editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type], replaceInstruction);
                                         setIsMobileSheetOpen(false);
                                     }} disabled={editor.isReplacing}>
-                                        {editor.isReplacing ? 'Replacing...' : `Generate & Replace (${selectedLayer.type === 'text' ? 5 : 6} Credits)`}
+                                         {editor.isReplacing ? 'Replacing...' : `Generate & Replace (${selectedLayer.type === 'text' ? 5 : (selectedLayer.type === 'person' ? 7 : 6)} Credits)`}
                                     </Button>
                                 </div>
                              )}
@@ -805,12 +808,6 @@ export default function SmartEditorPage() {
           </DialogContent>
       </Dialog>
 
-      {!isTesseractReady && (
-        <div className="fixed bottom-4 right-4 bg-background border border-border text-[10px] text-muted-foreground px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 z-[60]">
-           <span className="w-2 h-2 rounded-full border-r-2 border-[#8B47FF] animate-spin" />
-           🔤 Loading text engine...
-        </div>
-      )}
     </div>
   );
 }

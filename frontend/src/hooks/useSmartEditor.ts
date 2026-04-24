@@ -1,80 +1,66 @@
-import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { detectTextInImage } from '@/utils/detectText';
-import type { TextLayer } from '@/utils/detectText';
-import type { Worker } from 'tesseract.js';
-import { toast } from 'sonner';
+import { useCallback, useMemo, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useSmartEditorStore, type SmartLayer } from "@/stores/smartEditorStore";
 
-export interface Layer {
-  id: string;
-  type: 'text' | 'person' | 'object' | 'background';
-  label: string;
-  originalContent?: string;
-  maskUrl?: string;
-  boundingBox?: { x: number; y: number; w: number; h: number };
-  thumbnailUrl?: string;
-  isVisible: boolean;
-  isLocked: boolean;
-  isEdited: boolean;
-  replacementUrl?: string;
-}
+export type Layer = SmartLayer;
 
-type BackendLayer = {
-  type: Layer['type'];
-  label: string;
-  mask_url?: string;
-  bbox?: Layer['boundingBox'];
+const DEFAULT_API_BASE = "http://localhost:3001";
+const DETECT_POLL_MS = 1200;
+const REPLACE_POLL_MS = 1500;
+
+const buildWorker = () => new Worker(new URL("../workers/smartEditorWorker.ts", import.meta.url), { type: "module" });
+
+const mapLayer = (layer: any): SmartLayer => {
+  const bbox = Array.isArray(layer?.bbox)
+    ? { x: layer.bbox[0], y: layer.bbox[1], w: layer.bbox[2], h: layer.bbox[3] }
+    : layer?.bbox || null;
+
+  return {
+    id: layer?.id || crypto.randomUUID(),
+    type: layer?.type || "object",
+    label: layer?.label || "Layer",
+    originalContent: layer?.content || undefined,
+    maskUrl: layer?.mask || null,
+    boundingBox: bbox,
+    isVisible: true,
+    isLocked: false,
+    isEdited: false,
+  };
 };
 
-interface EditorState {
-  sessionId: string | null;
-  originalImageUrl: string | null;
-  currentImageUrl: string | null;
-  layers: Layer[];
-  selectedLayerId: string | null;
-  isDetecting: boolean;
-  isReplacing: boolean;
-  editHistory: string[];
-  creditsUsed: number;
-  isSaving: boolean;
-}
-
 export function useSmartEditor() {
-  const [state, setState] = useState<EditorState>({
-    sessionId: null,
-    originalImageUrl: null,
-    currentImageUrl: null,
-    layers: [],
-    selectedLayerId: null,
-    isDetecting: false,
-    isReplacing: false,
-    editHistory: [],
-    creditsUsed: 0,
-    isSaving: false,
-  });
+  const state = useSmartEditorStore();
+  const workerRef = useRef<Worker | null>(null);
 
-  const updateState = (updates: Partial<EditorState>) => {
-    setState(prev => ({ ...prev, ...updates }));
-  };
+  const apiBase = useMemo(() => {
+    return (import.meta as any).env?.VITE_SMART_EDITOR_API_BASE || DEFAULT_API_BASE;
+  }, []);
 
-  const initSession = async (imageUrl: string, sourceType: 'upload' | 'from_thumbnail' | 'from_url', thumbnailId?: string) => {
+  const updateState = state.setState;
+
+  const initSession = async (imageUrl: string, sourceType: "upload" | "from_thumbnail" | "from_url", thumbnailId?: string) => {
     try {
       const { data: userData, error: authError } = await supabase.auth.getUser();
-      if (authError || !userData?.user) throw new Error('User not authenticated');
+      if (authError || !userData?.user) throw new Error("User not authenticated");
 
-      const { data: session, error } = await supabase.from('smart_editor_sessions').insert({
-        user_id: userData.user.id,
-        original_image_url: imageUrl,
-        current_image_url: imageUrl,
-        source_type: sourceType,
-        thumbnail_id: thumbnailId || null,
-        layers_data: [],
-        edit_history: [],
-      }).select().single();
+      const { data: session, error } = await supabase
+        .from("smart_editor_sessions")
+        .insert({
+          user_id: userData.user.id,
+          original_image_url: imageUrl,
+          current_image_url: imageUrl,
+          source_type: sourceType,
+          thumbnail_id: thumbnailId || null,
+          layers_data: [],
+          edit_history: [],
+        })
+        .select()
+        .single();
 
-      if (error || !session) throw new Error(error?.message || 'Failed to initialize session');
+      if (error || !session) throw new Error(error?.message || "Failed to initialize session");
 
-      setState({
+      updateState({
         sessionId: session.id,
         originalImageUrl: imageUrl,
         currentImageUrl: imageUrl,
@@ -89,210 +75,114 @@ export function useSmartEditor() {
 
       return session.id;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to initialize smart editor session';
+      const message = err instanceof Error ? err.message : "Failed to initialize smart editor session";
       toast.error(message);
       console.error(err);
       return null;
     }
   };
 
-  const detectLayers = async (
-    worker?: Worker,
-    overrides?: { sessionId?: string; imageUrl?: string; force?: boolean }
-  ) => {
+  const getWorker = () => {
+    if (!workerRef.current) workerRef.current = buildWorker();
+    return workerRef.current;
+  };
+
+  const computeImageHash = async (imageUrl: string) => {
+    const worker = getWorker();
+    return new Promise<{ hash: string }>((resolve, reject) => {
+      const onMessage = (event: MessageEvent) => {
+        worker.removeEventListener("message", onMessage);
+        if (event.data?.error) reject(new Error(event.data.error));
+        else resolve({ hash: event.data.hash });
+      };
+      worker.addEventListener("message", onMessage);
+      worker.postMessage({ imageUrl });
+    });
+  };
+
+  const pollJob = async (queue: "detect" | "replace", jobId: string) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error("Session expired. Please sign in again");
+
+    const pollMs = queue === "detect" ? DETECT_POLL_MS : REPLACE_POLL_MS;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      const resp = await fetch(`${apiBase}/smart-editor/jobs/${queue}/${jobId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) throw new Error("Failed to check job status");
+      const data = await resp.json();
+      if (data.status === "completed") return data.result;
+      if (data.status === "failed") throw new Error("Job failed");
+      await new Promise((resolve) => setTimeout(resolve, pollMs));
+    }
+    throw new Error("Job timed out");
+  };
+
+  const detectLayers = async (overrides?: { sessionId?: string; imageUrl?: string; force?: boolean }) => {
     const sessionId = overrides?.sessionId ?? state.sessionId;
     const imageUrl = overrides?.imageUrl ?? state.currentImageUrl;
     if (!sessionId || !imageUrl) return;
 
-    // STEP 10: SAM2 Result Caching
-    const canUseLocalCache = !imageUrl.startsWith("data:");
-    const cacheKey = canUseLocalCache ? `sam2_${imageUrl}` : null;
-    const cachedData = cacheKey ? localStorage.getItem(cacheKey) : null;
-    if (cachedData && !overrides?.force) {
-        try {
-            const { layers, timestamp } = JSON.parse(cachedData);
-            const isFresh = Date.now() - timestamp < 24 * 60 * 60 * 1000;
-        if (isFresh && Array.isArray(layers) && layers.length > 0) {
-                updateState({ layers });
-                toast.success('Layers loaded from cache (Instant ✨)');
-                return;
-            }
-        } catch (e: unknown) {
-          console.error("Cache parse error", e);
-        }
-    }
-
     updateState({ isDetecting: true });
+
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) {
-        throw new Error('Please sign in again to use Smart Editor');
-      }
+      const { data: userData, error: authError } = await supabase.auth.getUser();
+      if (authError || !userData?.user) throw new Error("Please sign in again to use Smart Editor");
+
       const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) {
-        throw new Error('Session expired. Please sign in again');
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Session expired. Please sign in again");
+
+      const { hash } = await computeImageHash(imageUrl);
+      const cachedResp = await fetch(`${apiBase}/smart-editor/layers/${hash}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (cachedResp.ok && !overrides?.force) {
+        const cached = await cachedResp.json();
+        const layers = (cached.layers || []).map(mapLayer);
+        updateState({ layers });
+        toast.success("Layers loaded from cache");
+        return;
       }
 
-      const decodeJwtHeader = (token: string) => {
-        try {
-          const header = token.split('.')[0];
-          const base64 = header.replace(/-/g, '+').replace(/_/g, '/');
-          const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
-          return JSON.parse(atob(padded));
-        } catch {
-          return null;
-        }
-      };
-
-      const clearAuthStorage = () => {
-        const purge = (storage: Storage) => {
-          for (let i = storage.length - 1; i >= 0; i -= 1) {
-            const key = storage.key(i);
-            if (!key) continue;
-            if (key.startsWith('sb-') || key.includes('supabase.auth')) {
-              storage.removeItem(key);
-            }
-          }
-        };
-        purge(localStorage);
-        purge(sessionStorage);
-      };
-
-      const tokenHeader = decodeJwtHeader(accessToken);
-      if (tokenHeader?.alg && !['HS256', 'ES256'].includes(tokenHeader.alg)) {
-        await supabase.auth.signOut();
-        clearAuthStorage();
-        throw new Error('Invalid auth token. Please refresh and sign in again');
-      }
-      
-      // Parallel execution setup
-      const backendPromise = supabase.functions.invoke('smart-editor-detect', {
+      const detectResp = await fetch(`${apiBase}/smart-editor/detect`, {
+        method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: {
+        body: JSON.stringify({
           image_url: imageUrl,
+          image_hash: hash,
           session_id: sessionId,
           user_id: userData.user.id,
-        },
+        }),
       });
 
-      // Load image for dimensions and Tesseract
-      const img = new window.Image();
-      img.crossOrigin = "anonymous";
-      const imageLoadPromise = new Promise<HTMLImageElement>((resolve, reject) => {
-          img.onload = () => resolve(img);
-          img.onerror = () => reject(new Error('Failed to load image dimensions'));
-            img.src = imageUrl;
-      });
-
-      const [imgEl, backendResult] = await Promise.all([imageLoadPromise, backendPromise]);
-      const { data: backendLayersData, error } = backendResult;
-      
-      // Run Tesseract text detection in parallel after getting dimensions
-      // Wait, user instructions say: "After EVF-SAM2 and BiRefNet complete (Promise.all done)"
-          const textLayersPromise = detectTextInImage(
-            imageUrl,
-          imgEl.naturalWidth,
-          imgEl.naturalHeight,
-          worker
-        );
-
-      if (error) throw new Error(error.message);
-
-      const rawLayers: BackendLayer[] = Array.isArray(backendLayersData) ? backendLayersData : [];
-      const sam2Layers: Layer[] = rawLayers.map((layer) => ({
-        ...(layer.bbox && layer.bbox.w <= 1 && layer.bbox.h <= 1
-          ? {
-              boundingBox: {
-                x: layer.bbox.x * imgEl.naturalWidth,
-                y: layer.bbox.y * imgEl.naturalHeight,
-                w: layer.bbox.w * imgEl.naturalWidth,
-                h: layer.bbox.h * imgEl.naturalHeight,
-              },
-            }
-          : { boundingBox: layer.bbox }),
-        id: crypto.randomUUID(),
-        type: layer.type,
-        label: layer.label,
-        maskUrl: layer.mask_url,
-        isVisible: true,
-        isLocked: false,
-        isEdited: false,
-      }));
-
-      const backgroundLayer = sam2Layers.find(l => l.type === 'background') || null;
-
-      // Merge text layers with SAM2 object layers
-        let textLayers: TextLayer[] = [];
-      try {
-          textLayers = await textLayersPromise;
-        } catch (err: unknown) {
-          console.error("OCR detection failed:", err);
+      if (!detectResp.ok) {
+        const text = await detectResp.text();
+        throw new Error(text || "Detection failed");
       }
 
-      const scaleTextBoxIfNormalized = (bbox: TextLayer['boundingBox']) => {
-        if (bbox.w <= 1 && bbox.h <= 1) {
-          return {
-            x: bbox.x * imgEl.naturalWidth,
-            y: bbox.y * imgEl.naturalHeight,
-            w: bbox.w * imgEl.naturalWidth,
-            h: bbox.h * imgEl.naturalHeight,
-          };
-        }
-        return bbox;
-      };
+      const detectData = await detectResp.json();
+      const jobId = detectData.job_id;
+      if (!jobId) throw new Error("Detection did not return a job id");
 
-      // Format text layers to match State Layer
-      const formattedTextLayers: Layer[] = textLayers.map((l) => ({
-          id: crypto.randomUUID(),
-          type: 'text',
-          label: l.label,
-          originalContent: l.originalContent,
-          boundingBox: scaleTextBoxIfNormalized(l.boundingBox),
-          isVisible: true,
-          isLocked: false,
-          isEdited: false,
-      }));
+      const result = await pollJob("detect", String(jobId));
+      const layers = (result?.layers || []).map(mapLayer);
 
-      const hasTextLayers = formattedTextLayers.length > 0;
-
-      // Deduplicate: remove SAM2 "text" detections if Tesseract found better ones
-      // Also separate out background to append at the end
-      const filteredSam2 = sam2Layers.filter(l => (hasTextLayers ? l.type !== 'text' : true) && l.type !== 'background');
-      
-      const mergedLayers = [
-        ...filteredSam2,
-        ...formattedTextLayers,
-        ...(backgroundLayer ? [backgroundLayer] : [])
-      ];
-
-      // Sort: text layers first (most common edit), then people, objects, background
-      const sortedLayers = [
-        ...mergedLayers.filter(l => l.type === 'text'),
-        ...mergedLayers.filter(l => l.type === 'person'),
-        ...mergedLayers.filter(l => l.type === 'object'),
-        ...mergedLayers.filter(l => l.type === 'background'),
-      ];
-
-      if (!sortedLayers.length) {
-        throw new Error('No layers detected. Try Scan again or use a clearer image.');
+      if (!layers.length) {
+        toast.warning("No layers detected. Try a clearer image.");
+        updateState({ layers: [] });
+        return;
       }
 
-      updateState({ layers: sortedLayers });
-
-      // Cache for 24 hours
-      if (cacheKey) {
-        localStorage.setItem(cacheKey, JSON.stringify({
-            layers: sortedLayers,
-            timestamp: Date.now()
-        }));
-      }
-
-      toast.success('Image components detected successfully');
+      updateState({ layers });
+      toast.success("Image components detected successfully");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Detection failed';
+      const message = err instanceof Error ? err.message : "Detection failed";
       toast.error(message);
       console.error(err);
     } finally {
@@ -300,45 +190,118 @@ export function useSmartEditor() {
     }
   };
 
-  const selectLayer = (layerId: string) => updateState({ selectedLayerId: layerId });
+  const createMaskFromBbox = async (imageUrl: string, bbox: { x: number; y: number; w: number; h: number }) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Failed to load image for mask"));
+      img.src = imageUrl;
+    });
 
-  const replaceLayer = async (layerId: string, editType: string, instruction: string, replacementImageUrl?: string) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas unavailable");
+
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "white";
+    ctx.fillRect(bbox.x, bbox.y, bbox.w, bbox.h);
+
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) reject(new Error("Failed to create mask"));
+        else resolve(blob);
+      }, "image/png");
+    });
+  };
+
+  const uploadMask = async (blob: Blob) => {
+    const { data: userData, error } = await supabase.auth.getUser();
+    if (error || !userData?.user) throw new Error("Please sign in again");
+
+    const path = `${userData.user.id}/smart-editor/masks/${crypto.randomUUID()}.png`;
+    const { error: uploadError } = await supabase.storage
+      .from("smart_editor")
+      .upload(path, blob, { contentType: "image/png" });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from("smart_editor").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const replaceLayer = async (layerId: string, editType: string, instruction: string) => {
     if (!state.sessionId || !state.currentImageUrl) return;
 
     updateState({ isReplacing: true });
     try {
       const { data: userData } = await supabase.auth.getUser();
-      const { data, error } = await supabase.functions.invoke('smart-editor-replace', {
-        body: {
-          session_id: state.sessionId,
-          layer_id: layerId, // layerId in local context, should map to DB ideally but using local for flexibility here
+      if (!userData?.user) throw new Error("Please sign in again");
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Session expired. Please sign in again");
+
+      const layer = state.layers.find((l) => l.id === layerId);
+      if (!layer?.boundingBox) throw new Error("Layer mask unavailable");
+
+      let maskUrl = layer.maskUrl;
+      if (!maskUrl) {
+        const maskBlob = await createMaskFromBbox(state.currentImageUrl, layer.boundingBox);
+        maskUrl = await uploadMask(maskBlob);
+      }
+
+      const replaceResp = await fetch(`${apiBase}/smart-editor/replace`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          image_url: state.currentImageUrl,
+          mask_url: maskUrl,
+          prompt: instruction,
           edit_type: editType,
-          current_image_url: state.currentImageUrl,
-          instruction,
-          replacement_image_url: replacementImageUrl,
-          user_id: userData.user?.id
-        }
+          session_id: state.sessionId,
+          user_id: userData.user.id,
+          layer_id: layerId,
+        }),
       });
 
-      if (error || !data?.result_image_url) throw new Error(error?.message || 'Replacement failed');
+      if (!replaceResp.ok) {
+        const text = await replaceResp.text();
+        throw new Error(text || "Replacement failed");
+      }
+
+      const replaceData = await replaceResp.json();
+      const jobId = replaceData.job_id;
+      if (!jobId) throw new Error("Replacement did not return a job id");
+
+      const result = await pollJob("replace", String(jobId));
+      const resultUrl = result?.image_url;
+      if (!resultUrl) throw new Error("Replacement returned no image");
 
       const originalImage = state.currentImageUrl;
-      
       updateState({
-        currentImageUrl: data.result_image_url,
+        currentImageUrl: resultUrl,
         editHistory: [...state.editHistory, originalImage],
-        layers: state.layers.map(l => l.id === layerId ? { ...l, isEdited: true } : l),
-        creditsUsed: state.creditsUsed + (editType === 'replace_text' ? 5 : (editType === 'replace_person' ? 7 : 6))
+        layers: state.layers.map((l) => (l.id === layerId ? { ...l, isEdited: true, maskUrl } : l)),
+        creditsUsed: state.creditsUsed + (editType === "replace_text" ? 5 : editType === "replace_person" ? 7 : 6),
       });
-      toast.success('Edit applied successfully');
+      toast.success("Edit applied successfully");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Replacement failed';
+      const message = err instanceof Error ? err.message : "Replacement failed";
       toast.error(message);
       console.error(err);
     } finally {
       updateState({ isReplacing: false });
     }
   };
+
+  const selectLayer = (layerId: string) => updateState({ selectedLayerId: layerId });
 
   const undoLastEdit = () => {
     if (state.editHistory.length > 1) {
@@ -348,73 +311,32 @@ export function useSmartEditor() {
         currentImageUrl: previousImage || state.originalImageUrl,
         editHistory: history,
       });
-      toast.info('Undo successful');
+      toast.info("Undo successful");
     } else {
-      toast.warning('No further edits to undo');
+      toast.warning("No further edits to undo");
     }
   };
 
   const restoreToVersion = (index: number) => {
     if (index >= 0 && index < state.editHistory.length) {
-       const newHistory = state.editHistory.slice(0, index + 1);
-       updateState({
-           currentImageUrl: state.editHistory[index],
-           editHistory: newHistory,
-       });
-       toast.success('Restored to previous version');
-    }
-  };
-
-  const upscaleTo4K = async () => {
-    if (!state.sessionId || !state.currentImageUrl) return;
-    try {
-        const { data: userData } = await supabase.auth.getUser();
-        toast.loading('Upscaling image to 4K...', { id: 'upscale' });
-        
-        const { data, error } = await supabase.functions.invoke('smart-editor-upscale', {
-            body: { session_id: state.sessionId, image_url: state.currentImageUrl, user_id: userData.user?.id }
-        });
-
-        toast.dismiss('upscale');
-        if (error || !data?.url) throw new Error(error?.message || 'Upscaling failed');
-
-        updateState({ currentImageUrl: data.url });
-        toast.success('Successfully upscaled to 4K');
-    } catch (err: unknown) {
-      toast.dismiss('upscale');
-      const message = err instanceof Error ? err.message : 'Upscaling failed';
-      toast.error(message);
+      const newHistory = state.editHistory.slice(0, index + 1);
+      updateState({
+        currentImageUrl: state.editHistory[index],
+        editHistory: newHistory,
+      });
+      toast.success("Restored to previous version");
     }
   };
 
   const downloadFinal = () => {
     if (!state.currentImageUrl) return;
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = state.currentImageUrl;
     link.download = `thumbai-edit-${Date.now()}.png`;
-    link.target = "_blank"; // If it's across origin, sometimes it requires opening in a new tab or fetching as blob
+    link.target = "_blank";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const saveToMyThumbnails = async () => {
-    if (!state.sessionId || !state.currentImageUrl) return;
-    updateState({ isSaving: true });
-    try {
-        const { data: userData } = await supabase.auth.getUser();
-        const { error } = await supabase.functions.invoke('smart-editor-save-session', {
-            body: { session_id: state.sessionId, final_image_url: state.currentImageUrl, user_id: userData.user?.id }
-        });
-        
-        if (error) throw new Error(error.message);
-        toast.success('Session saved successfully');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Saving failed';
-      toast.error(message);
-    } finally {
-        updateState({ isSaving: false });
-    }
   };
 
   return {
@@ -425,8 +347,6 @@ export function useSmartEditor() {
     replaceLayer,
     undoLastEdit,
     restoreToVersion,
-    upscaleTo4K,
     downloadFinal,
-    saveToMyThumbnails
   };
 }

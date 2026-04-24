@@ -39,10 +39,10 @@ type ProviderOptions = {
   paidFallback?: () => Promise<ProviderResult>;
 };
 
-const GEMINI_MODELS = [
-  "gemini-2.5-flash-image-preview",
-  "gemini-2.0-flash-preview-image-generation",
-];
+const GEMINI_MODELS = (Deno.env.get("GEMINI_IMAGE_MODELS") || "")
+  .split(",")
+  .map((model) => model.trim())
+  .filter(Boolean);
 const CACHE_TTL_HOURS = 12;
 const CACHE_MAX_ENTRIES = 10000;
 const RATE_LIMIT_COOLDOWN_MINUTES = 60;
@@ -250,7 +250,7 @@ export const runImageProviders = async (
 ): Promise<ProviderResult> => {
   const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || "";
 
-  if (options.gemini && geminiKey) {
+  if (options.gemini && geminiKey && GEMINI_MODELS.length > 0) {
     const cooling = await isProviderCoolingDown(supabaseAdmin, "gemini");
     if (!cooling) {
       try {

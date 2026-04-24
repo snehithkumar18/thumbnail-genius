@@ -31,10 +31,16 @@ export async function detectTextInImage(
     return [];
   }
 
-  // Filter by confidence > 60% and minimum word length
-  const words = rawWords.filter(
-    (word) => word.confidence > 60 && word.text.trim().length > 1
-  );
+  // Filter by confidence, minimum word length, and minimum size
+  const words = rawWords.filter((word) => {
+    if (word.confidence <= 60) return false;
+    if (word.text.trim().length <= 1) return false;
+
+    const width = Math.abs(word.bbox.x1 - word.bbox.x0);
+    const height = Math.abs(word.bbox.y1 - word.bbox.y0);
+    const minDim = 6;
+    return width >= minDim && height >= minDim;
+  });
 
   // Group nearby words into text blocks
   // Words within 20px vertical distance = same text block
