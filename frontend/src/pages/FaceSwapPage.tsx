@@ -339,11 +339,13 @@ const FaceSwapPage = () => {
           }
         }
 
+        const resp = await fetch(finalUrl);
+        const blob = await resp.blob();
         const a = document.createElement("a");
-        a.href = finalUrl;
+        a.href = URL.createObjectURL(blob);
         a.download = `faceswap-${Date.now()}.png`;
-        a.target = "_blank";
         a.click();
+        URL.revokeObjectURL(a.href);
       } catch {
         toast.error("Download failed");
       }

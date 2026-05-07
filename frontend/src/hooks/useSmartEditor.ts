@@ -334,15 +334,19 @@ export function useSmartEditor() {
     }
   };
 
-  const downloadFinal = () => {
+  const downloadFinal = async () => {
     if (!state.currentImageUrl) return;
-    const link = document.createElement("a");
-    link.href = state.currentImageUrl;
-    link.download = `thumbai-edit-${Date.now()}.png`;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const resp = await fetch(state.currentImageUrl);
+      const blob = await resp.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `thumbai-edit-${Date.now()}.png`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch {
+      toast.error("Download failed");
+    }
   };
 
   return {

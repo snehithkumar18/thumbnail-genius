@@ -657,7 +657,7 @@ try:
         # arch='clean', channel_multiplier=2 is for v1.4
         face_restorer = GFPGANer(
             model_path=GFPGAN_MODEL_PATH,
-            upscale=2,
+            upscale=1,
             arch='clean',
             channel_multiplier=2,
             bg_upsampler=None # We only want face restoration
@@ -688,11 +688,11 @@ class FaceSwapResponse(BaseModel):
 @app.post("/face-swap", response_model=FaceSwapResponse)
 def face_swap_endpoint(req: FaceSwapRequest):
     """
-    Enhanced face swap endpoint with:
-    - Image upscaling for low-res inputs
-    - Better face detection
-    - Post-processing for sharpness and color
-    - High-quality PNG output
+    High-accuracy face swap pipeline:
+    1. Detect faces at high resolution
+    2. Swap with inswapper_128 (handles blending and color matching natively)
+    3. Light GFPGAN restoration to fix blurriness
+    4. Blend restored result with raw swap to preserve original facial features (beard/hair)
     """
     if not face_analyser or not face_swapper:
         raise Exception("Face swap models not loaded. Please check server configuration.")
@@ -700,7 +700,7 @@ def face_swap_endpoint(req: FaceSwapRequest):
     logger.info(f"Face swap request: strength={req.strength}")
 
     try:
-        # Download and upscale images for better quality
+        # Download and upscale images for better quality detection
         logger.info("Downloading source image...")
         source_pil = download_image(req.source_url)
         source_pil = upscale_image_if_needed(source_pil, min_threshold=512)
@@ -712,9 +712,9 @@ def face_swap_endpoint(req: FaceSwapRequest):
         source_img = np.array(source_pil)[:, :, ::-1]
         target_img = np.array(target_pil)[:, :, ::-1]
 
-        # Detect faces with better parameters
+        # Detect faces
         logger.info("Detecting faces in source image...")
-        source_faces = face_analyser.get(source_img, max_num=1)  # Get only best face
+        source_faces = face_analyser.get(source_img, max_num=1)
         
         logger.info("Detecting faces in target image...")
         target_faces = face_analyser.get(target_img)
@@ -735,48 +735,51 @@ def face_swap_endpoint(req: FaceSwapRequest):
         logger.info(f"Source face confidence: {source_face.det_score:.2f}")
         logger.info(f"Target faces found: {len(target_faces)}")
 
-        # Swap faces with quality refinement
+        # ─── FACE SWAP ───
+        # inswapper_128 natively handles color matching and seamless cloning perfectly
         result = target_img.copy()
         for idx, tface in enumerate(target_faces):
             logger.info(f"Swapping face {idx + 1}/{len(target_faces)}...")
             result = face_swapper.get(result, tface, source_face, paste_back=True)
 
-        # ─── FACE RESTORATION (GFPGAN) ───
+        # ─── FACE RESTORATION (GFPGAN — light touch) ───
+        # GFPGAN fixes the 128x128 blurriness, but can sometimes hallucinate features (remove beard/etc).
+        # We blend it with the raw swap to get the best of both worlds: sharp details but original features.
+        raw_swap = result.copy()
         if face_restorer:
-            logger.info("Restoring faces with GFPGAN for highest quality...")
+            logger.info("Applying light GFPGAN restoration...")
             try:
-                # GFPGAN expects BGR
-                _, _, result = face_restorer.enhance(
+                # Some GFPGAN versions support weight parameter, some don't. We'll blend manually.
+                _, _, restored = face_restorer.enhance(
                     result,
                     has_aligned=False,
                     only_center_face=False,
                     paste_back=True
                 )
-                logger.info("Face restoration complete")
+                
+                # Blend restored with raw swap.
+                # 0.6 means 60% GFPGAN (sharpness) and 40% Inswapper (accurate features/beard)
+                gfpgan_weight = 0.6
+                result = cv2.addWeighted(
+                    restored, gfpgan_weight,
+                    raw_swap, 1.0 - gfpgan_weight,
+                    0
+                )
+                logger.info(f"GFPGAN applied and blended at {gfpgan_weight:.0%} weight")
             except Exception as re:
                 logger.warning(f"Face restoration failed: {re}")
+                result = raw_swap
 
-        # ─── POST-PROCESSING FOR QUALITY ───
+        # ─── POST-PROCESSING ───
         logger.info("Applying post-processing...")
         result_rgb = result[:, :, ::-1]
         pil_result = Image.fromarray(result_rgb.astype('uint8'))
 
-        # Step 1: Subtle sharpening (GFPGAN already does a lot)
+        # Very light sharpening to make features pop slightly
         sharpness_enhancer = ImageEnhance.Sharpness(pil_result)
-        pil_result = sharpness_enhancer.enhance(1.1)  # +10% sharpness
-        logger.info("Applied subtle sharpness enhancement")
-
-        # Step 2: Ensure color vibrancy
-        color_enhancer = ImageEnhance.Color(pil_result)
-        pil_result = color_enhancer.enhance(1.05)  # +5% saturation
-        logger.info("Applied subtle color enhancement")
-
-        # Step 3: Contrast
-        contrast_enhancer = ImageEnhance.Contrast(pil_result)
-        pil_result = contrast_enhancer.enhance(1.05)  # +5% contrast
-        logger.info("Applied subtle contrast enhancement")
-
-        # Step 4: Ensure result doesn't exceed max dimensions
+        pil_result = sharpness_enhancer.enhance(1.1)
+        
+        # Ensure result doesn't exceed max dimensions
         max_dim = max(pil_result.size)
         if max_dim > 2048:
             scale = 2048 / max_dim
@@ -786,7 +789,6 @@ def face_swap_endpoint(req: FaceSwapRequest):
 
         # ─── ENCODE TO BASE64 ───
         buf = io.BytesIO()
-        # Use PNG for lossless quality (better than JPEG)
         pil_result.save(buf, format="PNG", optimize=False)
         buf.seek(0)
         b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
