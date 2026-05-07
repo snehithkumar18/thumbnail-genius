@@ -23,6 +23,23 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Fix for basicsr/gfpgan compatibility with newer torchvision
+try:
+    import sys
+    import types
+    import torchvision
+    from torchvision.transforms import functional as F
+    
+    # Create a dummy module to satisfy the absolute import 'from torchvision.transforms.functional_tensor import ...'
+    if 'torchvision.transforms.functional_tensor' not in sys.modules:
+        fake_module = types.ModuleType('torchvision.transforms.functional_tensor')
+        # Map required functions (BasicSR usually needs rgb_to_grayscale)
+        fake_module.rgb_to_grayscale = F.rgb_to_grayscale
+        sys.modules['torchvision.transforms.functional_tensor'] = fake_module
+        logger.info("Injected fake torchvision.transforms.functional_tensor module for BasicSR compatibility")
+except Exception as e:
+    logger.warning(f"Failed to apply torchvision monkeypatch: {e}")
+
 try:
     from ultralytics import YOLO
     logger.info("YOLO imported successfully")
@@ -619,6 +636,7 @@ def build_layers(img: Image.Image, scale: float):
 try:
     import insightface
     from insightface.app import FaceAnalysis
+    from gfpgan import GFPGANer
 
     SWAP_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "inswapper_128.onnx")
 
@@ -632,10 +650,27 @@ try:
     else:
         face_swapper = None
         logger.warning(f"inswapper_128.onnx not found at {SWAP_MODEL_PATH} — face swap disabled")
+
+    # Initialize GFPGAN for face restoration
+    GFPGAN_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "GFPGANv1.4.pth")
+    if os.path.exists(GFPGAN_MODEL_PATH):
+        # arch='clean', channel_multiplier=2 is for v1.4
+        face_restorer = GFPGANer(
+            model_path=GFPGAN_MODEL_PATH,
+            upscale=2,
+            arch='clean',
+            channel_multiplier=2,
+            bg_upsampler=None # We only want face restoration
+        )
+        logger.info(f"GFPGAN restorer loaded: {GFPGAN_MODEL_PATH}")
+    else:
+        face_restorer = None
+        logger.warning(f"GFPGAN model not found at {GFPGAN_MODEL_PATH} — quality restoration disabled")
 except Exception as e:
     face_analyser = None
     face_swapper = None
-    logger.warning(f"InsightFace import failed: {e}")
+    face_restorer = None
+    logger.warning(f"AI model initialization failed: {e}")
 
 
 class FaceSwapRequest(BaseModel):
@@ -706,25 +741,40 @@ def face_swap_endpoint(req: FaceSwapRequest):
             logger.info(f"Swapping face {idx + 1}/{len(target_faces)}...")
             result = face_swapper.get(result, tface, source_face, paste_back=True)
 
+        # ─── FACE RESTORATION (GFPGAN) ───
+        if face_restorer:
+            logger.info("Restoring faces with GFPGAN for highest quality...")
+            try:
+                # GFPGAN expects BGR
+                _, _, result = face_restorer.enhance(
+                    result,
+                    has_aligned=False,
+                    only_center_face=False,
+                    paste_back=True
+                )
+                logger.info("Face restoration complete")
+            except Exception as re:
+                logger.warning(f"Face restoration failed: {re}")
+
         # ─── POST-PROCESSING FOR QUALITY ───
         logger.info("Applying post-processing...")
         result_rgb = result[:, :, ::-1]
         pil_result = Image.fromarray(result_rgb.astype('uint8'))
 
-        # Step 1: Enhance sharpness for face details
+        # Step 1: Subtle sharpening (GFPGAN already does a lot)
         sharpness_enhancer = ImageEnhance.Sharpness(pil_result)
-        pil_result = sharpness_enhancer.enhance(1.2)  # +20% sharpness
-        logger.info("Applied sharpness enhancement")
+        pil_result = sharpness_enhancer.enhance(1.1)  # +10% sharpness
+        logger.info("Applied subtle sharpness enhancement")
 
-        # Step 2: Enhance color saturation for better skin tone
+        # Step 2: Ensure color vibrancy
         color_enhancer = ImageEnhance.Color(pil_result)
-        pil_result = color_enhancer.enhance(1.1)  # +10% saturation
-        logger.info("Applied color enhancement")
+        pil_result = color_enhancer.enhance(1.05)  # +5% saturation
+        logger.info("Applied subtle color enhancement")
 
-        # Step 3: Slight contrast boost for better definition
+        # Step 3: Contrast
         contrast_enhancer = ImageEnhance.Contrast(pil_result)
-        pil_result = contrast_enhancer.enhance(1.08)  # +8% contrast
-        logger.info("Applied contrast enhancement")
+        pil_result = contrast_enhancer.enhance(1.05)  # +5% contrast
+        logger.info("Applied subtle contrast enhancement")
 
         # Step 4: Ensure result doesn't exceed max dimensions
         max_dim = max(pil_result.size)
@@ -760,7 +810,14 @@ def face_swap_endpoint(req: FaceSwapRequest):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "models_loaded": {"face_analyser": face_analyser is not None, "face_swapper": face_swapper is not None}}
+    return {
+        "status": "ok", 
+        "models_loaded": {
+            "face_analyser": face_analyser is not None, 
+            "face_swapper": face_swapper is not None,
+            "face_restorer": face_restorer is not None
+        }
+    }
 
 
 @app.post("/detect", response_model=DetectResponse)
