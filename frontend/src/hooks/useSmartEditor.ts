@@ -110,13 +110,19 @@ export function useSmartEditor() {
       const resp = await fetch(`${apiBase}/smart-editor/jobs/${queue}/${jobId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!resp.ok) throw new Error("Failed to check job status");
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Failed to check job status (${resp.status}): ${errText || "No details"}`);
+      }
       const data = await resp.json();
       if (data.status === "completed") return data.result;
-      if (data.status === "failed") throw new Error("Job failed");
+      if (data.status === "failed") {
+        const reason = data.failedReason || data.error || data.message || "Unknown failure";
+        throw new Error(`${queue === "detect" ? "Detection" : "Edit"} failed: ${reason}`);
+      }
       await new Promise((resolve) => setTimeout(resolve, pollMs));
     }
-    throw new Error("Job timed out");
+    throw new Error(`${queue === "detect" ? "Detection" : "Edit"} job timed out`);
   };
 
   const detectLayers = async (overrides?: { sessionId?: string; imageUrl?: string; force?: boolean }) => {
@@ -273,7 +279,7 @@ export function useSmartEditor() {
 
       if (!replaceResp.ok) {
         const text = await replaceResp.text();
-        throw new Error(text || "Replacement failed");
+        throw new Error(`Replacement failed (${replaceResp.status}): ${text || "No details"}`);
       }
 
       const replaceData = await replaceResp.json();

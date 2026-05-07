@@ -53,6 +53,7 @@ const BatchGenerator = ({ visible, onClose, basePrompt, quality, format }: Batch
   const [running, setRunning] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const cancelRef = useRef(false);
+  const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
   const creditPerImage = quality === "fast" ? CREDIT_COSTS.FAST_GENERATE : CREDIT_COSTS.PRO_GENERATE;
   const remaining = credits?.credits_remaining ?? 0;
@@ -92,7 +93,7 @@ const BatchGenerator = ({ visible, onClose, basePrompt, quality, format }: Batch
       toast.error("Add at least one item to generate");
       return;
     }
-    if (totalCost > 0 && totalCost > remaining) {
+    if (!bypassCredits && totalCost > 0 && totalCost > remaining) {
       toast.error("Not enough credits");
       return;
     }

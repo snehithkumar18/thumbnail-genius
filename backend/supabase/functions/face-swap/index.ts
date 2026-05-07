@@ -129,83 +129,35 @@ const isDoneStatus = (status?: string) => {
   return ["completed", "succeeded", "success", "done"].includes(s);
 };
 
-const isFailedStatus = (status?: string) => {
-  const s = String(status || "").toLowerCase();
-  return ["failed", "error", "cancel", "canceled"].includes(s);
-};
-
-const createFacemintTask = async (baseUrl: string, apiKey: string, sourceUrl: string, targetUrl: string) => {
-  const resp = await fetch(`${baseUrl}/create-face-swap-task`, {
+const runLocalFaceSwap = async (editorServiceUrl: string, sourceUrl: string, targetUrl: string) => {
+  const resp = await fetch(`${editorServiceUrl}/face-swap`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": apiKey,
     },
-    body: JSON.stringify({ source_image: sourceUrl, target_image: targetUrl }),
+    body: JSON.stringify({
+      source_url: sourceUrl,
+      target_url: targetUrl,
+      strength: 1.0,
+    }),
   });
 
   if (!resp.ok) {
-    throw new Error(`Facemint create failed (${resp.status}): ${await resp.text()}`);
+    throw new Error(`Local face swap failed (${resp.status}): ${await resp.text()}`);
   }
 
-  return await resp.json();
+  const result = await resp.json();
+  return result.image_base64; // Returns base64 encoded image
 };
 
-const fetchFacemintStatus = async (baseUrl: string, apiKey: string, taskId: string) => {
-  const resp = await fetch(`${baseUrl}/face-swap-task/${taskId}`, {
-    headers: { "x-api-key": apiKey },
-  });
-
-  if (!resp.ok) {
-    throw new Error(`Facemint status failed (${resp.status}): ${await resp.text()}`);
+const mapFaceSwapError = (message: string) => {
+  if (message.includes("No face detected")) {
+    return { code: "NO_FACE_DETECTED", message: "No face detected in one or both images" };
   }
-
-  return await resp.json();
-};
-
-const runFacemint = async (baseUrl: string, apiKey: string, sourceUrl: string, targetUrl: string) => {
-  const createPayload = await createFacemintTask(baseUrl, apiKey, sourceUrl, targetUrl);
-  const taskId = extractTaskId(createPayload);
-  if (!taskId) {
-    const keys = payload?.data ? Object.keys(payload.data || {}) : [];
-    const topKeys = Object.keys(payload || {});
-    throw new Error(`Facemint did not return a task id. Keys: ${topKeys.join(",")} data: ${keys.join(",")}`);
+  if (message.includes("timeout")) {
+    return { code: "TIMEOUT", message: "Face swap processing took too long. Try again." };
   }
-
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    const statusPayload = await fetchFacemintStatus(baseUrl, apiKey, taskId);
-    const status = statusPayload?.status || statusPayload?.data?.status;
-    if (isDoneStatus(status)) {
-      const resultUrl = extractResultUrl(statusPayload);
-      if (!resultUrl) throw new Error("Facemint completed without a result URL");
-      return resultUrl;
-    }
-    if (isFailedStatus(status)) {
-      const errorMessage = statusPayload?.error || statusPayload?.message || "Facemint task failed";
-      throw new Error(errorMessage);
-    }
-    await sleep(1000);
-  }
-
-  throw new Error("Facemint timed out");
-};
-
-const mapFacemintError = (message: string) => {
-  const statusMatch = message.match(/\((\d{3})\)/);
-  const status = statusMatch ? Number(statusMatch[1]) : null;
-  if (status === 401 || status === 403) {
-    return { code: "FACEMINT_AUTH", message: "Facemint auth failed. Check API key or access." };
-  }
-  if (status === 402) {
-    return { code: "FACEMINT_PAYMENT", message: "Facemint payment required or balance exhausted." };
-  }
-  if (status === 429) {
-    return { code: "FACEMINT_RATE_LIMIT", message: "Facemint rate limit exceeded. Please try again." };
-  }
-  if (status && status >= 500) {
-    return { code: "FACEMINT_SERVER", message: "Facemint server error. Try again later." };
-  }
-  return { code: "FACEMINT_ERROR", message: message || "Facemint request failed" };
+  return { code: "FACESWAP_ERROR", message: message || "Face swap request failed" };
 };
 
 const loadImageBytes = async (imageUrl: string): Promise<Uint8Array> => {
@@ -306,11 +258,10 @@ serve(async (req) => {
       });
     }
 
-    if (!facemintApiKey) {
-      throw new Error("FACEMINT_API_KEY not configured");
-    }
+    // Use local free face swap service (InsightFace + inswapper_128.onnx)
+    const editorServiceUrl = Deno.env.get("EDITOR_SERVICE_URL") || "http://localhost:8000";
 
-    const rateKey = `facemint:${user.id}`;
+    const rateKey = `faceswap:${user.id}`;
     if (await checkRateLimit(supabase, rateKey)) {
       return new Response(JSON.stringify({ error: "Too many requests. Please wait a moment.", code: "RATE_LIMIT" }), {
         status: 429,
@@ -323,35 +274,40 @@ serve(async (req) => {
     const inputHash = cacheKey.split(":").slice(2).join(":");
     const cached = await getCache(supabase, cacheKey);
 
-    let imageUrl = cached?.image_url || null;
+    let imageBase64 = "";
     let modelUsed = cached?.model_used || "unknown";
     let provider = cached?.provider || "cache";
 
-    if (!imageUrl) {
+    if (!cached?.image_url) {
       try {
-        imageUrl = await runFacemint(facemintBaseUrl, facemintApiKey, face_url, target_url);
+        imageBase64 = await runLocalFaceSwap(editorServiceUrl, face_url, target_url);
       } catch (err: unknown) {
-        const rawMessage = err instanceof Error ? err.message : "Facemint request failed";
-        const mapped = mapFacemintError(rawMessage);
+        const rawMessage = err instanceof Error ? err.message : "Face swap request failed";
+        const mapped = mapFaceSwapError(rawMessage);
         return new Response(JSON.stringify({ error: mapped.message, code: mapped.code }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      modelUsed = "facemint";
-      provider = "facemint";
+      modelUsed = "insightface-inswapper";
+      provider = "local";
     }
 
-    if (!imageUrl) throw new Error("Face swap returned no image");
+    let publicUrl = cached?.image_url || "";
 
-    let publicUrl = imageUrl;
-    if (!cached) {
-      const imageBytes = await loadImageBytes(imageUrl);
+    if (!publicUrl) {
+      // Convert base64 to Uint8Array and upload
+      const binaryString = atob(imageBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i += 1) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
       const fileName = `${user.id}/faceswap/${crypto.randomUUID()}.png`;
 
       const { error: uploadError } = await supabase.storage
         .from("thumbnails")
-        .upload(fileName, imageBytes, { contentType: "image/png" });
+        .upload(fileName, bytes, { contentType: "image/png" });
 
       if (uploadError) throw uploadError;
 

@@ -46,6 +46,78 @@ const FaceSwapPage = () => {
   const [faceDetected, setFaceDetected] = useState<boolean | null>(null);
   const faceInputRef = useRef<HTMLInputElement>(null);
 
+  // helper: upload temp file and analyze for face bbox (calls local AI detect)
+  const analyzeAndCropPreview = useCallback(async (fileOrUrl: File | string) => {
+    try {
+      let imageUrl: string | null = null;
+      // If a File was passed, upload it to storage temporarily
+      if (fileOrUrl instanceof File) {
+        const tempPath = `${user?.id || 'anon'}/temp/${crypto.randomUUID()}.png`;
+        const { error: uploadError } = await supabase.storage.from('thumbnails').upload(tempPath, fileOrUrl, { contentType: fileOrUrl.type });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('thumbnails').getPublicUrl(tempPath);
+        imageUrl = data.publicUrl;
+      } else {
+        imageUrl = fileOrUrl;
+      }
+
+      if (!imageUrl) return;
+
+      // Call local AI detect directly for fast preview (no auth needed)
+      const aiBase = (import.meta as any).env?.VITE_SMART_EDITOR_AI_BASE || 'http://localhost:8000';
+      const resp = await fetch(`${aiBase}/detect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: imageUrl, max_dim: 1024 }),
+      });
+      if (!resp.ok) {
+        setFaceDetected(false);
+        return;
+      }
+      const json = await resp.json();
+      const layers = json?.layers || [];
+
+      // Prefer a person/face layer; otherwise fall back to largest bbox
+      let faceLayer = layers.find((l: any) => l.type === 'person' || l.type === 'face' || (l.label && l.label.toLowerCase().includes('face')));
+      if (!faceLayer && layers.length > 0) {
+        faceLayer = layers.reduce((a: any, b: any) => (a.bbox && b.bbox && a.bbox[2] * a.bbox[3] > b.bbox[2] * b.bbox[3] ? a : b));
+      }
+
+      if (!faceLayer || !faceLayer.bbox) {
+        setFaceDetected(false);
+        return;
+      }
+
+      // bbox returned is [x,y,w,h] in original image coords
+      const [x, y, w, h] = faceLayer.bbox.map((n: number) => Number(n));
+      // Fetch image and crop around bbox with padding
+      const imgResp = await fetch(imageUrl);
+      const blob = await imgResp.blob();
+      const imgBitmap = await createImageBitmap(blob);
+
+      const pad = 0.45; // add padding around face
+      const cx = Math.max(0, x - w * pad);
+      const cy = Math.max(0, y - h * pad);
+      const cw = Math.min(imgBitmap.width - cx, w * (1 + pad * 2));
+      const ch = Math.min(imgBitmap.height - cy, h * (1 + pad * 2));
+
+      const canvas = document.createElement('canvas');
+      const targetSize = 512; // high-quality preview
+      canvas.width = targetSize;
+      canvas.height = Math.round((ch / cw) * targetSize);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(imgBitmap, cx, cy, cw, ch, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/png');
+      setFacePreview(dataUrl);
+      setFaceDetected(true);
+    } catch (err) {
+      console.error('Preview analysis failed', err);
+      setFaceDetected(false);
+    }
+  }, [user]);
+
   // Target
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [customTarget, setCustomTarget] = useState<string | null>(null);
@@ -61,6 +133,7 @@ const FaceSwapPage = () => {
   const [resultId, setResultId] = useState<string | null>(null);
   const [showZeroCredits, setShowZeroCredits] = useState(false);
   const [formatFilter, setFormatFilter] = useState("all");
+  const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
   // Fetch saved faces
   const { data: savedFaces, refetch: refetchFaces } = useQuery({
@@ -87,6 +160,17 @@ const FaceSwapPage = () => {
     }
   }, [savedFaces, selectedFaceId]);
 
+  // When a saved face is selected, generate a better preview centered on the face
+  useEffect(() => {
+    if (!selectedFaceId || !savedFaces) return;
+    const face = savedFaces.find((f: any) => f.id === selectedFaceId);
+    if (!face) return;
+    setFacePreview(face.face_url);
+    setFaceDetected(null);
+    // analyze remote URL and crop
+    analyzeAndCropPreview(face.face_url);
+  }, [selectedFaceId, savedFaces, analyzeAndCropPreview]);
+
   const handleFaceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -96,8 +180,10 @@ const FaceSwapPage = () => {
     }
     setFaceFile(file);
     const url = URL.createObjectURL(file);
-    setFacePreview(url);
-    setFaceDetected(true); // Simplified — real detection would use an API
+    setFacePreview(url); // immediate preview while analysis runs
+    setFaceDetected(null);
+    // analyze and crop for better face-centered preview
+    analyzeAndCropPreview(file);
   };
 
   const saveFace = async () => {
@@ -168,7 +254,7 @@ const FaceSwapPage = () => {
 
   const handleSwap = async () => {
     if (!user || !activeFaceUrl || !activeTargetUrl) return;
-    if ((credits?.credits_remaining ?? 0) < 1) {
+    if (!bypassCredits && (credits?.credits_remaining ?? 0) < 1) {
       setShowZeroCredits(true);
       return;
     }
@@ -195,20 +281,36 @@ const FaceSwapPage = () => {
         targetUrl = data.publicUrl;
       }
 
-      const { data, error } = await supabase.functions.invoke("face-swap", {
-        body: {
+      // Call smart-editor-service (Node) which proxies to Python AI
+      const editorBase = import.meta.env.VITE_SMART_EDITOR_API_BASE || "http://localhost:3001";
+
+      // include current user's access token so smart-editor-service can authenticate
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const resp = await fetch(`${editorBase}/face-swap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
           face_url: activeFaceUrl,
           target_url: targetUrl,
-          swap_strength: swapStrength / 100,
-          user_id: user.id,
-        },
+          swap_strength: swapStrength,
+        }),
       });
 
-      if (error) throw error;
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => null);
+        throw new Error(`Editor error: ${resp.status} ${text || ""}`);
+      }
+
+      const data = await resp.json();
       if (data?.error) throw new Error(data.error);
 
-      setResult(data.image_url);
-      setResultId(data.thumbnail_id);
+      // smart-editor-ai returns `image_base64` (and backend returns image_url).
+      // Support both for testing: prefer `image_url`, otherwise construct data URL from base64.
+      const imageUrl = data.image_url || (data.image_base64 ? `data:image/png;base64,${data.image_base64}` : null);
+      setResult(imageUrl);
+      setResultId(data.thumbnail_id || null);
       setProgress(100);
       hapticFeedback("heavy");
       queryClient.invalidateQueries({ queryKey: ["credits"] });
@@ -526,7 +628,7 @@ const FaceSwapPage = () => {
                     disabled={swapping}
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-base font-bold"
                   >
-                    {swapping ? "Swapping..." : "Apply Face Swap — 3 credits"}
+                    {swapping ? "Swapping..." : "Apply Face Swap — 1 credit"}
                   </Button>
                 </CardContent>
               </Card>

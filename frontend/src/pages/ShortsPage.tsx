@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +18,7 @@ import { CREDIT_COSTS } from "@/lib/credits";
 import { LANGUAGES, type LanguageId } from "@/lib/languages";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
 
-type GeneratedImage = { image_url: string; thumbnail_id: string };
+type GeneratedImage = { image_url: string; thumbnail_id: string; provider?: string; model_used?: string };
 
 const SHORTS_STYLES = [
   { id: "viral reaction", label: "Viral Reaction", emoji: "😱" },
@@ -51,6 +52,7 @@ const ShortsPage = () => {
   const [style, setStyle] = useState("viral reaction");
   const [compositionGuide, setCompositionGuide] = useState(true);
   const [quality, setQuality] = useState<"fast" | "pro">("pro");
+  const [modelChoice, setModelChoice] = useState("auto");
   const [variations, setVariations] = useState(1);
   const [language, setLanguage] = useState<LanguageId>("en");
 
@@ -61,7 +63,9 @@ const ShortsPage = () => {
   const [activeImage, setActiveImage] = useState(0);
   const [showZeroCredits, setShowZeroCredits] = useState(false);
   const [showYTPreview, setShowYTPreview] = useState(false);
+  const [showPollinationsUpsell, setShowPollinationsUpsell] = useState(false);
   const abortRef = useRef(false);
+  const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
   const creditCost = (quality === "fast" ? CREDIT_COSTS.FAST_GENERATE : CREDIT_COSTS.PRO_GENERATE) * variations;
   const remaining = credits?.credits_remaining ?? 0;
@@ -88,7 +92,7 @@ const ShortsPage = () => {
       toast.error("Please enter a prompt");
       return;
     }
-    if (remaining < creditCost) {
+    if (!bypassCredits && remaining < creditCost) {
       setShowZeroCredits(true);
       return;
     }
@@ -114,19 +118,24 @@ const ShortsPage = () => {
           quality,
           count: variations,
           language: language !== "en" ? language : undefined,
+          model_choice: modelChoice,
         },
       });
 
       if (abortRef.current) return;
       if (error) throw new Error(error.message || "Generation failed");
       if (data?.error) {
-        if (data.error === "Insufficient credits") { setShowZeroCredits(true); return; }
+        if (!bypassCredits && data.error === "Insufficient credits") { setShowZeroCredits(true); return; }
         throw new Error(data.error);
       }
 
       setResults(data.images || []);
       setEnhancedPrompt(data.enhanced_prompt || "");
       setProgress(100);
+      if (credits?.plan_type === "free" || credits?.plan_type === "none") {
+        const usedPollinations = (data.images || []).some((img: GeneratedImage) => img.provider === "pollinations");
+        if (usedPollinations) setShowPollinationsUpsell(true);
+      }
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["thumbnails"] });
       toast.success(`Generated ${data.images?.length || 0} Shorts cover(s)!`);
@@ -138,7 +147,7 @@ const ShortsPage = () => {
     } finally {
       setGenerating(false);
     }
-  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, compositionGuide, quality, variations, language, remaining, creditCost, queryClient]);
+  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, compositionGuide, quality, variations, language, remaining, creditCost, queryClient, credits?.plan_type, modelChoice]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -324,6 +333,24 @@ const ShortsPage = () => {
           </div>
         </div>
 
+        {!["none", "free"].includes((credits?.plan_type || "none").toLowerCase()) && (
+          <div>
+            <Label className="text-sm font-medium text-foreground mb-2 block">Model</Label>
+            <Select value={modelChoice} onValueChange={setModelChoice}>
+              <SelectTrigger className="bg-background border-border text-foreground">
+                <SelectValue placeholder="Choose model" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border">
+                <SelectItem value="auto">Auto (Best available)</SelectItem>
+                <SelectItem value="fast">Fast / Free (Pollinations + Gemini)</SelectItem>
+                <SelectItem value="pro">Pro / Premium (FLUX.2 Pro)</SelectItem>
+                <SelectItem value="text">Text-accurate (Ideogram 3.0)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1.5">Pick cheaper models for prompt testing.</p>
+          </div>
+        )}
+
         {/* Variations */}
         <div>
           <Label className="text-sm font-medium text-foreground mb-2 block">Variations</Label>
@@ -491,6 +518,21 @@ const ShortsPage = () => {
       </Dialog>
 
       <ZeroCreditsModal open={showZeroCredits} onClose={() => setShowZeroCredits(false)} />
+
+      <Dialog open={showPollinationsUpsell} onOpenChange={setShowPollinationsUpsell}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upgrade for Realistic Quality</DialogTitle>
+            <DialogDescription>
+              Don’t compromise with quality. Upgrade to Pro for more realistic Shorts covers and premium models.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setShowPollinationsUpsell(false)}>Not now</Button>
+            <Button variant="hero" onClick={() => window.location.assign("/pricing")}>Upgrade to Pro</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

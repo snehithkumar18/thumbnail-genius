@@ -25,7 +25,6 @@ const navItems = [
   { title: "Shorts Cover", url: "/dashboard/shorts", icon: Smartphone },
   { title: "Recreate", url: "/dashboard/recreate", icon: RefreshCw },
   { title: "✨ Smart Edit", url: "/dashboard/smart-editor", icon: Sparkles, badge: "NEW" },
-  { title: "AI Editor", url: "/dashboard/editor", icon: Pencil },
   { title: "Face Swap", url: "/dashboard/faceswap", icon: User },
   { title: "Background Removal", url: "/dashboard/background-removal", icon: Eraser },
   { title: "Titles & Scripts", url: "/dashboard/titles", icon: Type },

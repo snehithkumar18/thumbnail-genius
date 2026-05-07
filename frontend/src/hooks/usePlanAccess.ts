@@ -34,6 +34,7 @@ export const usePlanAccess = () => {
     canUseABTest: ['creator', 'pro', 'studio'].includes(plan),
     canUseScorer: ['creator', 'pro', 'studio'].includes(plan),
     canUsePriorityQueue: ['pro', 'studio'].includes(plan),
+    canUseSmartEditor: plan !== 'none',
     canUseAPI: plan === 'studio',
     maxBrandKits: ({ none: 0, basic: 1, creator: 3, pro: 5, studio: 10 } as Record<string, number>)[plan] ?? 0,
     maxSavedFaces: ({ none: 0, basic: 1, creator: 3, pro: 5, studio: 10 } as Record<string, number>)[plan] ?? 0,

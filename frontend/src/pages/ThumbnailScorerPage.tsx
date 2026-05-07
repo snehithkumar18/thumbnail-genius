@@ -53,6 +53,7 @@ const ThumbnailScorerPage = () => {
   const [progressMsg, setProgressMsg] = useState("");
   const [result, setResult] = useState<ScoreResult | null>(null);
   const [showZeroCredits, setShowZeroCredits] = useState(false);
+  const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -75,7 +76,7 @@ const ThumbnailScorerPage = () => {
 
   const handleAnalyze = async () => {
     if (!selectedImage || !user) return;
-    if ((credits?.credits_remaining ?? 0) < 1) { setShowZeroCredits(true); return; }
+    if (!bypassCredits && (credits?.credits_remaining ?? 0) < 1) { setShowZeroCredits(true); return; }
 
     setIsAnalyzing(true);
     setResult(null);

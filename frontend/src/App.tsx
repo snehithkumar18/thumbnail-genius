@@ -15,7 +15,6 @@ const DashboardLayout = lazy(() => import("./components/DashboardLayout"));
 const GeneratePage = lazy(() => import("./pages/GeneratePage"));
 const ShortsPage = lazy(() => import("./pages/ShortsPage"));
 const RecreatePage = lazy(() => import("./pages/RecreatePage"));
-const EditorPage = lazy(() => import("./pages/EditorPage"));
 const FaceSwapPage = lazy(() => import("./pages/FaceSwapPage"));
 const BrandKitPage = lazy(() => import("./pages/BrandKitPage"));
 const BackgroundRemovalPage = lazy(() => import("./pages/BackgroundRemovalPage"));
@@ -54,7 +53,6 @@ const App = () => (
                   <Route index element={<GeneratePage />} />
                   <Route path="shorts" element={<ShortsPage />} />
                   <Route path="recreate" element={<RecreatePage />} />
-                  <Route path="editor" element={<EditorPage />} />
                   <Route path="smart-editor" element={<SmartEditorPage />} />
                   <Route path="faceswap" element={<FaceSwapPage />} />
                   <Route path="background-removal" element={<BackgroundRemovalPage />} />

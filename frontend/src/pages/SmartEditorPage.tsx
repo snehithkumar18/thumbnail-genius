@@ -38,7 +38,7 @@ export default function SmartEditorPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const editor = useSmartEditor();
-  const { plan } = usePlanAccess();
+  const { plan, canUseSmartEditor } = usePlanAccess();
   const { data: creditsData } = useCredits();
   const { data: myThumbs = [] } = useThumbnails();
 
@@ -53,11 +53,12 @@ export default function SmartEditorPage() {
   const [thumbSearch, setThumbSearch] = useState('');
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'layers' | 'edit'>('layers');
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   
   const currentCredits = creditsData?.credits_remaining ?? 0;
   const filteredMyThumbs = myThumbs.filter(t => t.prompt?.toLowerCase().includes(thumbSearch.toLowerCase()) || !thumbSearch);
 
-    const isLockedPlan = false;
+    const isLockedPlan = !canUseSmartEditor;
 
 
     const uploadSmartEditorImage = async (file: File) => {
@@ -166,10 +167,15 @@ export default function SmartEditorPage() {
 
   const handleUrlLoad = async () => {
     if (!inputUrl) return;
+    setIsLoadingUrl(true);
+    try {
         const normalizedUrl = await normalizeInputImageUrl(inputUrl.trim());
         const sessionId = await editor.initSession(normalizedUrl, 'from_url');
         if (!sessionId) return;
         await runDetectWithWorker(sessionId, normalizedUrl);
+    } finally {
+        setIsLoadingUrl(false);
+    }
   };
 
   const selectedLayer = editor.layers.find(l => l.id === editor.selectedLayerId);
@@ -470,7 +476,11 @@ export default function SmartEditorPage() {
                                                                     </DialogHeader>
                                   <div className="space-y-4 py-4">
                                       <Input placeholder="https://youtube.com/watch?v=..." value={inputUrl} onChange={e => setInputUrl(e.target.value)} />
-                                      <Button onClick={handleUrlLoad} disabled={!inputUrl} className="w-full bg-[#8B47FF] hover:bg-[#7236d6]">Load Thumbnail</Button>
+                                      <Button onClick={handleUrlLoad} disabled={!inputUrl || isLoadingUrl} className="w-full bg-[#8B47FF] hover:bg-[#7236d6]">
+                                          {isLoadingUrl ? (
+                                              <><div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" /> Loading...</>
+                                          ) : "Load Thumbnail"}
+                                      </Button>
                                   </div>
                               </DialogContent>
                           </Dialog>

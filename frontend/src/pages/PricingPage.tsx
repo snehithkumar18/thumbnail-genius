@@ -18,18 +18,18 @@ import { toast } from "sonner";
 import { hapticFeedback } from "@/lib/utils";
 
 const faqs = [
-  { q: "Is there a free trial?", a: "We don't offer a free trial, but our $2 Starter Pack lets you generate 30 thumbnails risk-free. Best way to judge the quality yourself." },
+  { q: "Is there a free trial?", a: "We don't offer a free trial, but our $1 Mini Pack lets you test quality risk-free. Best way to judge the results yourself." },
   { q: "Do credits expire?", a: "Top-up credits never expire, ever. Subscription credits refresh monthly — unused ones roll over based on your plan's rollover limit." },
   { q: "Can I stack top-up credits with a subscription?", a: "Yes. Top-up credits are used after your monthly subscription credits run out. They stack perfectly." },
   { q: "What happens to my credits if I cancel?", a: "Your subscription credits stop at end of billing period. Top-up credits stay forever — they're yours." },
-  { q: "Which plan should I start with?", a: "Try the $2 Starter Pack first. If you're generating more than 15–20 thumbnails a month, Basic at $10/mo is instantly better value." },
+  { q: "Which plan should I start with?", a: "Try the $1 Mini Pack first. If you're generating regularly, Basic at $15/mo gives far better value." },
   { q: "Do you support UPI and Indian cards?", a: "Yes — UPI, all Indian debit/credit cards, and international cards all work. Indian users see INR pricing automatically." },
 ];
 
 const competitors = [
-  { feature: 'Entry price', thumbai: '$2', pikzels: '$29/mo', canva: '$15/mo' },
-  { feature: 'Monthly plan', thumbai: 'From $10', pikzels: 'From $29', canva: 'From $15' },
-  { feature: 'Credits', thumbai: '100 (Basic)', pikzels: 'Limited', canva: 'Limited' },
+  { feature: 'Entry price', thumbai: '$1', pikzels: '$29/mo', canva: '$15/mo' },
+  { feature: 'Monthly plan', thumbai: 'From $15', pikzels: 'From $29', canva: 'From $15' },
+  { feature: 'Credits', thumbai: '1800 (Basic)', pikzels: 'Limited', canva: 'Limited' },
   { feature: 'Hindi thumbnails', thumbai: '✅', pikzels: '❌', canva: '❌' },
   { feature: 'Face swap', thumbai: '✅', pikzels: '✅', canva: '❌' },
   { feature: 'Credits expire', thumbai: '❌ Never', pikzels: '✅ Monthly', canva: '✅ Monthly' },
@@ -106,7 +106,7 @@ const PricingPage = () => {
             transition={{ delay: 0.1 }}
             className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto"
           >
-            Pay only for what you use. Start with $2 — no subscription needed.
+            Pay only for what you use. Start with $1 — no subscription needed.
           </motion.p>
 
           <div className="flex items-center justify-center gap-3 mb-12">

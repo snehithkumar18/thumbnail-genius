@@ -16,6 +16,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const aiUrl = process.env.SMART_EDITOR_AI_URL || "http://localhost:8000";
 const falKey = process.env.FAL_KEY;
+const bypassCredits = process.env.BYPASS_CREDITS === "true";
 
 if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
   throw new Error("Missing Supabase env vars");
@@ -235,15 +236,17 @@ app.post("/smart-editor/replace", async (request, reply) => {
   }
 
   const creditCost = CREDIT_COSTS[payload.edit_type] || 0;
-  const { data: credits } = await supabaseAdmin
-    .from("user_credits")
-    .select("credits_remaining, credits_used_total")
-    .eq("user_id", user.id)
-    .single();
+  if (!bypassCredits) {
+    const { data: credits } = await supabaseAdmin
+      .from("user_credits")
+      .select("credits_remaining, credits_used_total")
+      .eq("user_id", user.id)
+      .single();
 
-  if (!credits || credits.credits_remaining < creditCost) {
-    reply.code(402).send({ error: "Insufficient credits" });
-    return;
+    if (!credits || credits.credits_remaining < creditCost) {
+      reply.code(402).send({ error: "Insufficient credits" });
+      return;
+    }
   }
 
   const job = await replaceQueue.add("replace", {
@@ -256,59 +259,64 @@ app.post("/smart-editor/replace", async (request, reply) => {
 const detectWorker = new Worker(
   "smart-editor-detect",
   async (job) => {
-    const { image_url, image_hash, session_id, user_id } = job.data;
-    const resp = await fetch(`${aiUrl}/detect`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image_url, max_dim: 1024 }),
-    });
+    try {
+      const { image_url, image_hash, session_id, user_id } = job.data;
+      const resp = await fetch(`${aiUrl}/detect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url, max_dim: 1024 }),
+      });
 
-    if (!resp.ok) {
-      throw new Error(`AI detect failed (${resp.status}): ${await resp.text()}`);
-    }
-    const data = await resp.json();
-    const layersJson = data?.layers || [];
+      if (!resp.ok) {
+        throw new Error(`AI detect failed (${resp.status}): ${await resp.text()}`);
+      }
+      const data = await resp.json();
+      const layersJson = data?.layers || [];
 
-    if (user_id && Array.isArray(layersJson)) {
-      for (const layer of layersJson) {
-        if (typeof layer.mask === "string" && layer.mask.startsWith("data:")) {
-          const base64 = layer.mask.split(",")[1] || "";
-          const bytes = Buffer.from(base64, "base64");
-          const fileName = `${user_id}/smart-editor/masks/${crypto.randomUUID()}.png`;
-          const { error: uploadError } = await supabaseAdmin.storage
-            .from("smart_editor")
-            .upload(fileName, bytes, { contentType: "image/png" });
-          if (!uploadError) {
-            const { data: publicData } = supabaseAdmin.storage.from("smart_editor").getPublicUrl(fileName);
-            layer.mask = publicData.publicUrl;
+      if (user_id && Array.isArray(layersJson)) {
+        for (const layer of layersJson) {
+          if (typeof layer.mask === "string" && layer.mask.startsWith("data:")) {
+            const base64 = layer.mask.split(",")[1] || "";
+            const bytes = Buffer.from(base64, "base64");
+            const fileName = `${user_id}/smart-editor/masks/${crypto.randomUUID()}.png`;
+            const { error: uploadError } = await supabaseAdmin.storage
+              .from("smart_editor")
+              .upload(fileName, bytes, { contentType: "image/png" });
+            if (!uploadError) {
+              const { data: publicData } = supabaseAdmin.storage.from("smart_editor").getPublicUrl(fileName);
+              layer.mask = publicData.publicUrl;
+            }
           }
         }
       }
-    }
 
-    await setCachedLayers(image_hash, layersJson);
+      await setCachedLayers(image_hash, layersJson);
 
-    if (session_id && user_id) {
-      const inserts = layersJson.map((layer, index) => ({
-        session_id,
-        user_id,
-        layer_index: index,
-        layer_type: layer.type,
-        label: layer.label,
-        mask_image_url: layer.mask || null,
-        bounding_box: layer.bbox ? JSON.stringify({ x: layer.bbox[0], y: layer.bbox[1], w: layer.bbox[2], h: layer.bbox[3] }) : null,
-      }));
+      if (session_id && user_id) {
+        const inserts = layersJson.map((layer, index) => ({
+          session_id,
+          user_id,
+          layer_index: index,
+          layer_type: layer.type,
+          label: layer.label,
+          mask_image_url: layer.mask || null,
+          bounding_box: layer.bbox ? JSON.stringify({ x: layer.bbox[0], y: layer.bbox[1], w: layer.bbox[2], h: layer.bbox[3] }) : null,
+        }));
 
-      if (inserts.length > 0) {
-        await supabaseAdmin.from("smart_editor_layers").insert(inserts);
+        if (inserts.length > 0) {
+          await supabaseAdmin.from("smart_editor_layers").insert(inserts);
+        }
+
+        await supabaseAdmin
+          .from("smart_editor_sessions")
+          .update({ layers_data: JSON.stringify(layersJson) })
+          .eq("id", session_id);
       }
-
-      await supabaseAdmin
-        .from("smart_editor_sessions")
-        .update({ layers_data: JSON.stringify(layersJson) })
-        .eq("id", session_id);
+      return { layers: layersJson };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Detect job failed: ${message}`);
     }
-    return { layers: layersJson };
   },
   { connection: redis },
 );
@@ -316,65 +324,72 @@ const detectWorker = new Worker(
 const replaceWorker = new Worker(
   "smart-editor-replace",
   async (job) => {
-    const { image_url, mask_url, prompt, session_id, user_id, layer_id, edit_type, credit_cost } = job.data;
-    const imageUrl = await callFalReplace({ image_url, mask_url, prompt });
+    try {
+      const { image_url, mask_url, prompt, session_id, user_id, layer_id, edit_type, credit_cost } = job.data;
+      const imageUrl = await callFalReplace({ image_url, mask_url, prompt });
 
-    // Upload to Supabase storage
-    const imageResp = await fetch(imageUrl);
-    const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
-    const fileName = `${user_id}/smart-editor/replace_${crypto.randomUUID()}.png`;
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("smart_editor")
-      .upload(fileName, imageBytes, { contentType: "image/png" });
+      // Upload to Supabase storage
+      const imageResp = await fetch(imageUrl);
+      const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
+      const fileName = `${user_id}/smart-editor/replace_${crypto.randomUUID()}.png`;
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("smart_editor")
+        .upload(fileName, imageBytes, { contentType: "image/png" });
 
-    let finalUrl = imageUrl;
-    if (!uploadError) {
-      const { data } = supabaseAdmin.storage.from("smart_editor").getPublicUrl(fileName);
-      finalUrl = data.publicUrl;
-    }
-
-    if (session_id && user_id) {
-      await supabaseAdmin.from("smart_editor_edits").insert({
-        session_id,
-        user_id,
-        layer_id,
-        edit_type,
-        instruction: prompt,
-        before_image_url: image_url,
-        after_image_url: finalUrl,
-        credits_charged: credit_cost,
-        api_cost_usd: 0,
-      });
-
-      const { data: session } = await supabaseAdmin
-        .from("smart_editor_sessions")
-        .select("credits_used")
-        .eq("id", session_id)
-        .single();
-
-      await supabaseAdmin
-        .from("smart_editor_sessions")
-        .update({ current_image_url: finalUrl, credits_used: (session?.credits_used || 0) + credit_cost })
-        .eq("id", session_id);
-
-      const { data: credits } = await supabaseAdmin
-        .from("user_credits")
-        .select("credits_remaining, credits_used_total")
-        .eq("user_id", user_id)
-        .single();
-
-      if (credits) {
-        await supabaseAdmin
-          .from("user_credits")
-          .update({
-            credits_remaining: credits.credits_remaining - credit_cost,
-            credits_used_total: (credits.credits_used_total || 0) + credit_cost,
-          })
-          .eq("user_id", user_id);
+      let finalUrl = imageUrl;
+      if (!uploadError) {
+        const { data } = supabaseAdmin.storage.from("smart_editor").getPublicUrl(fileName);
+        finalUrl = data.publicUrl;
       }
-    }
 
-    return { image_url: finalUrl };
+      if (session_id && user_id) {
+        await supabaseAdmin.from("smart_editor_edits").insert({
+          session_id,
+          user_id,
+          layer_id,
+          edit_type,
+          instruction: prompt,
+          before_image_url: image_url,
+          after_image_url: finalUrl,
+          credits_charged: credit_cost,
+          api_cost_usd: 0,
+        });
+
+        const { data: session } = await supabaseAdmin
+          .from("smart_editor_sessions")
+          .select("credits_used")
+          .eq("id", session_id)
+          .single();
+
+        await supabaseAdmin
+          .from("smart_editor_sessions")
+          .update({ current_image_url: finalUrl, credits_used: (session?.credits_used || 0) + (bypassCredits ? 0 : credit_cost) })
+          .eq("id", session_id);
+
+        if (!bypassCredits) {
+          const { data: credits } = await supabaseAdmin
+            .from("user_credits")
+            .select("credits_remaining, credits_used_total")
+            .eq("user_id", user_id)
+            .single();
+
+          if (credits) {
+            await supabaseAdmin
+              .from("user_credits")
+              .update({
+                credits_remaining: credits.credits_remaining - credit_cost,
+                credits_used_total: (credits.credits_used_total || 0) + credit_cost,
+              })
+              .eq("user_id", user_id);
+          }
+        }
+      }
+
+      return { image_url: finalUrl };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Replace job failed: ${message}`);
+    }
   },
   { connection: redis },
 );
@@ -401,7 +416,130 @@ app.get("/smart-editor/jobs/:queue/:id", async (request, reply) => {
   }
   const state = await job.getState();
   const result = await job.returnvalue;
-  reply.send({ status: state, result });
+  reply.send({
+    status: state,
+    result,
+    failedReason: job.failedReason || null,
+    stacktrace: Array.isArray(job.stacktrace) ? job.stacktrace.slice(-5) : [],
+  });
+});
+
+// ─── FACE SWAP (proxied to local Python InsightFace) ───
+app.post("/face-swap", async (request, reply) => {
+  const user = await requireAuth(request, reply);
+  if (!user) return;
+
+  const { face_url, target_url, swap_strength } = request.body || {};
+  if (!face_url || !target_url) {
+    reply.code(400).send({ error: "face_url and target_url are required" });
+    return;
+  }
+
+  // Credit check
+  if (!bypassCredits) {
+    const { data: credits } = await supabaseAdmin
+      .from("user_credits")
+      .select("credits_remaining")
+      .eq("user_id", user.id)
+      .single();
+    if (!credits || credits.credits_remaining < 1) {
+      reply.code(402).send({ error: "Insufficient credits", code: "NO_CREDITS" });
+      return;
+    }
+  }
+
+  try {
+    // Call local Python AI server
+    const aiResp = await fetch(`${aiUrl}/face-swap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_url: face_url,
+        target_url: target_url,
+        strength: (swap_strength || 90) / 100,
+      }),
+    });
+
+    if (!aiResp.ok) {
+      const errText = await aiResp.text();
+      throw new Error(`AI server error (${aiResp.status}): ${errText}`);
+    }
+
+    const result = await aiResp.json();
+    if (!result.image_base64) {
+      throw new Error("AI server returned no image");
+    }
+
+    // Decode base64 and upload to Supabase Storage
+    const imageBuffer = Buffer.from(result.image_base64, "base64");
+    const fileName = `${user.id}/faceswap/${crypto.randomUUID()}.png`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("thumbnails")
+      .upload(fileName, imageBuffer, { contentType: "image/png" });
+
+    if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+    const { data: urlData } = supabaseAdmin.storage
+      .from("thumbnails")
+      .getPublicUrl(fileName);
+
+    const publicUrl = urlData.publicUrl;
+
+    // Save as thumbnail record
+    const { data: thumbnail, error: insertError } = await supabaseAdmin
+      .from("thumbnails")
+      .insert({
+        user_id: user.id,
+        image_url: publicUrl,
+        prompt: "Face swap",
+        model_used: "insightface-inswapper",
+        format_type: "16:9",
+        style: "face-swap",
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    // Deduct credits
+    if (!bypassCredits) {
+      const { data: credits } = await supabaseAdmin
+        .from("user_credits")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (credits) {
+        await supabaseAdmin.from("credit_transactions").insert({
+          user_id: user.id,
+          action_type: "face_swap",
+          credits_deducted: 1,
+          thumbnail_id: thumbnail.id,
+          model_used: "insightface-inswapper",
+        });
+
+        await supabaseAdmin
+          .from("user_credits")
+          .update({
+            credits_remaining: credits.credits_remaining - 1,
+            credits_used_this_month: (credits.credits_used_this_month || 0) + 1,
+            credits_used_total: (credits.credits_used_total || 0) + 1,
+          })
+          .eq("user_id", user.id);
+      }
+    }
+
+    reply.send({
+      image_url: publicUrl,
+      thumbnail_id: thumbnail.id,
+      credits_remaining: bypassCredits ? 999 : undefined,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    app.log.error({ err }, "Face swap failed");
+    reply.code(200).send({ error: message });
+  }
 });
 
 const start = async () => {

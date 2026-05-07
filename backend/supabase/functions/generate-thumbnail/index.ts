@@ -30,6 +30,20 @@ const STYLE_PROMPTS: Record<string, string> = {
   luxury: "luxury premium feel, gold accents, elegant composition",
 };
 
+const extractHeadlineText = (prompt: string): string | null => {
+  const quotedMatch = prompt.match(/"([^"]{2,40})"|'([^']{2,40})'/);
+  if (quotedMatch) {
+    return (quotedMatch[1] || quotedMatch[2] || "").trim();
+  }
+
+  const keywordMatch = prompt.match(/(?:text|title|headline)\s*[:\-]\s*([^,.]{2,40})/i);
+  if (keywordMatch) {
+    return keywordMatch[1].trim();
+  }
+
+  return null;
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const normalizeDataUrlToBytes = (imageUrl: string): Uint8Array => {
@@ -216,6 +230,7 @@ serve(async (req) => {
       brand_kit_active = false,
       brand_kit = null,
       language = null,
+      model_choice = "auto",
     } = body;
 
     // Language config
@@ -312,11 +327,17 @@ serve(async (req) => {
     
     let imagePrompt = `${finalPrompt}. ${styleModifier}. ${aspectRatio}, eye-catching, high quality, professional photography.`;
 
+    const extractedHeadline = extractHeadlineText(prompt);
+
     if (text_overlay && text_content) {
       imagePrompt += ` Bold large text overlay saying "${text_content}" in high contrast, easily readable font.`;
       if (langName) {
         imagePrompt += ` Text in thumbnail must be in ${langName} script with correct native typography. Use authentic ${langName} font styling.`;
       }
+    } else if (extractedHeadline) {
+      imagePrompt += ` Include a bold headline text saying "${extractedHeadline}" in high contrast, readable typography.`;
+    } else {
+      imagePrompt += " Include a short bold headline text (3-5 words) in high contrast, readable typography.";
     }
 
     if (brand_kit_active && brand_kit) {
@@ -325,14 +346,20 @@ serve(async (req) => {
 
     const hasTextOverlay = !!(text_overlay && text_content);
     const forceTextModel = !!(language && langName);
-    const useIdeogram = hasTextOverlay || forceTextModel;
+    const normalizedModelChoice = String(model_choice || "auto").toLowerCase();
     const hasSubscriptionPlan = ["basic", "creator", "pro", "studio"].includes(credits.plan_type);
-    const allowPaidFallback = hasSubscriptionPlan;
+    const forceFastOnly = normalizedModelChoice === "fast";
+    const forceProOnly = normalizedModelChoice === "pro";
+    const forceTextOnly = normalizedModelChoice === "text";
+    const useIdeogram = hasTextOverlay || forceTextModel || forceTextOnly;
+    const allowPaidFallback = hasSubscriptionPlan && !forceFastOnly;
 
     // Step 2: Generate images using Lovable AI image generation
     const results: Array<{
       image_url: string;
       thumbnail_id: string;
+      provider: string;
+      model_used: string;
     }> = [];
 
     for (let i = 0; i < count; i++) {
@@ -354,6 +381,7 @@ serve(async (req) => {
           brand_kit_active,
           brand_kit,
           language,
+          model_choice: normalizedModelChoice,
         });
         const inputHash = cacheKey.split(":").slice(2).join(":");
         let cached = await getCache(supabaseAdmin, cacheKey);
@@ -372,17 +400,21 @@ serve(async (req) => {
           provider = cached.provider;
         } else {
           const result = await runImageProviders(supabaseAdmin, {
-            gemini: {
-              prompt: imagePrompt,
-              aspectRatio: format === "9:16" ? "9:16" : "16:9",
-              imageSize: "1K",
-            },
-            pollinations: {
-              prompt: imagePrompt,
-              width,
-              height,
-              model: "flux",
-            },
+            gemini: forceProOnly
+              ? undefined
+              : {
+                  prompt: imagePrompt,
+                  aspectRatio: format === "9:16" ? "9:16" : "16:9",
+                  imageSize: "1K",
+                },
+            pollinations: forceProOnly
+              ? undefined
+              : {
+                  prompt: imagePrompt,
+                  width,
+                  height,
+                  model: "flux",
+                },
             allowPaidFallback,
             paidFallback: async () => {
               if (!allowPaidFallback) {
@@ -525,6 +557,8 @@ serve(async (req) => {
         results.push({
           image_url: publicUrl,
           thumbnail_id: thumbRecord.id,
+          provider,
+          model_used: modelUsed,
         });
       } catch (genErr) {
         console.error(`Generation ${i + 1} failed:`, genErr);

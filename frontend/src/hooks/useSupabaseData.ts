@@ -26,6 +26,19 @@ export const useCredits = () => {
     queryKey: ["credits", user?.id],
     queryFn: async () => {
       if (!user) return null;
+      
+      // Development/Testing Bypass
+      if (import.meta.env.VITE_BYPASS_CREDITS === "true") {
+        return {
+          id: "dev-bypass",
+          user_id: user.id,
+          credits_remaining: 999999,
+          plan_type: "premium",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
+
       const { data, error } = await supabase
         .from("user_credits")
         .select("*")

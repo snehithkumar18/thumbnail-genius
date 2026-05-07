@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +28,8 @@ import BatchGenerator from "@/components/BatchGenerator";
 type GeneratedImage = {
   image_url: string;
   thumbnail_id: string;
+  provider?: string;
+  model_used?: string;
 };
 
 const GeneratePage = () => {
@@ -46,6 +49,7 @@ const GeneratePage = () => {
   const [niche, setNiche] = useState("");
   const [format, setFormat] = useState<"16:9" | "9:16">("16:9");
   const [quality, setQuality] = useState<"fast" | "pro">("pro");
+  const [modelChoice, setModelChoice] = useState("auto");
   const [variations, setVariations] = useState(1);
   const [language, setLanguage] = useState<LanguageId>("en");
 
@@ -60,7 +64,9 @@ const GeneratePage = () => {
   const [showBatch, setShowBatch] = useState(false);
   const [currentTip, setCurrentTip] = useState(0);
   const [activeTab, setActiveTab] = useState<"controls" | "preview">("controls");
+  const [showPollinationsUpsell, setShowPollinationsUpsell] = useState(false);
   const abortRef = useRef(false);
+  const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
   // Accept prefilled prompt from navigation state
   useEffect(() => {
@@ -115,7 +121,7 @@ const GeneratePage = () => {
       toast.error("Please enter a prompt");
       return;
     }
-    if (remaining < creditCost) {
+    if (!bypassCredits && remaining < creditCost) {
       setShowZeroCredits(true);
       return;
     }
@@ -137,6 +143,7 @@ const GeneratePage = () => {
           quality,
           count: variations,
           language: language !== "en" ? language : undefined,
+          model_choice: modelChoice,
         },
       });
 
@@ -145,7 +152,7 @@ const GeneratePage = () => {
       if (error) throw new Error(error.message || "Generation failed");
 
       if (data?.error) {
-        if (data.error === "Insufficient credits") {
+        if (!bypassCredits && data.error === "Insufficient credits") {
           setShowZeroCredits(true);
           return;
         }
@@ -156,6 +163,10 @@ const GeneratePage = () => {
       setEnhancedPrompt(data.enhanced_prompt || "");
       setProgress(100);
       setActiveTab("preview"); // Switch to preview tab on mobile
+      if (credits?.plan_type === "free" || credits?.plan_type === "none") {
+        const usedPollinations = (data.images || []).some((img: GeneratedImage) => img.provider === "pollinations");
+        if (usedPollinations) setShowPollinationsUpsell(true);
+      }
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["thumbnails"] });
       queryClient.invalidateQueries({ queryKey: ["thumbnail-stats"] });
@@ -168,7 +179,7 @@ const GeneratePage = () => {
     } finally {
       setGenerating(false);
     }
-  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, niche, format, quality, variations, language, remaining, creditCost, queryClient]);
+  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, niche, format, quality, variations, language, remaining, creditCost, queryClient, credits?.plan_type, modelChoice]);
 
   // Cmd+Enter shortcut
   useEffect(() => {
@@ -424,6 +435,24 @@ const GeneratePage = () => {
             ))}
           </div>
         </div>
+
+        {!["none", "free"].includes(plan.toLowerCase()) && (
+          <div>
+            <Label className="text-sm font-medium text-foreground mb-2 block">Model</Label>
+            <Select value={modelChoice} onValueChange={setModelChoice}>
+              <SelectTrigger className="bg-background border-border text-foreground">
+                <SelectValue placeholder="Choose model" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border">
+                <SelectItem value="auto">Auto (Best available)</SelectItem>
+                <SelectItem value="fast">Fast / Free (Pollinations + Gemini)</SelectItem>
+                <SelectItem value="pro">Pro / Premium (FLUX.2 Pro)</SelectItem>
+                <SelectItem value="text">Text-accurate (Ideogram 3.0)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1.5">Pick cheaper models for prompt testing.</p>
+          </div>
+        )}
 
         {/* Variations */}
         <div>
@@ -685,6 +714,21 @@ const GeneratePage = () => {
       </AnimatePresence>
 
       <ZeroCreditsModal open={showZeroCredits} onClose={() => setShowZeroCredits(false)} />
+
+      <Dialog open={showPollinationsUpsell} onOpenChange={setShowPollinationsUpsell}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upgrade for Realistic Quality</DialogTitle>
+            <DialogDescription>
+              Don’t compromise with quality. Upgrade to Pro for more realistic thumbnails and premium models.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setShowPollinationsUpsell(false)}>Not now</Button>
+            <Button variant="hero" onClick={() => navigate("/pricing")}>Upgrade to Pro</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AnimatePresence>
         <BatchGenerator

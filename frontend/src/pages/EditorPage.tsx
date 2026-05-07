@@ -56,6 +56,7 @@ const EditorPage = () => {
   const [showZeroCredits, setShowZeroCredits] = useState(false);
   const [selectingThumbnail, setSelectingThumbnail] = useState(!initialThumbUrl);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
   const remaining = credits?.credits_remaining ?? 0;
 
@@ -83,7 +84,7 @@ const EditorPage = () => {
 
   const handleEdit = useCallback(async (instruction: string) => {
     if (!user || !currentImageUrl || !instruction.trim()) return;
-    if (remaining < 1) { setShowZeroCredits(true); return; }
+    if (!bypassCredits && remaining < 1) { setShowZeroCredits(true); return; }
 
     setEditing(true);
     try {
@@ -97,7 +98,7 @@ const EditorPage = () => {
 
       if (error) throw new Error(error.message || "Edit failed");
       if (data?.error) {
-        if (data.error === "Insufficient credits") { setShowZeroCredits(true); return; }
+        if (!bypassCredits && data.error === "Insufficient credits") { setShowZeroCredits(true); return; }
         throw new Error(data.error);
       }
 

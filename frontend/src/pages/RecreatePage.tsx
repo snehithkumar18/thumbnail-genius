@@ -50,6 +50,7 @@ const RecreatePage = () => {
   const [showZeroCredits, setShowZeroCredits] = useState(false);
   const [comparePosition, setComparePosition] = useState(50);
   const abortRef = useRef(false);
+  const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
   const remaining = credits?.credits_remaining ?? 0;
 
@@ -87,7 +88,7 @@ const RecreatePage = () => {
       toast.error("Please enter a valid YouTube URL");
       return;
     }
-    if (remaining < CREDIT_COST) {
+    if (!bypassCredits && remaining < CREDIT_COST) {
       setShowZeroCredits(true);
       return;
     }
@@ -109,7 +110,7 @@ const RecreatePage = () => {
       if (abortRef.current) return;
       if (error) throw new Error(error.message || "Recreation failed");
       if (data?.error) {
-        if (data.error === "Insufficient credits") { setShowZeroCredits(true); return; }
+        if (!bypassCredits && data.error === "Insufficient credits") { setShowZeroCredits(true); return; }
         throw new Error(data.error);
       }
 
