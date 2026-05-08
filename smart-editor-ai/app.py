@@ -350,17 +350,20 @@ def ocr_detect(img: Image.Image):
         try:
             # paddleocr returns list of lists [[(box), (text), score], ...]
             result = paddle_ocr_engine.ocr(np.array(img)[:, :, ::-1], cls=True)
-            for line in result:
-                for seg in line:
-                    box = seg[0]
-                    text = seg[1][0] if isinstance(seg[1], (list, tuple)) else seg[1]
-                    conf = float(seg[1][1]) if isinstance(seg[1], (list, tuple)) and len(seg[1]) > 1 else 0.5
-                    xs = [p[0] for p in box]
-                    ys = [p[1] for p in box]
-                    x1, y1, x2, y2 = min(xs), min(ys), max(xs), max(ys)
-                    if len(text.strip()) < 1 or conf < 0.2:
+            if result is not None:
+                for line in result:
+                    if line is None:
                         continue
-                    add_detection((x1, y1, x2, y2), text, conf)
+                    for seg in line:
+                        box = seg[0]
+                        text = seg[1][0] if isinstance(seg[1], (list, tuple)) else seg[1]
+                        conf = float(seg[1][1]) if isinstance(seg[1], (list, tuple)) and len(seg[1]) > 1 else 0.5
+                        xs = [p[0] for p in box]
+                        ys = [p[1] for p in box]
+                        x1, y1, x2, y2 = min(xs), min(ys), max(xs), max(ys)
+                        if len(text.strip()) < 1 or conf < 0.2:
+                            continue
+                        add_detection((x1, y1, x2, y2), text, conf)
             logger.info(f"PaddleOCR detected {len(items)} text items")
             if items:
                 return items

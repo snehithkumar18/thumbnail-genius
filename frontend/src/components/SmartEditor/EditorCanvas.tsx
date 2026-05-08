@@ -54,10 +54,11 @@ export function EditorCanvas({
     const parent = containerRef.current.parentElement;
     if (!parent) return;
 
-    const padding = 24;
-    let targetW = Math.max(280, parent.clientWidth - padding);
+    const paddingX = 40;
+    const paddingY = 80;
+    let targetW = Math.max(280, parent.clientWidth - paddingX);
     let targetH = targetW * (9 / 16);
-    const maxH = Math.max(220, parent.clientHeight - padding);
+    const maxH = Math.max(220, parent.clientHeight - paddingY);
     if (targetH > maxH) {
       targetH = maxH;
       targetW = targetH * (16 / 9);
@@ -176,6 +177,9 @@ export function EditorCanvas({
       if (!layer.boundingBox && layer.type !== 'background') return null;
       const isSelected = selectedLayerId === layer.id;
       const isHovered = hoveredLayerId === layer.id;
+      const showPreview = selectedLayerId === null;
+      const isHighlighted = isSelected || isHovered || showPreview;
+
       let bx = 0, by = 0, bw = stageWidth, bh = stageHeight;
       if (layer.boundingBox) {
          bx = layer.boundingBox.x * sX;
@@ -187,14 +191,14 @@ export function EditorCanvas({
          <React.Fragment key={layer.id}>
              <Rect
                  x={bx} y={by} width={bw} height={bh}
-                 fill={isSelected ? 'rgba(139, 71, 255, 0.05)' : (isHovered ? 'rgba(139, 71, 255, 0.1)' : 'transparent')}
-                 stroke={isSelected || isHovered ? '#8B47FF' : 'transparent'}
-                 strokeWidth={isSelected ? 2 : (isHovered ? 1 : 0)}
+                 fill={isSelected ? 'rgba(139, 71, 255, 0.05)' : (isHovered || showPreview ? 'rgba(139, 71, 255, 0.1)' : 'transparent')}
+                 stroke={isHighlighted ? '#8B47FF' : 'transparent'}
+                 strokeWidth={isSelected ? 2 : (isHighlighted ? 1 : 0)}
                  dash={isSelected ? [8, 4] : []}
                  dashOffset={dashOffset}
                  listening={false}
              />
-             {(isSelected || isHovered) && (
+             {isHighlighted && (
                  <React.Fragment>
                      <Rect x={bx} y={Math.max(0, by - 18)} width={Math.min(bw, 100)} height={18} fill="#8B47FF" cornerRadius={2} listening={false} />
                      <Text x={bx + 4} y={Math.max(4, by - 14)} text={layer.label} fontSize={10} fill="white" listening={false} />
@@ -214,18 +218,7 @@ export function EditorCanvas({
             </div>
         )}
 
-        <div className="absolute top-3 right-3 z-10 flex items-center bg-background/80 backdrop-blur border border-border rounded-lg shadow-sm">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleFit}>
-                <Maximize className="h-4 w-4" />
-            </Button>
-            <span className="text-xs font-medium px-2">{Math.round(scale * 100)}%</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomIn}>
-                <ZoomIn className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomOut}>
-                <ZoomOut className="h-4 w-4" />
-            </Button>
-        </div>
+
 
         {tooltipPos && !isDetecting && (
             <div className="pointer-events-none absolute z-50 bg-white border border-[#8B47FF] shadow-sm rounded px-2 py-1 text-xs font-medium" style={{ left: tooltipPos.x, top: tooltipPos.y }}>
@@ -260,6 +253,20 @@ export function EditorCanvas({
                     </KonvaLayer>
                 )}
             </Stage>
+        </div>
+
+        <div className="mt-6 flex items-center bg-background/80 backdrop-blur border border-border rounded-full shadow-sm px-1 py-0.5 shrink-0 z-10">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={handleZoomOut}>
+                <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-xs font-medium px-2 min-w-[3rem] text-center">{Math.round(scale * 100)}%</span>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={handleZoomIn}>
+                <ZoomIn className="h-4 w-4" />
+            </Button>
+            <div className="w-px h-4 bg-border mx-1" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={handleFit}>
+                <Maximize className="h-4 w-4" />
+            </Button>
         </div>
     </div>
   );
