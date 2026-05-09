@@ -31,6 +31,7 @@ const ReferralPage = lazy(() => import("./pages/ReferralPage"));
 const GalleryPage = lazy(() => import("./pages/GalleryPage"));
 const SharedThumbnailPage = lazy(() => import("./pages/SharedThumbnailPage"));
 const SmartEditorPage = lazy(() => import("./pages/SmartEditorPage"));
+const WaitlistPage = lazy(() => import("./pages/WaitlistPage"));
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/waitlist" element={<WaitlistPage />} />
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/gallery" element={<GalleryPage />} />
                 <Route path="/t/:shareId" element={<SharedThumbnailPage />} />
