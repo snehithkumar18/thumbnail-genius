@@ -178,7 +178,7 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
           viewport={{ once: true }}
           className="max-w-2xl mx-auto mt-12 glass-card rounded-xl p-6 tab:p-8 text-center"
         >
-          <h3 className="text-heading-3 mb-2">Why ThumbAI vs others?</h3>
+          <h3 className="text-heading-3 mb-2">Why Thumbly vs others?</h3>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm">
             <div>
               <p className="text-muted-foreground font-medium">Pikzels</p>
@@ -187,7 +187,7 @@ const PricingSection = ({ onOpenAuth }: PricingSectionProps) => {
             <div className="hidden sm:block text-muted-foreground font-bold">VS</div>
             <div className="sm:hidden w-full h-px bg-border/50 my-2" />
             <div>
-              <p className="gradient-text font-bold">ThumbAI</p>
+              <p className="gradient-text font-bold">Thumbly</p>
               <p className="text-foreground font-bold text-lg">Start at $2</p>
             </div>
           </div>

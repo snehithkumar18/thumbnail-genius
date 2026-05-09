@@ -28,7 +28,7 @@ const Navbar = ({ onOpenAuth }: NavbarProps) => {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center transition-transform group-hover:scale-110">
             <Sparkles className="h-4 w-4 text-white" />
           </div>
-          <span className="font-heading font-bold text-xl text-foreground tracking-tight">ThumbAI</span>
+          <span className="font-heading font-bold text-xl text-foreground tracking-tight">Thumbly</span>
         </Link>
 
         {/* Desktop Links */}
@@ -74,7 +74,7 @@ const Navbar = ({ onOpenAuth }: NavbarProps) => {
                          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                             <Sparkles className="h-4 w-4 text-white" />
                          </div>
-                         <span className="font-heading font-bold text-lg">ThumbAI</span>
+                         <span className="font-heading font-bold text-lg">Thumbly</span>
                       </div>
                       <DialogClose asChild>
                          <Button variant="ghost" size="icon" className="h-10 w-10">

@@ -139,7 +139,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-xl sm:text-2xl font-heading font-bold text-foreground mb-2 px-4">Welcome to ThumbAI! 🎉</h2>
+              <h2 className="text-xl sm:text-2xl font-heading font-bold text-foreground mb-2 px-4">Welcome to Thumbly! 🎉</h2>
               <p className="text-muted-foreground text-sm">What kind of YouTube content do you make?</p>
               <p className="text-[10px] text-muted-foreground mt-1">Select 1–3 categories</p>
             </div>

@@ -20,8 +20,8 @@ const faqs = [
     a: "Yes! Top-up credits stack with your subscription and are used after your monthly credits run out.",
   },
   {
-    q: "Can I use ThumbAI for Hindi/regional language thumbnails?",
-    a: "Yes! ThumbAI supports Hindi, Tamil, Telugu, Spanish, Portuguese, and 20+ other languages. Our AI handles text rendering in multiple scripts beautifully.",
+    q: "Can I use Thumbly for Hindi/regional language thumbnails?",
+    a: "Yes! Thumbly supports Hindi, Tamil, Telugu, Spanish, Portuguese, and 20+ other languages. Our AI handles text rendering in multiple scripts beautifully.",
   },
   {
     q: "Which AI model gives the best results?",

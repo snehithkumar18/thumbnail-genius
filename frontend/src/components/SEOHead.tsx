@@ -9,13 +9,13 @@ interface SEOHeadProps {
 }
 
 export default function SEOHead({
-  title = "ThumbAI — AI YouTube Thumbnail Generator",
+  title = "Thumbly — AI YouTube Thumbnail Generator",
   description = "Generate viral YouTube thumbnails in seconds with AI. Hindi, English & 8 languages. Start for just $2.",
   image = "https://lovable.dev/opengraph-image-p98pqg.png",
   url,
   type = "website",
 }: SEOHeadProps) {
-  const fullTitle = title.includes("ThumbAI") ? title : `${title} | ThumbAI`;
+  const fullTitle = title.includes("Thumbly") ? title : `${title} | Thumbly`;
   return (
     <Helmet>
       <title>{fullTitle}</title>

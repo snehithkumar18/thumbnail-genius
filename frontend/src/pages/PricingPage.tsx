@@ -27,12 +27,12 @@ const faqs = [
 ];
 
 const competitors = [
-  { feature: 'Entry price', thumbai: '$1', pikzels: '$29/mo', canva: '$15/mo' },
-  { feature: 'Monthly plan', thumbai: 'From $15', pikzels: 'From $29', canva: 'From $15' },
-  { feature: 'Credits', thumbai: '1800 (Basic)', pikzels: 'Limited', canva: 'Limited' },
-  { feature: 'Hindi thumbnails', thumbai: '✅', pikzels: '❌', canva: '❌' },
-  { feature: 'Face swap', thumbai: '✅', pikzels: '✅', canva: '❌' },
-  { feature: 'Credits expire', thumbai: '❌ Never', pikzels: '✅ Monthly', canva: '✅ Monthly' },
+  { feature: 'Entry price', Thumbly: '$1', pikzels: '$29/mo', canva: '$15/mo' },
+  { feature: 'Monthly plan', Thumbly: 'From $15', pikzels: 'From $29', canva: 'From $15' },
+  { feature: 'Credits', Thumbly: '1800 (Basic)', pikzels: 'Limited', canva: 'Limited' },
+  { feature: 'Hindi thumbnails', Thumbly: '✅', pikzels: '❌', canva: '❌' },
+  { feature: 'Face swap', Thumbly: '✅', pikzels: '✅', canva: '❌' },
+  { feature: 'Credits expire', Thumbly: '❌ Never', pikzels: '✅ Monthly', canva: '✅ Monthly' },
 ];
 
 const PricingPage = () => {
@@ -332,14 +332,14 @@ const PricingPage = () => {
       {/* Section 4 — Competitor comparison */}
       <section className="py-16 bg-muted/10">
         <div className="container mx-auto px-4 max-w-3xl">
-          <h2 className="text-2xl md:text-3xl font-heading font-bold text-center mb-8">Why ThumbAI vs others?</h2>
+          <h2 className="text-2xl md:text-3xl font-heading font-bold text-center mb-8">Why Thumbly vs others?</h2>
           <div className="glass-card rounded-2xl overflow-hidden border-border bg-card/50">
             <div className="overflow-x-auto scrollbar-none">
               <table className="w-full text-xs sm:text-sm min-w-[420px]">
                 <thead>
                   <tr className="bg-muted/30">
                     <th className="text-left p-3 sm:p-5 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">Feature</th>
-                    <th className="p-3 sm:p-5 text-primary font-heading font-black text-sm sm:text-base italic">ThumbAI</th>
+                    <th className="p-3 sm:p-5 text-primary font-heading font-black text-sm sm:text-base italic">Thumbly</th>
                     <th className="p-3 sm:p-5 text-muted-foreground font-medium opacity-50">Pikzels</th>
                     <th className="p-3 sm:p-5 text-muted-foreground font-medium opacity-50">Canva AI</th>
                   </tr>
@@ -348,7 +348,7 @@ const PricingPage = () => {
                   {competitors.map((row) => (
                     <tr key={row.feature} className="border-b border-border/40 hover:bg-primary/5 transition-colors group">
                       <td className="p-3 sm:p-5 text-foreground font-medium group-hover:text-primary transition-colors">{row.feature}</td>
-                      <td className="p-3 sm:p-5 text-center text-foreground font-bold bg-primary/5">{row.thumbai}</td>
+                      <td className="p-3 sm:p-5 text-center text-foreground font-bold bg-primary/5">{row.Thumbly}</td>
                       <td className="p-3 sm:p-5 text-center text-muted-foreground/60">{row.pikzels}</td>
                       <td className="p-3 sm:p-5 text-center text-muted-foreground/60">{row.canva}</td>
                     </tr>

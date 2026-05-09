@@ -290,7 +290,7 @@ const MyThumbnails = () => {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent className="bg-card border-border">
-                            <DropdownMenuItem className="text-foreground" onClick={async (e) => { e.stopPropagation(); try { const resp = await fetch(thumb.image_url!); const blob = await resp.blob(); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `thumbai-${Date.now()}.png`; a.click(); URL.revokeObjectURL(a.href); } catch { toast.error("Download failed"); } }}><Download className="h-3.5 w-3.5 mr-2" /> Download</DropdownMenuItem>
+                            <DropdownMenuItem className="text-foreground" onClick={async (e) => { e.stopPropagation(); try { const resp = await fetch(thumb.image_url!); const blob = await resp.blob(); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `Thumbly-${Date.now()}.png`; a.click(); URL.revokeObjectURL(a.href); } catch { toast.error("Download failed"); } }}><Download className="h-3.5 w-3.5 mr-2" /> Download</DropdownMenuItem>
                             <DropdownMenuItem className="text-foreground" onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/smart-editor?thumbnail_id=${thumb.id}&image_url=${encodeURIComponent(thumb.image_url || '')}`); }}>
                                <Sparkles className="h-3.5 w-3.5 mr-2" /> ✨ Smart Edit
                             </DropdownMenuItem>

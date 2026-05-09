@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 
 const tickerItems = [
-  "⚡ ThumbAI",
+  "⚡ Thumbly",
   "🎨 FLUX.2 Pro Model",
   "📱 Shorts Generator",
   "🌍 Hindi Thumbnails",

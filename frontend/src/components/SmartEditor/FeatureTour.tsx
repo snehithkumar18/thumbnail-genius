@@ -14,7 +14,7 @@ export function FeatureTour() {
   const [coords, setCoords] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
 
   useEffect(() => {
-    const isToured = localStorage.getItem('thumbai_smart_editor_toured');
+    const isToured = localStorage.getItem('Thumbly_smart_editor_toured');
     if (!isToured) {
       // Small delay to let UI mount
       setTimeout(() => setShow(true), 1500);
@@ -41,7 +41,7 @@ export function FeatureTour() {
 
   const finishTour = () => {
     setShow(false);
-    localStorage.setItem('thumbai_smart_editor_toured', 'true');
+    localStorage.setItem('Thumbly_smart_editor_toured', 'true');
   };
 
   if (!show || !coords) return null;

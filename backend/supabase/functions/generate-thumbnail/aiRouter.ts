@@ -39,9 +39,10 @@ type ProviderOptions = {
   paidFallback?: () => Promise<ProviderResult>;
 };
 
+// Only gemini-2.5-flash-image supports image generation on the free tier.
+// Verified via ListModels diagnostic on 2026-05-09.
 const GEMINI_MODELS = [
-  "gemini-2.5-flash-image-preview",
-  "gemini-2.0-flash-preview-image-generation",
+  "gemini-2.5-flash-image",
 ];
 const CACHE_TTL_HOURS = 12;
 const CACHE_MAX_ENTRIES = 10000;
@@ -135,7 +136,8 @@ export const setCache = async (
 };
 
 const isRateLimitError = (status: number, message: string) => {
-  return status === 429 || message.toLowerCase().includes("resource_exhausted");
+  const lower = message.toLowerCase();
+  return status === 429 || lower.includes("resource_exhausted") || lower.includes("exceeded your current quota");
 };
 
 const isProviderCoolingDown = async (supabaseAdmin: SupabaseClient, provider: string) => {
@@ -191,40 +193,56 @@ const callGeminiImage = async (req: GeminiRequest, apiKey: string): Promise<Prov
 
   let lastErr = "Unknown Gemini error";
   for (const model of GEMINI_MODELS) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const safetySettings = [
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_NONE" },
+    ];
+
     const body = {
       contents: [{ role: "user", parts }],
       generationConfig: {
         responseModalities: ["TEXT", "IMAGE"],
+        candidateCount: 1
       },
+      safetySettings,
     };
 
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    if (!resp.ok) {
-      lastErr = `Gemini model ${model} failed (${resp.status}): ${await resp.text()}`;
-      continue;
+      if (resp.ok) {
+        const data = await resp.json();
+        const partsOut = data?.candidates?.[0]?.content?.parts || [];
+        const inline =
+          partsOut.find((p: any) => p?.inlineData)?.inlineData ||
+          partsOut.find((p: any) => p?.inline_data)?.inline_data;
+        
+        if (inline?.data) {
+          return { 
+            imageUrl: `data:${inline.mimeType || inline.mime_type || "image/png"};base64,${inline.data}`, 
+            provider: "gemini", 
+            modelUsed: model 
+          };
+        } else {
+          lastErr = `Model ${model} returned no image. Data: ${JSON.stringify(data).substring(0, 100)}`;
+        }
+      } else {
+        lastErr = `Model ${model} failed (${resp.status}): ${await resp.text()}`;
+      }
+    } catch (e) {
+      lastErr = `Fetch error for ${model}: ${e instanceof Error ? e.message : String(e)}`;
     }
-
-    const data = await resp.json();
-    const partsOut = data?.candidates?.[0]?.content?.parts || [];
-    const inline =
-      partsOut.find((p: any) => p?.inlineData)?.inlineData ||
-      partsOut.find((p: any) => p?.inline_data)?.inline_data;
-    if (!inline?.data) {
-      lastErr = `Gemini model ${model} returned no image`;
-      continue;
-    }
-
-    const imageUrl = `data:${inline.mimeType || inline.mime_type || "image/png"};base64,${inline.data}`;
-    return { imageUrl, provider: "gemini", modelUsed: model };
   }
 
-  throw new Error(lastErr);
+  throw new Error(`[Gemini All Models Failed]: ${lastErr}`);
 };
 
 const callPollinationsImage = async (req: PollinationsRequest): Promise<ProviderResult> => {
@@ -250,36 +268,38 @@ export const runImageProviders = async (
 ): Promise<ProviderResult> => {
   const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || "";
 
-  if (options.gemini && geminiKey) {
+  // 1. Always try Gemini first if key is available
+  if (geminiKey && options.gemini) {
     const cooling = await isProviderCoolingDown(supabaseAdmin, "gemini");
     if (!cooling) {
       try {
+        console.log("[aiRouter] Attempting Gemini (gemini-2.5-flash-image)...");
         return await callGeminiImage(options.gemini, geminiKey);
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         console.error("[aiRouter] Gemini failed:", message);
+
+        // Detect rate limit / quota exhaustion
         const statusMatch = message.match(/\((\d{3})\)/);
         const status = statusMatch ? Number(statusMatch[1]) : 0;
         if (isRateLimitError(status, message)) {
           await markProviderRateLimited(supabaseAdmin, "gemini");
+          console.warn("[aiRouter] Gemini quota exhausted. Falling back to Pollinations.");
         }
+        // Fall through to Pollinations
       }
+    } else {
+      console.warn("[aiRouter] Gemini is cooling down (quota exhausted). Using Pollinations.");
     }
   }
 
+  // 2. Fallback to Pollinations
   if (options.pollinations) {
-    const cooling = await isProviderCoolingDown(supabaseAdmin, "pollinations");
-    if (!cooling) {
-      try {
-        return await callPollinationsImage(options.pollinations);
-      } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : String(e);
-        const statusMatch = message.match(/\((\d{3})\)/);
-        const status = statusMatch ? Number(statusMatch[1]) : 0;
-        if (isRateLimitError(status, message)) {
-          await markProviderRateLimited(supabaseAdmin, "pollinations");
-        }
-      }
+    try {
+      console.log("[aiRouter] Using Pollinations as fallback.");
+      return await callPollinationsImage(options.pollinations);
+    } catch (e: unknown) {
+      console.error("[aiRouter] Pollinations also failed:", e);
     }
   }
 
@@ -287,7 +307,7 @@ export const runImageProviders = async (
     return await options.paidFallback();
   }
 
-  throw new Error("All providers failed");
+  throw new Error("All AI providers failed. Your Gemini free-tier quota may be exhausted for today.");
 };
 
 export const loadImagePartFromUrl = async (imageUrl: string): Promise<ImagePart> => {

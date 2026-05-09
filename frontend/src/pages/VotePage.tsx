@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 const getFingerprint = (): string => {
-  let fp = localStorage.getItem("thumbai_fp");
+  let fp = localStorage.getItem("Thumbly_fp");
   if (!fp) {
     fp = crypto.randomUUID();
-    localStorage.setItem("thumbai_fp", fp);
+    localStorage.setItem("Thumbly_fp", fp);
   }
   return fp;
 };
@@ -144,7 +144,7 @@ const VotePage = () => {
       <div className="flex justify-end p-4">
         <div className="flex items-center gap-1 text-muted-foreground">
           <Zap className="h-4 w-4 text-primary fill-primary" />
-          <span className="text-sm font-semibold">ThumbAI</span>
+          <span className="text-sm font-semibold">Thumbly</span>
         </div>
       </div>
 
@@ -212,7 +212,7 @@ const VotePage = () => {
             <div className="bg-card border border-border rounded-xl p-4 max-w-sm mx-auto">
               <p className="text-sm text-foreground font-medium mb-2">Want to make your own thumbnails?</p>
               <Button onClick={() => window.open("/", "_blank")} className="bg-primary text-primary-foreground">
-                <Zap className="h-4 w-4 mr-1" /> Try ThumbAI Free →
+                <Zap className="h-4 w-4 mr-1" /> Try Thumbly Free →
               </Button>
             </div>
           </motion.div>

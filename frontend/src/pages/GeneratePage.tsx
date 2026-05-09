@@ -216,7 +216,7 @@ const GeneratePage = () => {
       const blob = await resp.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `thumbai-${Date.now()}.png`;
+      a.download = `Thumbly-${Date.now()}.png`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch {

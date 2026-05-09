@@ -179,7 +179,7 @@ const ShortsPage = () => {
       const blob = await resp.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `thumbai-shorts-${Date.now()}.png`;
+      a.download = `Thumbly-shorts-${Date.now()}.png`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch { toast.error("Download failed"); }

@@ -34,7 +34,7 @@ const GalleryPage = () => {
     <div className="min-h-screen-d bg-background overflow-x-hidden">
       <SEOHead
         title="AI Thumbnail Gallery — Community Creations"
-        description="Browse viral YouTube thumbnails created by the ThumbAI community. Get inspired and recreate similar styles."
+        description="Browse viral YouTube thumbnails created by the Thumbly community. Get inspired and recreate similar styles."
       />
       <Navbar onOpenAuth={(tab) => { setAuthOpen(true); }} />
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">

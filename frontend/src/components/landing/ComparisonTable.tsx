@@ -41,7 +41,7 @@ const ComparisonTable = () => {
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-6xl font-display font-bold">
-            Why <span className="gradient-text">ThumbAI</span>?
+            Why <span className="gradient-text">Thumbly</span>?
           </h2>
         </motion.div>
 
@@ -49,7 +49,7 @@ const ComparisonTable = () => {
           {/* Header */}
           <div className="grid grid-cols-4 gap-4 p-5 border-b border-border text-sm font-heading font-semibold" style={{ background: "#F2F0FF" }}>
             <div className="text-muted-foreground">Feature</div>
-            <div className="text-center text-primary-foreground rounded-lg py-1" style={{ background: "linear-gradient(135deg, #8B47FF, #6366F1)" }}>ThumbAI</div>
+            <div className="text-center text-primary-foreground rounded-lg py-1" style={{ background: "linear-gradient(135deg, #8B47FF, #6366F1)" }}>Thumbly</div>
             <div className="text-center text-muted-foreground">Pikzels</div>
             <div className="text-center text-muted-foreground">Canva AI</div>
           </div>

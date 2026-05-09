@@ -50,7 +50,7 @@ const PageLoader = () => {
           transition={{ delay: 0.2 }}
           className="flex flex-col items-center"
         >
-          <h2 className="text-xl font-heading font-bold text-foreground tracking-tight">ThumbAI</h2>
+          <h2 className="text-xl font-heading font-bold text-foreground tracking-tight">Thumbly</h2>
           <div className="mt-4 flex items-center gap-1">
             {[0, 1, 2].map((i) => (
               <motion.div

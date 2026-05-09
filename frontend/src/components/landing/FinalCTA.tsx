@@ -79,7 +79,7 @@ const FinalCTA = ({ onOpenAuth }: FinalCTAProps) => {
             className="relative text-primary-foreground font-bold px-12 py-5 rounded-full text-xl transition-shadow duration-300 glow-purple hover:shadow-[0_20px_60px_rgba(139,71,255,0.4)]"
             style={{ background: "linear-gradient(135deg, #8B47FF, #6366F1, #4F46E5)" }}
           >
-            Try ThumbAI for $2 →
+            Try Thumbly for $2 →
           </motion.button>
 
           <p className="text-sm text-muted-foreground mt-6">

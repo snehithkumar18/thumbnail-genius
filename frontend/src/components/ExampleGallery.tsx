@@ -37,7 +37,7 @@ const ExampleGallery = () => {
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-5xl font-heading font-bold mb-4">
-            Real thumbnails made with <span className="gradient-text">ThumbAI</span>
+            Real thumbnails made with <span className="gradient-text">Thumbly</span>
           </h2>
         </motion.div>
 

@@ -45,15 +45,15 @@ const SharedThumbnailPage = () => {
   return (
     <div className="min-h-screen-d bg-background">
       <SEOHead
-        title={thumbnail.prompt ? `${thumbnail.prompt.slice(0, 50)}... — ThumbAI` : "AI Thumbnail — ThumbAI"}
-        description={thumbnail.prompt || "AI-generated YouTube thumbnail created with ThumbAI"}
+        title={thumbnail.prompt ? `${thumbnail.prompt.slice(0, 50)}... — Thumbly` : "AI Thumbnail — Thumbly"}
+        description={thumbnail.prompt || "AI-generated YouTube thumbnail created with Thumbly"}
         image={thumbnail.image_url || undefined}
       />
       <div className="container mx-auto px-4 sm:px-6 py-12 max-w-3xl">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-6 cursor-pointer" onClick={() => navigate("/")}>
             <Zap className="h-6 w-6 text-primary fill-primary" />
-            <span className="text-xl font-heading font-bold text-foreground">ThumbAI</span>
+            <span className="text-xl font-heading font-bold text-foreground">Thumbly</span>
           </div>
         </div>
 
@@ -83,7 +83,7 @@ const SharedThumbnailPage = () => {
         </div>
 
         <div className="mt-12 text-center space-y-4">
-          <p className="text-muted-foreground text-sm">Made with ThumbAI</p>
+          <p className="text-muted-foreground text-sm">Made with Thumbly</p>
           <Button onClick={() => navigate("/")} size="lg" variant="hero">
             Create yours — Start for $2 →
           </Button>

@@ -341,7 +341,7 @@ export function useSmartEditor() {
       const blob = await resp.blob();
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `thumbai-edit-${Date.now()}.png`;
+      link.download = `Thumbly-edit-${Date.now()}.png`;
       link.click();
       URL.revokeObjectURL(link.href);
     } catch {

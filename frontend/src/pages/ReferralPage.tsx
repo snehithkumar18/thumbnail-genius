@@ -23,9 +23,9 @@ const ReferralPage = () => {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  const referralLink = `https://thumbai.app/r/${referralCode}`;
+  const referralLink = `https://Thumbly.app/r/${referralCode}`;
   const whatsappMessage = encodeURIComponent(
-    `Hey! I've been using ThumbAI to make AI thumbnails for my YouTube channel. It's amazing — try it here: ${referralLink}\nYou get ₹100 off your first plan and I get bonus credits! 🔥`
+    `Hey! I've been using Thumbly to make AI thumbnails for my YouTube channel. It's amazing — try it here: ${referralLink}\nYou get ₹100 off your first plan and I get bonus credits! 🔥`
   );
 
   useEffect(() => {
@@ -111,7 +111,7 @@ const ReferralPage = () => {
             variant="outline"
             size="sm"
             className="border-border text-foreground"
-            onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Check out ThumbAI for AI YouTube thumbnails! 🔥")}`, "_blank")}
+            onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Check out Thumbly for AI YouTube thumbnails! 🔥")}`, "_blank")}
           >
             <Send className="h-4 w-4 mr-1.5 text-primary" /> Telegram
           </Button>
@@ -119,7 +119,7 @@ const ReferralPage = () => {
             variant="outline"
             size="sm"
             className="border-border text-foreground"
-            onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`I've been using ThumbAI to make AI thumbnails for YouTube — it's incredible! Try it here: ${referralLink}`)}`, "_blank")}
+            onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`I've been using Thumbly to make AI thumbnails for YouTube — it's incredible! Try it here: ${referralLink}`)}`, "_blank")}
           >
             <ExternalLink className="h-4 w-4 mr-1.5" /> Twitter/X
           </Button>

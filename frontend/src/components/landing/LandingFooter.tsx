@@ -102,7 +102,7 @@ const LandingFooter = () => {
         {/* Bottom */}
         <div className="pt-6 flex flex-col md:flex-row items-center justify-between gap-4" style={{ borderTop: "1px solid rgba(139,71,255,0.15)" }}>
           <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>Made with ❤️ in India 🇮🇳</p>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>© 2025 ThumbAI. All rights reserved.</p>
+          <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>© 2025 Thumbly. All rights reserved.</p>
         </div>
       </div>
     </footer>

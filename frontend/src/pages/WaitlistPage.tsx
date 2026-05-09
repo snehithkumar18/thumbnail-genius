@@ -185,7 +185,7 @@ const WaitlistPage = () => {
         <div className="wl-nav-inner">
           <div className="wl-logo">
             <span className="wl-logo-text">THUMB</span>
-            <span className="wl-logo-accent">AI</span>
+            <span className="wl-logo-accent">LY</span>
             <span className="wl-logo-bolt">⚡</span>
           </div>
           <button onClick={scrollToForm} className="wl-nav-cta">
@@ -349,11 +349,11 @@ const WaitlistPage = () => {
                   <span className="wl-dot wl-dot--green" />
                 </div>
                 <div className="wl-browser-url">
-                  <span>thumbai.app/dashboard/smart-editor</span>
+                  <span>Thumbly.app/dashboard/smart-editor</span>
                 </div>
               </div>
               <div className="wl-browser-content">
-                <img src="/waitlist/smart-editor.png" alt="ThumbAI Smart Editor — detects faces, text, images, screenshots, PNGs, backgrounds" className="wl-showcase-img" />
+                <img src="/waitlist/smart-editor.png" alt="Thumbly Smart Editor — detects faces, text, images, screenshots, PNGs, backgrounds" className="wl-showcase-img" />
                 {/* Video placeholder overlay */}
                 <div className="wl-video-overlay">
                   <div className="wl-play-btn">
@@ -749,11 +749,11 @@ const WaitlistPage = () => {
         <div className="wl-footer-inner">
           <div className="wl-logo">
             <span className="wl-logo-text">THUMB</span>
-            <span className="wl-logo-accent">AI</span>
+            <span className="wl-logo-accent">LY</span>
             <span className="wl-logo-bolt">⚡</span>
           </div>
           <p className="wl-footer-text">
-            © {new Date().getFullYear()} ThumbAI. The AI-powered thumbnail platform for YouTube creators.
+            © {new Date().getFullYear()} Thumbly. The AI-powered thumbnail platform for YouTube creators.
           </p>
         </div>
       </footer>

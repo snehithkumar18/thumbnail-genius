@@ -38,9 +38,9 @@ const Index = () => {
   return (
     <div className="min-h-screen-d bg-background overflow-x-hidden">
       <SEOHead
-        title="ThumbAI — AI YouTube Thumbnail Generator | Free"
+        title="Thumbly — AI YouTube Thumbnail Generator | Free"
         description="Generate viral YouTube thumbnails in seconds with AI. Hindi, English & 8 languages. Free plan available. Trusted by 12,000+ creators."
-        url="https://thumbai.app"
+        url="https://Thumbly.app"
       />
 
       {/* Intro sequence */}

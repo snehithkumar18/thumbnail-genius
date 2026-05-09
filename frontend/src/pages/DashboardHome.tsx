@@ -43,7 +43,7 @@ const DashboardHome = () => {
         >
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px]" />
           <h2 className="text-xl font-heading font-bold text-foreground mb-2">
-            Welcome to ThumbAI! You have 5 free credits 🎉
+            Welcome to Thumbly! You have 5 free credits 🎉
           </h2>
           <p className="text-muted-foreground text-sm mb-4">
             Complete setup to unlock all features

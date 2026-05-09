@@ -146,7 +146,7 @@ const RecreatePage = () => {
       const blob = await resp.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `thumbai-recreate-${Date.now()}.png`;
+      a.download = `Thumbly-recreate-${Date.now()}.png`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch { toast.error("Download failed"); }

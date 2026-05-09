@@ -371,7 +371,7 @@ const ABTesterPage = () => {
                                 </div>
                                 <div className="p-3">
                                    <p className="text-[11px] font-bold text-slate-800">VOTE: {test.title || "Which thumbnail is better?"}</p>
-                                   <p className="text-[9px] text-slate-400 mt-0.5">thumbai.app/vote/{test.share_id}</p>
+                                   <p className="text-[9px] text-slate-400 mt-0.5">Thumbly.app/vote/{test.share_id}</p>
                                 </div>
                              </div>
                           </div>

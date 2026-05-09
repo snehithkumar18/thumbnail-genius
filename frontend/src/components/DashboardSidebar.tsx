@@ -57,7 +57,7 @@ export function DashboardSidebar() {
     } else {
       document.documentElement.classList.remove("dark");
     }
-    localStorage.setItem("thumbai-theme", next ? "dark" : "light");
+    localStorage.setItem("Thumbly-theme", next ? "dark" : "light");
   };
 
   return (
@@ -67,7 +67,7 @@ export function DashboardSidebar() {
           {/* Logo */}
           <div className="px-4 mb-6 flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary fill-primary shrink-0" />
-            {!collapsed && <span className="font-heading font-bold text-foreground text-lg">ThumbAI</span>}
+            {!collapsed && <span className="font-heading font-bold text-foreground text-lg">Thumbly</span>}
           </div>
 
           <SidebarGroup>

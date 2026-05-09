@@ -117,7 +117,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
     <div className="p-1" ref={contentRef}>
       <div className="flex items-center gap-2 mb-6">
         <Zap className="h-5 w-5 text-primary fill-primary" />
-        <span className="font-heading font-bold text-foreground">ThumbAI</span>
+        <span className="font-heading font-bold text-foreground">Thumbly</span>
       </div>
 
       <div className="flex gap-1 mb-6 bg-muted rounded-lg p-1">

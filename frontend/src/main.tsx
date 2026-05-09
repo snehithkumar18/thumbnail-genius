@@ -3,7 +3,7 @@ import App from "./App.tsx";
 import "./index.css";
 
 // Restore theme preference
-const savedTheme = localStorage.getItem("thumbai-theme");
+const savedTheme = localStorage.getItem("Thumbly-theme");
 if (savedTheme === "dark") {
   document.documentElement.classList.add("dark");
 }

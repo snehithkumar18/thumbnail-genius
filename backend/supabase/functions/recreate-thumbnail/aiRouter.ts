@@ -40,8 +40,7 @@ type ProviderOptions = {
 };
 
 const GEMINI_MODELS = [
-  "gemini-2.5-flash-image-preview",
-  "gemini-2.0-flash-preview-image-generation",
+  "gemini-2.5-flash-image",
 ];
 const CACHE_TTL_HOURS = 12;
 const CACHE_MAX_ENTRIES = 10000;
@@ -135,7 +134,8 @@ export const setCache = async (
 };
 
 const isRateLimitError = (status: number, message: string) => {
-  return status === 429 || message.toLowerCase().includes("resource_exhausted");
+  const lower = message.toLowerCase();
+  return status === 429 || lower.includes("resource_exhausted") || lower.includes("exceeded your current quota");
 };
 
 const isProviderCoolingDown = async (supabaseAdmin: SupabaseClient, provider: string) => {

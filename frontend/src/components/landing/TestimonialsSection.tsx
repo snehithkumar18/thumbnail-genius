@@ -3,10 +3,10 @@ import { useInView } from "react-intersection-observer";
 import { Star } from "lucide-react";
 
 const testimonials = [
-  { name: "Rahul S.", role: "Finance Creator | 280K subs", quote: "ThumbAI replaced my designer. I generate 10 thumbnails in the time it took to make 1.", category: "Finance", initials: "RS" },
+  { name: "Rahul S.", role: "Finance Creator | 280K subs", quote: "Thumbly replaced my designer. I generate 10 thumbnails in the time it took to make 1.", category: "Finance", initials: "RS" },
   { name: "Sarah K.", role: "Gaming Creator | 150K subs", quote: "The face swap feature is insane. My CTR went from 4% to 11% in one month.", category: "Gaming", initials: "SK" },
-  { name: "Amit P.", role: "Tech Reviewer | 90K subs", quote: "Hindi text on thumbnails was impossible before. ThumbAI nails it every time.", category: "Tech", initials: "AP" },
-  { name: "Maria G.", role: "Fitness Creator | 200K subs", quote: "I was paying $29/mo for Pikzels. ThumbAI is better and costs a fraction.", category: "Fitness", initials: "MG" },
+  { name: "Amit P.", role: "Tech Reviewer | 90K subs", quote: "Hindi text on thumbnails was impossible before. Thumbly nails it every time.", category: "Tech", initials: "AP" },
+  { name: "Maria G.", role: "Fitness Creator | 200K subs", quote: "I was paying $29/mo for Pikzels. Thumbly is better and costs a fraction.", category: "Fitness", initials: "MG" },
   { name: "David L.", role: "Travel Vlogger | 75K subs", quote: "The recreate-from-URL feature is magic. I recreate top creators' styles instantly.", category: "Travel", initials: "DL" },
   { name: "Priya M.", role: "Education Creator | 120K subs", quote: "A/B testing my thumbnails helped me understand what works. Game changer.", category: "Education", initials: "PM" },
 ];
@@ -59,7 +59,7 @@ const TestimonialsSection = () => {
         className="text-center mb-12"
       >
         <h2 className="text-4xl md:text-6xl font-display font-bold">
-          Creators love <span className="gradient-text">ThumbAI</span>
+          Creators love <span className="gradient-text">Thumbly</span>
         </h2>
       </motion.div>
 

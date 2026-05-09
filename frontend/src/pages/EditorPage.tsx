@@ -151,7 +151,7 @@ const EditorPage = () => {
       const blob = await resp.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `thumbai-edit-${Date.now()}.png`;
+      a.download = `Thumbly-edit-${Date.now()}.png`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch { toast.error("Download failed"); }

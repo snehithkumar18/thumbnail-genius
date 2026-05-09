@@ -40,8 +40,7 @@ type ProviderOptions = {
 };
 
 const GEMINI_MODELS = [
-  "gemini-2.5-flash-image-preview",
-  "gemini-2.0-flash-preview-image-generation",
+  "gemini-2.5-flash-image",
 ];
 const CACHE_TTL_HOURS = 12;
 const CACHE_MAX_ENTRIES = 10000;
@@ -135,7 +134,8 @@ export const setCache = async (
 };
 
 const isRateLimitError = (status: number, message: string) => {
-  return status === 429 || message.toLowerCase().includes("resource_exhausted");
+  const lower = message.toLowerCase();
+  return status === 429 || lower.includes("resource_exhausted") || lower.includes("exceeded your current quota");
 };
 
 const isProviderCoolingDown = async (supabaseAdmin: SupabaseClient, provider: string) => {
@@ -250,36 +250,36 @@ export const runImageProviders = async (
 ): Promise<ProviderResult> => {
   const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || "";
 
+  // 1. ALWAYS try Gemini first if a key is present
   if (options.gemini && geminiKey) {
     const cooling = await isProviderCoolingDown(supabaseAdmin, "gemini");
     if (!cooling) {
       try {
+        console.log("[aiRouter] Attempting Gemini...");
         return await callGeminiImage(options.gemini, geminiKey);
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         console.error("[aiRouter] Gemini failed:", message);
+
+        // If it's a rate limit, mark it for cooldown
         const statusMatch = message.match(/\((\d{3})\)/);
         const status = statusMatch ? Number(statusMatch[1]) : 0;
         if (isRateLimitError(status, message)) {
           await markProviderRateLimited(supabaseAdmin, "gemini");
         }
       }
+    } else {
+      console.warn("[aiRouter] Gemini is cooling down, skipping...");
     }
   }
 
+  // 2. ONLY use Pollinations if Gemini failed/skipped AND options allow it
   if (options.pollinations) {
-    const cooling = await isProviderCoolingDown(supabaseAdmin, "pollinations");
-    if (!cooling) {
-      try {
-        return await callPollinationsImage(options.pollinations);
-      } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : String(e);
-        const statusMatch = message.match(/\((\d{3})\)/);
-        const status = statusMatch ? Number(statusMatch[1]) : 0;
-        if (isRateLimitError(status, message)) {
-          await markProviderRateLimited(supabaseAdmin, "pollinations");
-        }
-      }
+    try {
+      console.log("[aiRouter] Falling back to Pollinations...");
+      return await callPollinationsImage(options.pollinations);
+    } catch (e: unknown) {
+      console.error("[aiRouter] Pollinations failed:", e);
     }
   }
 
