@@ -9,13 +9,16 @@ import { createClient } from "@supabase/supabase-js";
 
 const app = Fastify({ logger: true });
 const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
+const createRedisConnection = () => new Redis(redisUrl, { maxRetriesPerRequest: null });
+
+const redis = createRedisConnection();
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const aiUrl = process.env.SMART_EDITOR_AI_URL || "http://localhost:8000";
 const falKey = process.env.FAL_KEY;
+const geminiApiKey = process.env.GEMINI_API_KEY;
 const bypassCredits = process.env.BYPASS_CREDITS === "true";
 
 if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
@@ -25,8 +28,8 @@ if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
 
-const detectQueue = new Queue("smart-editor-detect", { connection: redis });
-const replaceQueue = new Queue("smart-editor-replace", { connection: redis });
+const detectQueue = new Queue("smart-editor-detect", { connection: createRedisConnection() });
+const replaceQueue = new Queue("smart-editor-replace", { connection: createRedisConnection() });
 
 const CREDIT_COSTS = {
   replace_text: 5,
@@ -52,6 +55,7 @@ const replacePayloadSchema = z.object({
   session_id: z.string().uuid().optional(),
   user_id: z.string().uuid(),
   layer_id: z.string().optional(),
+  replacement_image_url: z.string().url().optional(),
 });
 
 const rateLimit = async (key, limitSeconds) => {
@@ -153,6 +157,28 @@ const callFalReplace = async ({ image_url, mask_url, prompt }) => {
   }
   console.log(`[FAL] Success: ${url.slice(0, 80)}...`);
   return url;
+};
+
+// --------------- FREE Local Python/Pollinations-based image editing ---------------
+const callLocalReplace = async ({ image_url, mask_url, prompt, replacement_image_url, edit_type }) => {
+  console.log(`[LOCAL REPLACE] Starting local image replacement with prompt: ${prompt.slice(0, 100)}...`);
+  const resp = await fetch(`${aiUrl}/replace`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image_url, mask_url, prompt, replacement_image_url, edit_type }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error(`[LOCAL REPLACE] Failed (${resp.status}): ${errText.slice(0, 300)}`);
+    throw new Error(`Local replace failed (${resp.status}): ${errText.slice(0, 200)}`);
+  }
+
+  const data = await resp.json();
+  if (!data?.image_base64) {
+    throw new Error("Local replace returned no image data");
+  }
+  return data.image_base64;
 };
 
 app.register(cors, {
@@ -259,8 +285,10 @@ app.post("/smart-editor/replace", async (request, reply) => {
 const detectWorker = new Worker(
   "smart-editor-detect",
   async (job) => {
+    console.log(`[DETECT WORKER] Job ${job.id} started. Data:`, job.data);
     try {
       const { image_url, image_hash, session_id, user_id } = job.data;
+      console.log(`[DETECT WORKER] Calling AI detect at ${aiUrl}/detect...`);
       const resp = await fetch(`${aiUrl}/detect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -272,6 +300,7 @@ const detectWorker = new Worker(
       }
       const data = await resp.json();
       const layersJson = data?.layers || [];
+      console.log(`[DETECT WORKER] AI detect returned ${layersJson.length} layers.`);
 
       if (user_id && Array.isArray(layersJson)) {
         for (const layer of layersJson) {
@@ -279,17 +308,22 @@ const detectWorker = new Worker(
             const base64 = layer.mask.split(",")[1] || "";
             const bytes = Buffer.from(base64, "base64");
             const fileName = `${user_id}/smart-editor/masks/${crypto.randomUUID()}.png`;
+            console.log(`[DETECT WORKER] Uploading mask for layer ${layer.label} to Supabase...`);
             const { error: uploadError } = await supabaseAdmin.storage
               .from("smart_editor")
               .upload(fileName, bytes, { contentType: "image/png" });
             if (!uploadError) {
               const { data: publicData } = supabaseAdmin.storage.from("smart_editor").getPublicUrl(fileName);
               layer.mask = publicData.publicUrl;
+              console.log(`[DETECT WORKER] Mask uploaded: ${layer.mask}`);
+            } else {
+              console.error(`[DETECT WORKER] Supabase mask upload error:`, uploadError);
             }
           }
         }
       }
 
+      console.log(`[DETECT WORKER] Caching layers for image hash ${image_hash}...`);
       await setCachedLayers(image_hash, layersJson);
 
       if (session_id && user_id) {
@@ -304,42 +338,69 @@ const detectWorker = new Worker(
         }));
 
         if (inserts.length > 0) {
-          await supabaseAdmin.from("smart_editor_layers").insert(inserts);
+          console.log(`[DETECT WORKER] Inserting ${inserts.length} layers into smart_editor_layers...`);
+          const { error: insertError } = await supabaseAdmin.from("smart_editor_layers").insert(inserts);
+          if (insertError) {
+            console.error(`[DETECT WORKER] Insert layers error:`, insertError);
+          }
         }
 
-        await supabaseAdmin
+        console.log(`[DETECT WORKER] Updating session layers_data for session ${session_id}...`);
+        const { error: updateError } = await supabaseAdmin
           .from("smart_editor_sessions")
           .update({ layers_data: JSON.stringify(layersJson) })
           .eq("id", session_id);
+        if (updateError) {
+          console.error(`[DETECT WORKER] Session update error:`, updateError);
+        }
       }
+      console.log(`[DETECT WORKER] Job ${job.id} completed successfully.`);
       return { layers: layersJson };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      console.error(`[DETECT WORKER] Job ${job.id} failed:`, err);
       throw new Error(`Detect job failed: ${message}`);
     }
   },
-  { connection: redis },
+  { connection: createRedisConnection() },
 );
 
 const replaceWorker = new Worker(
   "smart-editor-replace",
   async (job) => {
     try {
-      const { image_url, mask_url, prompt, session_id, user_id, layer_id, edit_type, credit_cost } = job.data;
-      const imageUrl = await callFalReplace({ image_url, mask_url, prompt });
+      const { image_url, mask_url, prompt, replacement_image_url, session_id, user_id, layer_id, edit_type, credit_cost } = job.data;
+      // Try Local (free) first, then FAL as fallback
+      let imageBytes;
+      let isLocalSuccess = false;
+      let imageUrl;
+      try {
+        const base64Str = await callLocalReplace({ image_url, mask_url, prompt, replacement_image_url, edit_type });
+        const resultBuffer = Buffer.from(base64Str, "base64");
+        imageBytes = new Uint8Array(resultBuffer);
+        isLocalSuccess = true;
+      } catch (localErr) {
+        console.warn(`[REPLACE] Local replace failed, trying FAL: ${localErr.message}`);
+        imageUrl = await callFalReplace({ image_url, mask_url, prompt });
+        const imageResp = await fetch(imageUrl);
+        imageBytes = new Uint8Array(await imageResp.arrayBuffer());
+      }
 
       // Upload to Supabase storage
-      const imageResp = await fetch(imageUrl);
-      const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
       const fileName = `${user_id}/smart-editor/replace_${crypto.randomUUID()}.png`;
       const { error: uploadError } = await supabaseAdmin.storage
         .from("smart_editor")
         .upload(fileName, imageBytes, { contentType: "image/png" });
 
-      let finalUrl = imageUrl;
+      let finalUrl = isLocalSuccess ? "" : imageUrl;
       if (!uploadError) {
         const { data } = supabaseAdmin.storage.from("smart_editor").getPublicUrl(fileName);
         finalUrl = data.publicUrl;
+      } else {
+        console.error("[REPLACE] Upload to Supabase failed:", uploadError);
+        if (isLocalSuccess) {
+          throw new Error(`Failed to upload local replace result: ${uploadError.message}`);
+        }
       }
 
       if (session_id && user_id) {
@@ -391,7 +452,7 @@ const replaceWorker = new Worker(
       throw new Error(`Replace job failed: ${message}`);
     }
   },
-  { connection: redis },
+  { connection: createRedisConnection() },
 );
 
 detectWorker.on("failed", (job, err) => {

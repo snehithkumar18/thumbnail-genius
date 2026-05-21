@@ -5,7 +5,6 @@ import { Star, ChevronDown, Zap } from "lucide-react";
 import { hapticFeedback } from "@/lib/utils";
 
 const ParticleBackground = lazy(() => import("./ParticleBackground"));
-const ThreeDCards = lazy(() => import("./ThreeDCards"));
 
 interface HeroSectionProps {
   onOpenAuth: () => void;
@@ -90,9 +89,8 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
       </Suspense>
 
       <div className="container mx-auto px-4 sm:px-6 py-16 sm:py-20 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-center max-w-7xl mx-auto">
-          {/* LEFT COLUMN */}
-          <div className="text-center lg:text-left">
+        <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
+          <div className="w-full flex flex-col items-center justify-center">
             {/* Floating badge */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -108,15 +106,29 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
 
             {/* Headline */}
             <motion.h1
-              className="mb-6"
+              className="mb-6 max-w-3xl"
               initial={{ opacity: 0, y: 40 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.6, duration: 0.6, ease: "easeOut" }}
             >
-              <span className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-7xl font-display font-bold leading-tight text-foreground break-words block">
+              <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-bold leading-tight text-foreground break-words block">
                 GENERATE <span className="gradient-text shimmer-text">VIRAL</span> <span className="sm:whitespace-nowrap">THUMBNAILS IN SECONDS</span>
               </span>
             </motion.h1>
+
+            {/* Subheadline */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={visible ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: 1.1, duration: 0.6 }}
+              className="mb-8 max-w-2xl"
+            >
+              <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed">
+                AI thumbnails that get clicks.
+                <br />
+                No design skills. No Photoshop. No guessing.
+              </p>
+            </motion.div>
 
             {/* CTA Button */}
             <motion.div
@@ -128,7 +140,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
                 stiffness: 400,
                 damping: 25,
               }}
-              className="mb-6"
+              className="mb-8"
               onMouseMove={handleMagnet}
               onMouseLeave={handleMagnetLeave}
             >
@@ -150,7 +162,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               initial={{ opacity: 0, y: 20 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 1.0, duration: 0.5 }}
-              className="flex flex-wrap items-center gap-3 mb-6"
+              className="flex flex-wrap items-center justify-center gap-3 mb-8"
             >
               <span className="glass-card rounded-full px-3 py-1.5 text-xs font-medium text-foreground animate-float-gentle">
                 FLUX.2 Pro ✨
@@ -160,26 +172,12 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               </span>
             </motion.div>
 
-            {/* Subheadline */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={visible ? { opacity: 1, y: 0 } : {}}
-              transition={{ delay: 1.1, duration: 0.6 }}
-              className="mb-6"
-            >
-              <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed">
-                AI thumbnails that get clicks.
-                <br />
-                No design skills. No Photoshop. No guessing.
-              </p>
-            </motion.div>
-
             {/* Typewriter prompt preview */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 1.2, duration: 0.5 }}
-              className="glass-card rounded-xl p-4 mb-6 max-w-lg mx-auto lg:mx-0"
+              className="glass-card rounded-xl p-4 mb-8 max-w-lg w-full mx-auto"
             >
               <span className="text-xs text-primary mb-2 block">✨ Try it</span>
               <div className="text-sm text-foreground min-h-[40px] font-mono">
@@ -199,7 +197,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
                   cursor={true}
                 />
               </div>
-              <div className="flex gap-2 mt-3">
+              <div className="flex gap-2 justify-center mt-3">
                 {styles.map((s, i) => (
                   <span
                     key={s}
@@ -221,7 +219,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               initial={{ opacity: 0, y: 20 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 1.3, duration: 0.5 }}
-              className="mb-6"
+              className="mb-8"
             >
               <button
                 onClick={() =>
@@ -240,7 +238,7 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               initial={{ opacity: 0, y: 10 }}
               animate={visible ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 1.5, duration: 0.5 }}
-              className="flex items-center justify-center lg:justify-start gap-4 flex-wrap"
+              className="flex items-center justify-center gap-4 flex-wrap"
             >
               <div className="flex -space-x-2">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -269,22 +267,6 @@ const HeroSection = ({ onOpenAuth, visible }: HeroSectionProps) => {
               </div>
             </motion.div>
           </div>
-
-          {/* RIGHT COLUMN — 3D Cards */}
-          <motion.div
-            initial={{ opacity: 0, x: 60 }}
-            animate={visible ? { opacity: 1, x: 0 } : {}}
-            transition={{ delay: 1.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="hidden lg:block relative"
-          >
-            <Suspense
-              fallback={
-                <div className="w-full aspect-[4/3] rounded-2xl bg-card animate-pulse" />
-              }
-            >
-              <ThreeDCards />
-            </Suspense>
-          </motion.div>
         </div>
 
         {/* Scroll indicator */}

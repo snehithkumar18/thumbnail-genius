@@ -52,7 +52,8 @@ const App = () => (
                 <Route path="/t/:shareId" element={<SharedThumbnailPage />} />
                 <Route path="/vote/:shareId" element={<VotePage />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
-                  <Route index element={<GeneratePage />} />
+                  <Route index element={<SmartEditorPage />} />
+                  <Route path="generate" element={<GeneratePage />} />
                   <Route path="shorts" element={<ShortsPage />} />
                   <Route path="recreate" element={<RecreatePage />} />
                   <Route path="smart-editor" element={<SmartEditorPage />} />

@@ -1,8 +1,8 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Bell, Gem, ChevronDown, User, CreditCard, Gift, Users, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Bell, Gem, ChevronDown, User, CreditCard, Gift, Users, LogOut, Sun, Moon, Zap } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +17,9 @@ import PaymentSuccessOverlay from "@/components/PaymentSuccessOverlay";
 import { CreditsBadge } from "@/components/CreditsBadge";
 
 const routeTitles: Record<string, string> = {
-  "/dashboard": "Generate",
+  "/dashboard": "Smart Edit",
+  "/dashboard/smart-editor": "Smart Edit",
+  "/dashboard/generate": "Generate",
   "/dashboard/shorts": "Shorts Cover",
   "/dashboard/recreate": "Recreate",
   "/dashboard/editor": "AI Editor",
@@ -39,7 +41,31 @@ export function DashboardTopBar() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { data: profile } = useProfile();
-  const { totalCredits, plan, hasSubscription } = usePlanAccess();
+  const { totalCredits } = usePlanAccess();
+
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+
+  useEffect(() => {
+    // Sync state if theme changes elsewhere
+    const checkDark = () => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    };
+    window.addEventListener("storage", checkDark);
+    return () => window.removeEventListener("storage", checkDark);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("Thumbly-theme", next ? "dark" : "light");
+    // Dispatch storage event to notify other components
+    window.dispatchEvent(new Event("storage"));
+  };
 
   const title = routeTitles[location.pathname] ?? "Dashboard";
   const isLowCredits = totalCredits < 5;
@@ -48,11 +74,17 @@ export function DashboardTopBar() {
     <>
       <PaymentSuccessOverlay />
       <header className="h-[56px] sm:h-[60px] border-b border-border bg-card flex items-center justify-between px-3 sm:px-4 sticky top-0 z-[40]">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <SidebarTrigger className="tab:hidden h-9 w-9 border-border" />
-          <h1 className="text-lg font-bold font-heading text-foreground hidden sm:block">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => navigate("/dashboard")}>
+            <Zap className="h-5 w-5 text-primary fill-primary" />
+            <span className="font-heading font-black text-lg text-foreground tracking-tight">
+              Thumbly
+            </span>
+          </div>
+          <span className="text-border text-sm">|</span>
+          <span className="text-xs sm:text-sm font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border">
             {title}
-          </h1>
+          </span>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
@@ -66,12 +98,21 @@ export function DashboardTopBar() {
             </Button>
           )}
 
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hidden sm:flex">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hidden sm:flex h-9 w-9">
             <Search className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative hidden sm:flex">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative hidden sm:flex h-9 w-9">
             <Bell className="h-4 w-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
+            <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="text-muted-foreground hover:text-foreground h-9 w-9"
+          >
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
 
           <CreditsBadge

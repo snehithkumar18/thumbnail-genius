@@ -1,12 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Link2, ClipboardPaste, Check, Download, Heart, Pencil, ArrowLeftRight, Lock, Sparkles } from "lucide-react";
+import { RefreshCw, Link2, ClipboardPaste, Check, Download, Heart, Pencil, ArrowLeftRight, Lock, Sparkles, Upload, X, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,12 +15,6 @@ import ZeroCreditsModal from "@/components/ZeroCreditsModal";
 import { useNavigate } from "react-router-dom";
 
 const CREDIT_COST = 3;
-
-const SIMILARITY_LABELS: Record<number, { label: string; desc: string }> = {
-  30: { label: "Inspired", desc: "Keeps composition, changes everything else" },
-  60: { label: "Remix", desc: "Similar feel, noticeably different" },
-  90: { label: "Near-Clone", desc: "Almost identical, subtle changes" },
-};
 
 const LOADING_MESSAGES = [
   { range: [0, 20], text: "Analyzing original thumbnail..." },
@@ -50,6 +42,10 @@ const RecreatePage = () => {
   const [showZeroCredits, setShowZeroCredits] = useState(false);
   const [comparePosition, setComparePosition] = useState(50);
   const abortRef = useRef(false);
+  const personInputRef = useRef<HTMLInputElement>(null);
+  const [personImage, setPersonImage] = useState<File | null>(null);
+  const [personPreview, setPersonPreview] = useState<string | null>(null);
+  const [uploadingPerson, setUploadingPerson] = useState(false);
   const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
   const remaining = credits?.credits_remaining ?? 0;
@@ -98,12 +94,26 @@ const RecreatePage = () => {
     abortRef.current = false;
 
     try {
+      // Upload person reference image if provided
+      let personReferenceUrl = "";
+      if (personImage && user) {
+        setUploadingPerson(true);
+        const tempPath = `${user.id}/temp/${crypto.randomUUID()}.png`;
+        const { error: uploadErr } = await supabase.storage.from("thumbnails").upload(tempPath, personImage, { contentType: personImage.type });
+        setUploadingPerson(false);
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage.from("thumbnails").getPublicUrl(tempPath);
+          personReferenceUrl = urlData.publicUrl;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("recreate-thumbnail", {
         body: {
           youtube_url: url,
           similarity_strength: similarity[0],
           change_instruction: changes.trim(),
           language_change: language,
+          person_reference_url: personReferenceUrl || undefined,
         },
       });
 
@@ -157,9 +167,6 @@ const RecreatePage = () => {
     queryClient.invalidateQueries({ queryKey: ["thumbnails"] });
     toast.success("Added to favorites");
   };
-
-  const simKey = similarity[0] <= 30 ? 30 : similarity[0] <= 60 ? 60 : 90;
-
   return (
     <div className="flex flex-col lg:flex-row gap-6 min-h-0">
       {/* LEFT — Controls */}
@@ -212,28 +219,11 @@ const RecreatePage = () => {
 
         {/* Step 2: Style Controls */}
         <div className="glass-card rounded-xl p-4 space-y-4">
-          <Label className="text-sm font-medium text-foreground">Step 2 — Style Controls</Label>
-
-          {/* Similarity slider */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-muted-foreground">How similar to original?</span>
-              <span className="text-xs font-medium text-foreground">{similarity[0]}%</span>
-            </div>
-            <Slider value={similarity} onValueChange={setSimilarity} min={10} max={100} step={10} className="w-full" />
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>← My Style</span>
-              <span>Inspired</span>
-              <span>Clone →</span>
-            </div>
-            <p className="text-xs text-primary/70">
-              {SIMILARITY_LABELS[simKey]?.label}: {SIMILARITY_LABELS[simKey]?.desc}
-            </p>
-          </div>
+          <Label className="text-sm font-medium text-foreground">Step 2 — What to Change?</Label>
 
           {/* Changes textarea */}
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">What do you want to change?</Label>
+            <Label className="text-xs text-muted-foreground">Describe your modifications</Label>
             <Textarea
               value={changes}
               onChange={(e) => setChanges(e.target.value)}
@@ -243,25 +233,60 @@ const RecreatePage = () => {
             />
             <span className="text-[10px] text-muted-foreground float-right">{changes.length}/300</span>
           </div>
+        </div>
 
-          {/* Language */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Text language</Label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger className="bg-background border-border text-foreground text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border">
-                <SelectItem value="original">Keep Original</SelectItem>
-                <SelectItem value="Hindi">Translate to Hindi</SelectItem>
-                <SelectItem value="Spanish">Translate to Spanish</SelectItem>
-                <SelectItem value="Portuguese">Translate to Portuguese</SelectItem>
-                <SelectItem value="French">Translate to French</SelectItem>
-                <SelectItem value="German">Translate to German</SelectItem>
-                <SelectItem value="Japanese">Translate to Japanese</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Step 2.5: Person Reference (Optional) */}
+        <div className="glass-card rounded-xl p-4 space-y-3">
+          <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+            <UserRound className="h-4 w-4 text-primary" />
+            Your Person (Optional)
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Upload a photo of yourself to replace the person in the thumbnail
+          </p>
+
+          {personPreview ? (
+            <div className="flex items-center gap-3">
+              <div className="relative w-20 h-20 rounded-xl overflow-hidden ring-2 ring-primary shrink-0">
+                <img src={personPreview} alt="Person reference" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => { setPersonImage(null); setPersonPreview(null); }}
+                  className="absolute top-1 right-1 bg-background/80 rounded-full p-0.5 hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-primary font-medium flex items-center gap-1">
+                  <Check className="h-3 w-3" /> Photo ready
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  The AI will generate the thumbnail with this person
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div
+              onClick={() => personInputRef.current?.click()}
+              className="border-2 border-dashed border-border rounded-xl p-5 text-center cursor-pointer hover:border-primary/50 transition-colors group"
+            >
+              <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-1.5 group-hover:text-primary transition-colors" />
+              <p className="text-xs text-muted-foreground">Click to upload a photo</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">Clear, well-lit photo works best</p>
+            </div>
+          )}
+          <input
+            ref={personInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setPersonImage(file);
+              setPersonPreview(URL.createObjectURL(file));
+            }}
+          />
         </div>
 
         {/* Step 3: Generate */}

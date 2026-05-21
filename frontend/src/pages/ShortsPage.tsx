@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Type, Zap, Star, Download, Heart, Share2, RefreshCw, Pencil, X, Eye, Globe } from "lucide-react";
+import { motion } from "framer-motion";
+import { Sparkles, Type, Download, Heart, Share2, RefreshCw, Pencil, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -252,122 +250,8 @@ const ShortsPage = () => {
                 </span>
                 <span className="text-muted-foreground">{textContent.length}/20</span>
               </div>
-              
-              {/* Language selector */}
-              <div className="mt-3">
-                <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1"><Globe className="h-3 w-3" /> Text Language</Label>
-                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-                  {LANGUAGES.map(l => (
-                    <button
-                      key={l.id}
-                      onClick={() => setLanguage(l.id)}
-                      className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${
-                        language === l.id
-                          ? "bg-primary/10 border-primary/40 text-primary"
-                          : "bg-muted border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {l.flag} {l.label}
-                    </button>
-                  ))}
-                </div>
-                {language !== "en" && (
-                  <Badge variant="outline" className="mt-1.5 text-[10px] border-primary/30 text-primary">
-                    Using Ideogram 3.0 — best for {LANGUAGES.find(l => l.id === language)?.label} text
-                  </Badge>
-                )}
-              </div>
             </motion.div>
           )}
-        </div>
-
-        {/* Style Presets */}
-        <div>
-          <Label className="text-sm font-medium text-foreground mb-2 block">Shorts Style</Label>
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {SHORTS_STYLES.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setStyle(s.id)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                  style === s.id
-                    ? "bg-primary/10 border-primary/40 text-primary"
-                    : "bg-muted border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"
-                }`}
-              >
-                {s.emoji} {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Composition Guide */}
-        <div className="flex items-center justify-between glass-card rounded-xl p-4">
-          <div>
-            <Label className="text-sm font-medium text-foreground">🎯 Composition Guide</Label>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Face fills top 60%, text area at bottom</p>
-          </div>
-          <Switch checked={compositionGuide} onCheckedChange={setCompositionGuide} />
-        </div>
-
-        {/* Quality */}
-        <div>
-          <Label className="text-sm font-medium text-foreground mb-2 block">Quality</Label>
-          <div className="space-y-2">
-            {([
-              { id: "fast" as const, icon: Zap, label: "Fast", credits: 0, time: "~5s" },
-              { id: "pro" as const, icon: Star, label: "Pro", credits: 0, time: "~15s" },
-            ]).map((q) => (
-              <button
-                key={q.id}
-                onClick={() => setQuality(q.id)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-sm transition-all ${
-                  quality === q.id ? "bg-primary/10 border-primary/40" : "bg-muted border-border hover:border-muted-foreground/40"
-                }`}
-              >
-                <q.icon className={`h-4 w-4 ${quality === q.id ? "text-primary" : "text-muted-foreground"}`} />
-                <span className={`font-medium ${quality === q.id ? "text-primary" : "text-foreground"}`}>{q.label}</span>
-                <span className="text-muted-foreground text-xs ml-auto">{q.credits === 0 ? "Free" : `${q.credits} credit`} — {q.time}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {!["none", "free"].includes((credits?.plan_type || "none").toLowerCase()) && (
-          <div>
-            <Label className="text-sm font-medium text-foreground mb-2 block">Model</Label>
-            <Select value={modelChoice} onValueChange={setModelChoice}>
-              <SelectTrigger className="bg-background border-border text-foreground">
-                <SelectValue placeholder="Choose model" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border">
-                <SelectItem value="auto">Auto (Best available)</SelectItem>
-                <SelectItem value="fast">Fast / Free (Pollinations + Gemini)</SelectItem>
-                <SelectItem value="pro">Pro / Premium (FLUX.2 Pro)</SelectItem>
-                <SelectItem value="text">Text-accurate (Ideogram 3.0)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground mt-1.5">Pick cheaper models for prompt testing.</p>
-          </div>
-        )}
-
-        {/* Variations */}
-        <div>
-          <Label className="text-sm font-medium text-foreground mb-2 block">Variations</Label>
-          <div className="flex gap-2">
-            {[1, 2, 4].map((v) => (
-              <button
-                key={v}
-                onClick={() => setVariations(v)}
-                className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
-                  variations === v ? "bg-primary/10 border-primary/40 text-primary" : "bg-muted border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1.5">Total cost: <span className="text-foreground font-semibold">{creditCost === 0 ? "Free" : `${creditCost} credits`}</span></p>
         </div>
 
         {/* Generate */}

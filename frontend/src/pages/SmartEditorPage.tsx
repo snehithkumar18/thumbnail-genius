@@ -54,11 +54,36 @@ export default function SmartEditorPage() {
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'layers' | 'edit'>('layers');
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+
+  const [personUploadUrl, setPersonUploadUrl] = useState<string | null>(null);
+  const [personUploadPreview, setPersonUploadPreview] = useState<string | null>(null);
+  const [isUploadingPerson, setIsUploadingPerson] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    setPersonUploadUrl(null);
+    if (personUploadPreview) {
+      URL.revokeObjectURL(personUploadPreview);
+      setPersonUploadPreview(null);
+    }
+    const selected = editor.layers.find(l => l.id === editor.selectedLayerId);
+    if (selected?.type === 'person') {
+      setActiveTab('upload');
+      setReplaceInstruction('');
+    } else if (selected?.type === 'background') {
+      setActiveTab('pick');
+      setReplaceInstruction('');
+    } else if (selected?.type === 'text') {
+      setReplaceInstruction(selected.originalContent || '');
+    } else {
+      setReplaceInstruction('');
+    }
+  }, [editor.selectedLayerId]);
   
   const currentCredits = creditsData?.credits_remaining ?? 0;
   const filteredMyThumbs = myThumbs.filter(t => t.prompt?.toLowerCase().includes(thumbSearch.toLowerCase()) || !thumbSearch);
-
-    const isLockedPlan = !canUseSmartEditor;
+  const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
+  const isLockedPlan = !canUseSmartEditor && !bypassCredits;
 
 
     const uploadSmartEditorImage = async (file: File) => {
@@ -97,6 +122,51 @@ export default function SmartEditorPage() {
 
         const { data } = supabase.storage.from('thumbnails').getPublicUrl(path);
         return data.publicUrl || null;
+    };
+
+    const handlePersonPhotoFile = async (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please upload an image file');
+            return;
+        }
+        setIsUploadingPerson(true);
+        try {
+            const objectUrl = URL.createObjectURL(file);
+            setPersonUploadPreview(objectUrl);
+            
+            const url = await uploadSmartEditorImage(file);
+            if (url) {
+                setPersonUploadUrl(url);
+                toast.success("Photo uploaded successfully");
+            } else {
+                setPersonUploadPreview(null);
+                URL.revokeObjectURL(objectUrl);
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to upload photo");
+            setPersonUploadPreview(null);
+        } finally {
+            setIsUploadingPerson(false);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            await handlePersonPhotoFile(file);
+        }
     };
 
     const extractYoutubeThumbnail = (rawUrl: string) => {
@@ -558,7 +628,7 @@ export default function SmartEditorPage() {
                                   <Textarea 
                                      className="text-lg font-bold min-h-[100px] border-[#8B47FF]/50 focus-visible:ring-[#8B47FF]" 
                                      placeholder="Type your new text here..."
-                                     value={replaceInstruction || selectedLayer.originalContent || ''}
+                                     value={replaceInstruction}
                                      onChange={e => setReplaceInstruction(e.target.value)}
                                   />
                                </div>
@@ -577,10 +647,69 @@ export default function SmartEditorPage() {
                                </div>
 
                                {activeTab === 'upload' && (
-                                  <div className="border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-muted/50 transition bg-background">
-                                      <User className="h-12 w-12 text-primary/20 mb-3" />
-                                      <p className="text-sm font-medium">Drop your photo here</p>
-                                      <p className="text-[10px] text-muted-foreground mt-1 max-w-[200px]">Face should be clearly visible</p>
+                                  <div className="space-y-4">
+                                      <input 
+                                          type="file" 
+                                          accept="image/*" 
+                                          id="person-photo-upload" 
+                                          className="hidden" 
+                                          onChange={e => {
+                                              const file = e.target.files?.[0];
+                                              if (file) handlePersonPhotoFile(file);
+                                          }}
+                                      />
+                                      {!personUploadPreview ? (
+                                          <label 
+                                              htmlFor="person-photo-upload"
+                                              className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isDragging ? 'border-[#8B47FF] bg-[#8B47FF]/5' : 'border-border hover:bg-muted/50'} bg-background`}
+                                              onDragOver={handleDragOver}
+                                              onDragLeave={handleDragLeave}
+                                              onDrop={handleDrop}
+                                          >
+                                              {isUploadingPerson ? (
+                                                  <div className="flex flex-col items-center justify-center">
+                                                      <RotateCcw className="h-8 w-8 text-primary animate-spin mb-3" />
+                                                      <p className="text-sm font-medium">Uploading photo...</p>
+                                                  </div>
+                                              ) : (
+                                                  <>
+                                                      <UploadCloud className="h-12 w-12 text-primary/40 mb-3" />
+                                                      <p className="text-sm font-medium">Click or drag photo here</p>
+                                                      <p className="text-[10px] text-muted-foreground mt-1 max-w-[200px]">Face should be clearly visible</p>
+                                                  </>
+                                              )}
+                                          </label>
+                                      ) : (
+                                          <div className="border border-border rounded-xl p-4 bg-muted/30 relative flex flex-col items-center justify-center group">
+                                              <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border border-border bg-black/5">
+                                                  <img src={personUploadPreview} className="w-full h-full object-contain" alt="Upload preview" />
+                                                  {isUploadingPerson && (
+                                                      <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                                                          <RotateCcw className="h-8 w-8 text-white animate-spin" />
+                                                      </div>
+                                                  )}
+                                              </div>
+                                              <div className="flex w-full justify-between items-center mt-3">
+                                                  <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[150px]">
+                                                      {personUploadUrl ? "✓ Uploaded to Cloud" : "Uploading..."}
+                                                  </span>
+                                                  <Button 
+                                                      variant="ghost" 
+                                                      size="sm" 
+                                                      className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2"
+                                                      onClick={() => {
+                                                          setPersonUploadUrl(null);
+                                                          if (personUploadPreview) {
+                                                              URL.revokeObjectURL(personUploadPreview);
+                                                              setPersonUploadPreview(null);
+                                                          }
+                                                      }}
+                                                  >
+                                                      <X className="h-3.5 w-3.5 mr-1" /> Remove
+                                                  </Button>
+                                              </div>
+                                          </div>
+                                      )}
                                   </div>
                                )}
 
@@ -635,7 +764,7 @@ export default function SmartEditorPage() {
                       <div className="mt-auto pt-6">
                           <Button 
                              className="w-full h-12 text-sm font-semibold shadow-md bg-[#8B47FF] hover:bg-[#7236d6] transition-all"
-                             disabled={editor.isReplacing || (!replaceInstruction && activeTab !== 'upload')}
+                             disabled={editor.isReplacing || isUploadingPerson || (!replaceInstruction && activeTab !== 'upload') || (selectedLayer.type === 'person' && activeTab === 'upload' && !personUploadUrl)}
                              onClick={() => {
                                  hapticFeedback(30);
                                  const typeMap: Record<string, string> = {
@@ -646,9 +775,18 @@ export default function SmartEditorPage() {
                                  };
                                  let finalInstruction = replaceInstruction;
                                  if (selectedLayer.type === 'text') {
-                                     finalInstruction = `Change the text '${selectedLayer.originalContent}' to '${replaceInstruction}', keep exactly same style.`;
+                                     finalInstruction = `The word '${replaceInstruction}' in professional graphic typography, clean modern style, high contrast, matching color`;
                                  }
-                                 editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type] || 'replace_object', finalInstruction);
+                                 
+                                 if (selectedLayer.type === 'person' && activeTab === 'upload') {
+                                     if (!personUploadUrl) {
+                                         toast.error("Please upload a photo first");
+                                         return;
+                                     }
+                                     editor.replaceLayer(selectedLayer.id, 'replace_person', 'Replace person with uploaded photo', personUploadUrl);
+                                 } else {
+                                     editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type] || 'replace_object', finalInstruction);
+                                 }
                              }}
                           >
                              {editor.isReplacing ? (
@@ -753,22 +891,147 @@ export default function SmartEditorPage() {
                                         <Textarea 
                                             className="text-lg font-bold min-h-[80px]" 
                                             placeholder="Enter new text..."
-                                            value={replaceInstruction || selectedLayer.originalContent || ''}
+                                            value={replaceInstruction}
                                             onChange={e => setReplaceInstruction(e.target.value)}
                                         />
                                     )}
-                                    {/* (Rest of types simplified) */}
-                                    <Button className="w-full h-12 bg-primary" onClick={() => {
-                                        const typeMap: Record<Layer['type'], 'replace_text' | 'replace_person' | 'replace_background' | 'replace_object'> = {
-                                            text: 'replace_text',
-                                            person: 'replace_person',
-                                            background: 'replace_background',
-                                            object: 'replace_object'
-                                        };
-                                        editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type], replaceInstruction);
-                                        setIsMobileSheetOpen(false);
-                                    }} disabled={editor.isReplacing}>
-                                         {editor.isReplacing ? 'Replacing...' : `Generate & Replace (${selectedLayer.type === 'text' ? 5 : (selectedLayer.type === 'person' ? 7 : 6)} Credits)`}
+                                    {selectedLayer.type === 'person' && (
+                                        <>
+                                            <div className="flex bg-muted rounded p-1 mb-2">
+                                                <button className={`flex-1 py-1.5 text-xs font-medium rounded ${activeTab === 'upload' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('upload')}>📸 Upload Photo</button>
+                                                <button className={`flex-1 py-1.5 text-xs font-medium rounded ${activeTab === 'describe' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('describe')}>✍️ Describe</button>
+                                            </div>
+                                            {activeTab === 'upload' && (
+                                                <div className="space-y-4">
+                                                    <input 
+                                                        type="file" 
+                                                        accept="image/*" 
+                                                        id="person-photo-upload-mobile" 
+                                                        className="hidden" 
+                                                        onChange={e => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) handlePersonPhotoFile(file);
+                                                        }}
+                                                    />
+                                                    {!personUploadPreview ? (
+                                                        <label 
+                                                            htmlFor="person-photo-upload-mobile"
+                                                            className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isDragging ? 'border-[#8B47FF] bg-[#8B47FF]/5' : 'border-border hover:bg-muted/50'} bg-background`}
+                                                            onDragOver={handleDragOver}
+                                                            onDragLeave={handleDragLeave}
+                                                            onDrop={handleDrop}
+                                                        >
+                                                            {isUploadingPerson ? (
+                                                                <div className="flex flex-col items-center justify-center">
+                                                                    <RotateCcw className="h-6 w-6 text-primary animate-spin mb-2" />
+                                                                    <p className="text-xs font-medium">Uploading...</p>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <UploadCloud className="h-8 w-8 text-primary/40 mb-2" />
+                                                                    <p className="text-xs font-medium">Click to upload photo</p>
+                                                                </>
+                                                            )}
+                                                        </label>
+                                                    ) : (
+                                                        <div className="border border-border rounded-xl p-3 bg-muted/30 relative flex flex-col items-center justify-center">
+                                                            <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border border-border bg-black/5">
+                                                                <img src={personUploadPreview} className="w-full h-full object-contain" alt="Upload preview" />
+                                                                {isUploadingPerson && (
+                                                                    <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                                                                        <RotateCcw className="h-6 w-6 text-white animate-spin" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex w-full justify-between items-center mt-2">
+                                                                <span className="text-[10px] text-muted-foreground font-medium truncate">
+                                                                    {personUploadUrl ? "✓ Uploaded" : "Uploading..."}
+                                                                </span>
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="sm" 
+                                                                    className="text-xs text-red-500 hover:text-red-700 h-7 px-1.5"
+                                                                    onClick={() => {
+                                                                        setPersonUploadUrl(null);
+                                                                        if (personUploadPreview) {
+                                                                            URL.revokeObjectURL(personUploadPreview);
+                                                                            setPersonUploadPreview(null);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <X className="h-3 w-3 mr-1" /> Remove
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {activeTab === 'describe' && (
+                                                <Textarea 
+                                                    className="text-sm min-h-[80px]" 
+                                                    placeholder="Describe the person you want..."
+                                                    value={replaceInstruction}
+                                                    onChange={e => setReplaceInstruction(e.target.value)}
+                                                />
+                                            )}
+                                        </>
+                                    )}
+                                    {selectedLayer.type === 'background' && (
+                                        <>
+                                            <div className="flex bg-muted rounded p-1 mb-2">
+                                                <button className={`flex-1 py-1 text-xs font-medium rounded ${activeTab === 'pick' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('pick')}>🎨 Pick Style</button>
+                                                <button className={`flex-1 py-1 text-xs font-medium rounded ${activeTab === 'describe' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('describe')}>✍️ Describe</button>
+                                            </div>
+                                            {activeTab === 'pick' && (
+                                                <div className="grid grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                                                    {BACKGROUND_STYLES.map(style => (
+                                                        <div 
+                                                            key={style.id} 
+                                                            className={`h-12 rounded border cursor-pointer flex items-end p-1 text-[10px] font-medium text-white shadow-sm relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-800 ${selectedBgStyle === style.id ? 'border-[#8B47FF] ring-1 ring-[#8B47FF]/20' : 'border-transparent'}`}
+                                                            onClick={() => { setSelectedBgStyle(style.id); setReplaceInstruction(style.desc); }}
+                                                        >
+                                                            <div className="absolute inset-0 bg-black/20" />
+                                                            <span className="relative z-10 truncate w-full shadow-sm">{style.label}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {activeTab === 'describe' && (
+                                                <Textarea className="text-xs min-h-[85px]" placeholder="Mumbai city at night..." value={replaceInstruction} onChange={e => setReplaceInstruction(e.target.value)} />
+                                            )}
+                                        </>
+                                    )}
+                                    {selectedLayer.type === 'object' && (
+                                        <Textarea className="text-sm min-h-[80px]" placeholder="What should replace this? e.g. iPhone 15 Pro..." value={replaceInstruction} onChange={e => setReplaceInstruction(e.target.value)} />
+                                    )}
+                                    <Button 
+                                        className="w-full h-12 bg-primary mt-2" 
+                                        onClick={() => {
+                                            const typeMap: Record<Layer['type'], 'replace_text' | 'replace_person' | 'replace_background' | 'replace_object'> = {
+                                                text: 'replace_text',
+                                                person: 'replace_person',
+                                                background: 'replace_background',
+                                                object: 'replace_object'
+                                            };
+                                            
+                                            if (selectedLayer.type === 'person' && activeTab === 'upload') {
+                                                if (!personUploadUrl) {
+                                                    toast.error("Please upload a photo first");
+                                                    return;
+                                                }
+                                                editor.replaceLayer(selectedLayer.id, 'replace_person', 'Replace person with uploaded photo', personUploadUrl);
+                                            } else {
+                                                let finalInstruction = replaceInstruction;
+                                                if (selectedLayer.type === 'text') {
+                                                    finalInstruction = `The word '${replaceInstruction}' in professional graphic typography, clean modern style, high contrast, matching color`;
+                                                }
+                                                editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type], finalInstruction);
+                                            }
+                                            setIsMobileSheetOpen(false);
+                                        }} 
+                                        disabled={editor.isReplacing || isUploadingPerson || (!replaceInstruction && activeTab !== 'upload') || (selectedLayer.type === 'person' && activeTab === 'upload' && !personUploadUrl)}
+                                    >
+                                        {editor.isReplacing ? 'Replacing...' : `Replace (${selectedLayer.type === 'text' ? 5 : (selectedLayer.type === 'person' ? 7 : 6)} Credits)`}
                                     </Button>
                                 </div>
                              )}

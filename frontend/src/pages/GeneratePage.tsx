@@ -1,16 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Type, Monitor, Smartphone, Zap, Star, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, Pencil, User, Globe, Layers, Lock, Check } from "lucide-react";
+import { Sparkles, Type, Zap, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,12 +15,11 @@ import { useCredits } from "@/hooks/useSupabaseData";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
-import { STYLE_PRESETS, NICHE_TEMPLATES, LOADING_MESSAGES, CTR_TIPS } from "@/lib/generate-constants";
+import { NICHE_TEMPLATES, LOADING_MESSAGES, CTR_TIPS } from "@/lib/generate-constants";
 import { CREDIT_COSTS } from "@/lib/credits";
-import { LANGUAGES, type LanguageId } from "@/lib/languages";
-import { cn, hapticFeedback } from "@/lib/utils";
+import { type LanguageId } from "@/lib/languages";
+import { hapticFeedback } from "@/lib/utils";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
-import BatchGenerator from "@/components/BatchGenerator";
 
 type GeneratedImage = {
   image_url: string;
@@ -35,7 +31,7 @@ type GeneratedImage = {
 const GeneratePage = () => {
   const { user } = useAuth();
   const { data: credits } = useCredits();
-  const { canUseBatch, plan } = usePlanAccess();
+  const { plan } = usePlanAccess();
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -61,7 +57,6 @@ const GeneratePage = () => {
   const [activeImage, setActiveImage] = useState(0);
   const [showPromptLibrary, setShowPromptLibrary] = useState(false);
   const [showZeroCredits, setShowZeroCredits] = useState(false);
-  const [showBatch, setShowBatch] = useState(false);
   const [currentTip, setCurrentTip] = useState(0);
   const [activeTab, setActiveTab] = useState<"controls" | "preview">("controls");
   const [showPollinationsUpsell, setShowPollinationsUpsell] = useState(false);
@@ -310,32 +305,6 @@ const GeneratePage = () => {
                 </span>
                 <span className="text-muted-foreground">{textContent.length}/30</span>
               </div>
-              <p className="text-[10px] text-primary/70 mt-1">Uses Ideogram model — best for text in images</p>
-              
-              {/* Language selector — only when text overlay is on */}
-              <div className="mt-3">
-                <Label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1"><Globe className="h-3 w-3" /> Text Language</Label>
-                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-                  {LANGUAGES.map(l => (
-                    <button
-                      key={l.id}
-                      onClick={() => setLanguage(l.id)}
-                      className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${
-                        language === l.id
-                          ? "bg-primary/10 border-primary/40 text-primary"
-                          : "bg-muted border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {l.flag} {l.label}
-                    </button>
-                  ))}
-                </div>
-                {language !== "en" && (
-                  <Badge variant="outline" className="mt-1.5 text-[10px] border-primary/30 text-primary">
-                    Using Ideogram 3.0 — best for {LANGUAGES.find(l => l.id === language)?.label} text
-                  </Badge>
-                )}
-              </div>
             </motion.div>
           )}
           {!textOverlay && (
@@ -343,166 +312,8 @@ const GeneratePage = () => {
           )}
         </div>
 
-        {/* Style Presets */}
-        <div>
-          <Label className="text-sm font-medium text-foreground mb-3 block">Style</Label>
-          <div className="flex lg:grid lg:grid-cols-3 gap-3 overflow-x-auto scroll-x scrollbar-hide">
-            {STYLE_PRESETS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setStyle(s.id)}
-                className={`group relative aspect-[4/3] rounded-xl overflow-hidden border-2 shrink-0 w-[140px] lg:w-auto snap-start transition-all ${
-                  style === s.id
-                    ? "border-primary ring-2 ring-primary/20 shadow-lg"
-                    : "border-transparent hover:border-border"
-                }`}
-              >
-                <img src={s.image} alt={s.label} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                <div className={`absolute inset-0 bg-black/40 transition-opacity ${style === s.id ? 'opacity-100' : 'opacity-40 group-hover:opacity-60'}`} />
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center text-white">
-                  <span className="text-xl mb-1">{s.emoji}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider">{s.label}</span>
-                </div>
-                {style === s.id && (
-                    <div className="absolute top-1 right-1 bg-primary text-white p-0.5 rounded-full">
-                        <Check className="h-3 w-3" />
-                    </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Niche Templates */}
-        <div>
-          <Label className="text-sm font-medium text-foreground mb-2 block">Quick templates by niche</Label>
-          <Select value={niche} onValueChange={handleNicheSelect}>
-            <SelectTrigger className="bg-background border-border text-foreground">
-              <SelectValue placeholder="Select a niche..." />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border">
-              {Object.entries(NICHE_TEMPLATES).map(([key, val]) => (
-                <SelectItem key={key} value={key} className="text-foreground">{val.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Format */}
-        <div>
-          <Label className="text-sm font-medium text-foreground mb-2 block">Format</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {([["16:9", "📺 YouTube Thumbnail", Monitor], ["9:16", "📱 Shorts Cover", Smartphone]] as const).map(([f, label, Icon]) => (
-              <button
-                key={f}
-                onClick={() => setFormat(f)}
-                className={`flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-all ${
-                  format === f
-                    ? "bg-primary/10 border-primary/40 text-primary"
-                    : "bg-muted border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Quality */}
-        <div>
-          <Label className="text-sm font-medium text-foreground mb-2 block">Quality</Label>
-          <div className="space-y-2">
-            {([
-              { id: "fast" as const, icon: Zap, label: "Fast", model: "Schnell", credits: 0, time: "~5s" },
-              { id: "pro" as const, icon: Star, label: "Pro", model: "Ultra", credits: 0, time: "~15s" },
-            ]).map((q) => (
-              <button
-                key={q.id}
-                onClick={() => setQuality(q.id)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-sm transition-all ${
-                  quality === q.id
-                    ? "bg-primary/10 border-primary/40"
-                    : "bg-muted border-border hover:border-muted-foreground/40"
-                }`}
-              >
-                <q.icon className={`h-4 w-4 ${quality === q.id ? "text-primary" : "text-muted-foreground"}`} />
-                <div className="text-left flex-1">
-                  <span className={`font-medium ${quality === q.id ? "text-primary" : "text-foreground"}`}>{q.label}</span>
-                  <span className="text-muted-foreground text-xs ml-2">{q.model} — {q.credits === 0 ? "Free" : `${q.credits} credit`} — {q.time}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {!["none", "free"].includes(plan.toLowerCase()) && (
-          <div>
-            <Label className="text-sm font-medium text-foreground mb-2 block">Model</Label>
-            <Select value={modelChoice} onValueChange={setModelChoice}>
-              <SelectTrigger className="bg-background border-border text-foreground">
-                <SelectValue placeholder="Choose model" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border">
-                <SelectItem value="auto">Auto (Best available)</SelectItem>
-                <SelectItem value="fast">Fast / Free (Pollinations + Gemini)</SelectItem>
-                <SelectItem value="pro">Pro / Premium (FLUX.2 Pro)</SelectItem>
-                <SelectItem value="text">Text-accurate (Ideogram 3.0)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground mt-1.5">Pick cheaper models for prompt testing.</p>
-          </div>
-        )}
-
-        {/* Variations */}
-        <div>
-          <Label className="text-sm font-medium text-foreground mb-2 block">Variations</Label>
-          <div className="flex gap-2">
-            {[1, 2, 4].map((v) => (
-              <button
-                key={v}
-                onClick={() => setVariations(v)}
-                className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
-                  variations === v
-                    ? "bg-primary/10 border-primary/40 text-primary"
-                    : "bg-muted border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            Total cost: <span className="text-foreground font-semibold">{creditCost === 0 ? "Free" : `${creditCost} credits`}</span>
-          </p>
-        </div>
-
-        {/* Batch Mode Toggle */}
-        <div className="glass-card rounded-xl p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-foreground font-medium">Batch Mode</span>
-            {!canUseBatch && (
-              <Tooltip>
-                <TooltipTrigger>
-                  <Lock className="h-3 w-3 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>Creator plan and above</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs border-border"
-            onClick={() => setShowBatch(true)}
-          >
-            {canUseBatch ? "Open Batch" : "🔒 Pro Feature"}
-          </Button>
-        </div>
-
         {/* Generate Button Wrapper */}
-        <div className="fixed bottom-[calc(56px+env(safe-area-inset-bottom)+1rem)] left-4 right-4 z-30 lg:relative lg:bottom-0 lg:left-0 lg:right-0 lg:z-0">
+        <div className="fixed bottom-4 left-4 right-4 z-30 lg:relative lg:bottom-0 lg:left-0 lg:right-0 lg:z-0">
           <Button
             variant="hero"
             size="xl"
@@ -730,15 +541,6 @@ const GeneratePage = () => {
         </DialogContent>
       </Dialog>
 
-      <AnimatePresence>
-        <BatchGenerator
-          visible={showBatch}
-          onClose={() => setShowBatch(false)}
-          basePrompt={prompt}
-          quality={quality}
-          format={format}
-        />
-      </AnimatePresence>
     </div>
   );
 };

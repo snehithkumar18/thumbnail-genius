@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -17,12 +16,6 @@ import { useCredits, useThumbnails } from "@/hooks/useSupabaseData";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
-
-  const SWAP_STRENGTHS = [
-  { value: 70, label: "Natural", desc: "Subtle blend, keeps target features" },
-  { value: 90, label: "Strong", desc: "Clear face replacement" },
-  { value: 100, label: "Maximum", desc: "Full face override" },
-];
 
 const LOADING_MESSAGES = [
   "Analyzing facial structure...",
@@ -604,26 +597,6 @@ const FaceSwapPage = () => {
                     </div>
                   </div>
 
-                  {/* Strength */}
-                  <div className="space-y-3">
-                    <Label className="text-sm text-foreground">Swap Strength</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {SWAP_STRENGTHS.map((s) => (
-                        <button
-                          key={s.value}
-                          onClick={() => { hapticFeedback("light"); setSwapStrength(s.value); }}
-                          className={`flex flex-col items-center justify-center py-3 px-1 rounded-xl text-sm transition-all border-2 ${
-                            swapStrength === s.value
-                              ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20"
-                              : "bg-muted border-transparent text-muted-foreground hover:border-muted-foreground/30"
-                          }`}
-                        >
-                          <span className="font-bold text-xs">{s.label}</span>
-                          <span className="text-[10px] opacity-70 mt-0.5">{s.value}%</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
                   <Button
                     onClick={handleSwap}

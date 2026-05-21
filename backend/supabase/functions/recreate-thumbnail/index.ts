@@ -160,6 +160,7 @@ serve(async (req) => {
       similarity_strength = 60,
       change_instruction = "",
       language_change = "original",
+      person_reference_url = "",
     } = body;
 
     if (!youtube_url) {
@@ -253,13 +254,19 @@ serve(async (req) => {
       languageInstruction = ` Translate any text in the image to ${language_change}.`;
     }
 
+    // Build person-reference instruction if the user uploaded a reference photo
+    let personInstruction = "";
+    if (person_reference_url) {
+      personInstruction = " Replace the person/people in the thumbnail with the person shown in the reference photo. Match their face, body type, hair, skin tone, and overall appearance as closely as possible. The person in the reference photo must be clearly recognizable in the output.";
+    }
+
     // Enhance instruction via Groq
     let enhancedInstruction = change_instruction || "Recreate this thumbnail in a fresh style";
     try {
       if (groqApiKey) {
         enhancedInstruction = await enhanceWithGroq(
           groqApiKey,
-          `${change_instruction || "Recreate in a fresh, eye-catching style"}. ${similarityLabel}. ${languageInstruction}`,
+          `${change_instruction || "Recreate in a fresh, eye-catching style"}. ${similarityLabel}. ${languageInstruction}${personInstruction}`,
           similarity_strength,
           originalThumbUrl,
         );
@@ -268,7 +275,7 @@ serve(async (req) => {
       console.error("Enhancement failed:", e);
     }
 
-    const finalPrompt = `${enhancedInstruction}. Keep YouTube 16:9 framing and preserve recognizable layout intent. ${languageInstruction}`;
+    const finalPrompt = `${enhancedInstruction}. Keep YouTube 16:9 framing and preserve recognizable layout intent. ${languageInstruction}${personInstruction}`;
 
     const hasSubscriptionPlan = ["basic", "creator", "pro", "studio"].includes(credits.plan_type);
     const allowPaidFallback = hasSubscriptionPlan;
@@ -278,6 +285,7 @@ serve(async (req) => {
       originalThumbUrl,
       similarity_strength,
       language_change,
+      person_reference_url,
     });
     const inputHash = cacheKey.split(":").slice(2).join(":");
     const cached = await getCache(supabaseAdmin, cacheKey);
@@ -289,12 +297,22 @@ serve(async (req) => {
 
     if (!generatedImageUrl) {
       const imagePart = await loadImagePartFromUrl(originalThumbUrl);
+      // If a person reference photo is provided, load it as a second image for Gemini
+      const geminiImages = [imagePart];
+      if (person_reference_url) {
+        try {
+          const personPart = await loadImagePartFromUrl(person_reference_url);
+          geminiImages.push(personPart);
+        } catch (e) {
+          console.error("Failed to load person reference image:", e);
+        }
+      }
       const result = await runImageProviders(supabaseAdmin, {
         gemini: {
           prompt: finalPrompt,
           aspectRatio: "16:9",
           imageSize: "1K",
-          images: [imagePart],
+          images: geminiImages,
         },
         pollinations: {
           prompt: finalPrompt,

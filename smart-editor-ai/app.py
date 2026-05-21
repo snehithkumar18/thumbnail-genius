@@ -88,6 +88,18 @@ class Layer(BaseModel):
 class DetectResponse(BaseModel):
     layers: List[Layer]
 
+class ReplaceRequest(BaseModel):
+    image_url: str
+    mask_url: str
+    prompt: str
+    replacement_image_url: Optional[str] = None
+    edit_type: Optional[str] = None
+
+class ReplaceResponse(BaseModel):
+    image_base64: str
+    width: int
+    height: int
+
 # Initialize OCR engine with error handling
 ocr_engine = None
 if easyocr:
@@ -843,6 +855,241 @@ def detect(req: DetectRequest):
     except Exception as e:
         logger.error(f"Detect failed: {e}")
         return {"layers": []}
+
+
+@app.post("/replace", response_model=ReplaceResponse)
+def replace(req: ReplaceRequest):
+    logger.info(f"Replace request: image_url={req.image_url[:120]}..., mask_url={req.mask_url[:120]}..., prompt={req.prompt}, edit_type={req.edit_type}")
+    try:
+        import tempfile
+        import shutil
+        import random
+        from gradio_client import Client as GradioClient, handle_file
+
+        # --- List of FLUX/SDXL inpainting Spaces to try (fallback chain) ---
+        SPACES = [
+            "black-forest-labs/FLUX.1-Fill-dev",
+        ]
+
+        # 1. Download original image to a temp file
+        resp = requests.get(req.image_url, timeout=30)
+        resp.raise_for_status()
+        orig_img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        width, height = orig_img.size
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_img:
+            orig_img.save(tmp_img, format="PNG")
+            img_path = tmp_img.name
+        logger.info(f"Saved original image to {img_path} ({width}x{height})")
+
+        # 2. Download mask image to a temp file
+        resp_mask = requests.get(req.mask_url, timeout=30)
+        resp_mask.raise_for_status()
+        mask_img = Image.open(io.BytesIO(resp_mask.content)).convert("L")
+
+        # Ensure mask size matches original image
+        if mask_img.size != orig_img.size:
+            mask_img = mask_img.resize(orig_img.size, Image.Resampling.LANCZOS)
+
+        # Refine the mask using SAM if it's a person/object layer and SAM is available
+        is_person_or_object = req.edit_type in ["replace_person", "replace_object"] or req.replacement_image_url is not None
+        if is_person_or_object and sam_predictor is not None:
+            bbox = mask_img.getbbox()
+            if bbox is not None:
+                bbox_x1, bbox_y1, bbox_x2, bbox_y2 = bbox
+                bbox_w = bbox_x2 - bbox_x1
+                bbox_h = bbox_y2 - bbox_y1
+                if bbox_w > 0 and bbox_h > 0:
+                    logger.info(f"Refining mask using SAM predictor for bbox: {bbox_x1}, {bbox_y1}, {bbox_w}, {bbox_h}...")
+                    sam_mask = sam_segment_from_bbox(orig_img, [bbox_x1, bbox_y1, bbox_w, bbox_h])
+                    if sam_mask is not None:
+                        mask_img = Image.fromarray((sam_mask.astype(np.uint8) * 255), mode="L")
+                        logger.info("SAM refinement succeeded, using contour mask instead of rectangular mask.")
+                    else:
+                        logger.warning("SAM refinement returned None, falling back to original mask.")
+
+        # If replacement_image_url is provided, perform direct image compositing
+        # with background removal, proper aspect-ratio fitting, and real replacement
+        if req.replacement_image_url:
+            logger.info(f"Direct replacement image URL provided: {req.replacement_image_url[:120]}")
+            resp_rep = requests.get(req.replacement_image_url, timeout=30)
+            resp_rep.raise_for_status()
+            rep_img = Image.open(io.BytesIO(resp_rep.content)).convert("RGBA")
+
+            # --- Step 1: Remove background from uploaded image using rembg ---
+            try:
+                from rembg import remove as rembg_remove
+                logger.info("Removing background from uploaded image with rembg...")
+                rep_img = rembg_remove(rep_img)
+                logger.info(f"Background removed. Result mode={rep_img.mode}, size={rep_img.size}")
+            except Exception as rembg_err:
+                logger.warning(f"rembg background removal failed: {rembg_err}. Proceeding without bg removal.")
+
+            # --- Step 2: Get mask bounding box ---
+            bbox = mask_img.getbbox()
+            if bbox is None:
+                bbox = (0, 0, width, height)
+
+            bbox_x1, bbox_y1, bbox_x2, bbox_y2 = bbox
+            bbox_w = bbox_x2 - bbox_x1
+            bbox_h = bbox_y2 - bbox_y1
+
+            if bbox_w <= 0 or bbox_h <= 0:
+                bbox_w, bbox_h = width, height
+                bbox = (0, 0, width, height)
+                bbox_x1, bbox_y1 = 0, 0
+
+            # --- Step 3: Resize replacement image to fit bbox while preserving aspect ratio ---
+            rep_w, rep_h = rep_img.size
+            scale_w = bbox_w / rep_w
+            scale_h = bbox_h / rep_h
+            fit_scale = min(scale_w, scale_h)  # Fit inside bbox
+            new_w = int(rep_w * fit_scale)
+            new_h = int(rep_h * fit_scale)
+            if new_w < 1: new_w = 1
+            if new_h < 1: new_h = 1
+            rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            logger.info(f"Resized replacement: {rep_img.size} -> {rep_resized.size} to fit bbox {bbox_w}x{bbox_h}")
+
+            # --- Step 4: Center the resized image within the bbox ---
+            offset_x = bbox_x1 + (bbox_w - new_w) // 2
+            offset_y = bbox_y1 + (bbox_h - new_h) // 2
+
+            # --- Step 5: Create a canvas for the replacement at full image size ---
+            # Start with the original image, erase the masked region, then paste the new person
+            result_img = orig_img.convert("RGBA").copy()
+
+            # Erase the masked region by painting it with the inpainted background
+            # First, create a simple inpainted background by blurring the original in the mask area
+            # This gives a smooth background behind the new person
+            mask_np = np.array(mask_img)
+            mask_bool = mask_np > 128
+
+            # Create a heavily blurred version of the original to fill the background
+            bg_fill = orig_img.copy()
+            bg_fill_blurred = bg_fill.filter(ImageFilter.GaussianBlur(radius=25))
+
+            # Build the base: original everywhere except mask region, where we put blurred bg
+            base_np = np.array(orig_img)
+            blurred_np = np.array(bg_fill_blurred)
+            base_np[mask_bool] = blurred_np[mask_bool]
+            result_img = Image.fromarray(base_np).convert("RGBA")
+
+            # --- Step 6: Paste the bg-removed replacement onto the result ---
+            if rep_resized.mode != "RGBA":
+                rep_resized = rep_resized.convert("RGBA")
+
+            result_img.paste(rep_resized, (offset_x, offset_y), rep_resized)
+
+            # Convert to RGB final
+            result_final = result_img.convert("RGB")
+
+            buf = io.BytesIO()
+            result_final.save(buf, format="PNG")
+            buf.seek(0)
+            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+            logger.info(f"Direct replace complete: output {result_final.size[0]}x{result_final.size[1]}, base64 length={len(b64)}")
+            return ReplaceResponse(
+                image_base64=b64,
+                width=width,
+                height=height,
+            )
+
+        # Convert mask to RGBA layer (white region = area to inpaint, with alpha) using NumPy for speed
+        mask_arr = np.array(mask_img)
+        h, w = mask_arr.shape
+        rgba_arr = np.zeros((h, w, 4), dtype=np.uint8)
+        mask_threshold = mask_arr > 128
+        rgba_arr[mask_threshold] = [255, 255, 255, 255]
+        mask_rgba = Image.fromarray(rgba_arr, "RGBA")
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_mask:
+            mask_rgba.save(tmp_mask, format="PNG")
+            mask_path = tmp_mask.name
+        logger.info(f"Saved mask layer to {mask_path}")
+
+        # 3. Call the FLUX.1-Fill-dev Space via Gradio Client
+        last_error = None
+        result_path = None
+
+        for space_id in SPACES:
+            try:
+                logger.info(f"Connecting to HuggingFace Space: {space_id}")
+                client = GradioClient(space_id, verbose=False)
+
+                # The FLUX.1-Fill-dev space expects an ImageEditor dict:
+                #   background = original image
+                #   layers = [mask layer as RGBA png]
+                #   composite = None (auto-computed)
+                edit_images = {
+                    "background": handle_file(img_path),
+                    "layers": [handle_file(mask_path)],
+                    "composite": None,
+                    "id": None,
+                }
+
+                seed = random.randint(0, 2147483647)
+                logger.info(f"Calling {space_id} /infer with prompt: {req.prompt[:100]}...")
+
+                result = client.predict(
+                    edit_images=edit_images,
+                    prompt=req.prompt,
+                    seed=seed,
+                    randomize_seed=True,
+                    width=min(width, 1024),
+                    height=min(height, 1024),
+                    guidance_scale=30,
+                    num_inference_steps=28,
+                    api_name="/infer",
+                )
+
+                # result is a tuple: (result_image_path, seed)
+                if isinstance(result, (list, tuple)):
+                    result_path = result[0]
+                else:
+                    result_path = result
+
+                logger.info(f"FLUX Fill result received: {result_path}")
+                break  # Success, stop trying other spaces
+
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Space {space_id} failed: {e}")
+                continue
+
+        if result_path is None:
+            raise Exception(f"All inpainting spaces failed. Last error: {last_error}")
+
+        # 4. Read the result image and encode to base64
+        result_img = Image.open(result_path).convert("RGB")
+
+        # Resize back to original dimensions if the space changed them
+        if result_img.size != (width, height):
+            result_img = result_img.resize((width, height), Image.Resampling.LANCZOS)
+
+        buf = io.BytesIO()
+        result_img.save(buf, format="PNG")
+        buf.seek(0)
+        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+        # Clean up temp files
+        try:
+            os.unlink(img_path)
+            os.unlink(mask_path)
+        except Exception:
+            pass
+
+        logger.info(f"Replace complete: output {result_img.size[0]}x{result_img.size[1]}, base64 length={len(b64)}")
+        return ReplaceResponse(
+            image_base64=b64,
+            width=width,
+            height=height,
+        )
+    except Exception as e:
+        logger.error(f"Replace failed: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Image replace failed: {str(e)}")
 
 
 if __name__ == '__main__':

@@ -239,7 +239,7 @@ export function useSmartEditor() {
     return data.publicUrl;
   };
 
-  const replaceLayer = async (layerId: string, editType: string, instruction: string) => {
+  const replaceLayer = async (layerId: string, editType: string, instruction: string, replacementImageUrl?: string) => {
     if (!state.sessionId || !state.currentImageUrl) return;
 
     updateState({ isReplacing: true });
@@ -274,6 +274,7 @@ export function useSmartEditor() {
           session_id: state.sessionId,
           user_id: userData.user.id,
           layer_id: layerId,
+          replacement_image_url: replacementImageUrl,
         }),
       });
 

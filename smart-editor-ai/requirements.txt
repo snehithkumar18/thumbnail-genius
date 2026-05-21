@@ -8,3 +8,4 @@ easyocr==1.7.1
 insightface==0.7.3
 onnxruntime==1.18.1
 requests==2.32.3
+rembg[cpu]
