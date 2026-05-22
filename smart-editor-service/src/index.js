@@ -45,6 +45,7 @@ const detectPayloadSchema = z.object({
   image_hash: z.string().optional(),
   session_id: z.string().uuid().optional(),
   user_id: z.string().uuid(),
+  force: z.boolean().optional(),
 });
 
 const replacePayloadSchema = z.object({
@@ -211,10 +212,12 @@ app.post("/smart-editor/detect", async (request, reply) => {
   }
 
   const imageHash = payload.image_hash || (await hashImageUrl(payload.image_url));
-  const cached = await fetchCachedLayers(imageHash);
-  if (cached) {
-    reply.send({ layers: cached, cached: true });
-    return;
+  if (!payload.force) {
+    const cached = await fetchCachedLayers(imageHash);
+    if (cached) {
+      reply.send({ layers: cached, cached: true });
+      return;
+    }
   }
 
   const job = await detectQueue.add("detect", {

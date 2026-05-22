@@ -164,6 +164,7 @@ export function useSmartEditor() {
           image_hash: hash,
           session_id: sessionId,
           user_id: userData.user.id,
+          force: overrides?.force ?? false,
         }),
       });
 
@@ -173,6 +174,20 @@ export function useSmartEditor() {
       }
 
       const detectData = await detectResp.json();
+      
+      // Handle direct cached response gracefully
+      if (detectData.layers) {
+        const layers = (detectData.layers || []).map(mapLayer);
+        if (!layers.length) {
+          toast.warning("No layers detected. Try a clearer image.");
+          updateState({ layers: [] });
+          return;
+        }
+        updateState({ layers });
+        toast.success("Image components loaded from cache");
+        return;
+      }
+
       const jobId = detectData.job_id;
       if (!jobId) throw new Error("Detection did not return a job id");
 

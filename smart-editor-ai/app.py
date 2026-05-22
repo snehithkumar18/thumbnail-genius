@@ -857,6 +857,145 @@ def detect(req: DetectRequest):
         return {"layers": []}
 
 
+def _cv2_inpaint_erase(orig_img: Image.Image, mask_img: Image.Image) -> Image.Image:
+    """Use OpenCV Navier-Stokes inpainting to cleanly erase the masked region.
+    Much better than Gaussian blur — propagates surrounding pixel colors inward.
+    """
+    logger.info("Erasing old person using cv2.inpaint (Navier-Stokes)...")
+    img_np = np.array(orig_img.convert("RGB"))[:, :, ::-1]  # RGB -> BGR for OpenCV
+    mask_np = np.array(mask_img)
+
+    # Dilate mask to catch edge shadows and artifacts
+    kernel = np.ones((7, 7), np.uint8)
+    mask_dilated = cv2.dilate(mask_np, kernel, iterations=2)
+
+    # Navier-Stokes inpainting with radius 15
+    result_bgr = cv2.inpaint(img_np, mask_dilated, inpaintRadius=15, flags=cv2.INPAINT_NS)
+    result_rgb = result_bgr[:, :, ::-1]  # BGR -> RGB
+    logger.info("cv2.inpaint erase complete.")
+    return Image.fromarray(result_rgb)
+
+
+def _flux_erase_person(orig_img: Image.Image, mask_img: Image.Image) -> Image.Image:
+    """Use FLUX.1-Fill-dev to cleanly regenerate the background where the old person was.
+    Returns the full image with the person completely erased and background filled.
+    """
+    import tempfile
+    import random
+    from gradio_client import Client as GradioClient, handle_file
+
+    logger.info("Erasing old person using FLUX.1-Fill-dev inpainting...")
+    width, height = orig_img.size
+
+    # Save original to temp file
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_img:
+        orig_img.save(tmp_img, format="PNG")
+        img_path = tmp_img.name
+
+    # Convert mask to RGBA layer (white area with alpha = region to inpaint)
+    mask_arr = np.array(mask_img)
+    h, w = mask_arr.shape
+    rgba_arr = np.zeros((h, w, 4), dtype=np.uint8)
+    mask_threshold = mask_arr > 128
+    rgba_arr[mask_threshold] = [255, 255, 255, 255]
+    mask_rgba = Image.fromarray(rgba_arr, "RGBA")
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_mask:
+        mask_rgba.save(tmp_mask, format="PNG")
+        mask_path = tmp_mask.name
+
+    try:
+        client = GradioClient("black-forest-labs/FLUX.1-Fill-dev", verbose=False)
+        edit_images = {
+            "background": handle_file(img_path),
+            "layers": [handle_file(mask_path)],
+            "composite": None,
+            "id": None,
+        }
+        seed = random.randint(0, 2147483647)
+        erase_prompt = "Clean background, natural continuation of surrounding area, seamless background fill, no person, no objects, matching lighting and colors"
+        logger.info(f"Calling FLUX.1-Fill-dev to erase person with prompt: {erase_prompt[:80]}...")
+
+        result = client.predict(
+            edit_images=edit_images,
+            prompt=erase_prompt,
+            seed=seed,
+            randomize_seed=True,
+            width=min(width, 1024),
+            height=min(height, 1024),
+            guidance_scale=30,
+            num_inference_steps=28,
+            api_name="/infer",
+        )
+
+        result_path = result[0] if isinstance(result, (list, tuple)) else result
+        erased_img = Image.open(result_path).convert("RGB")
+
+        # Resize back to original dimensions if needed
+        if erased_img.size != (width, height):
+            erased_img = erased_img.resize((width, height), Image.Resampling.LANCZOS)
+
+        logger.info(f"FLUX erase complete: {erased_img.size}")
+        return erased_img
+    finally:
+        try:
+            os.unlink(img_path)
+            os.unlink(mask_path)
+        except Exception:
+            pass
+
+
+def _enhance_replacement_quality(rep_img: Image.Image, target_w: int, target_h: int) -> Image.Image:
+    """Enhance the quality of a replacement image so it matches the thumbnail's
+    vibrant, professional look. Applies LANCZOS upscaling, sharpening,
+    contrast boost, and color saturation boost.
+    """
+    cur_w, cur_h = rep_img.size
+    # Calculate how much we're scaling up
+    scale_factor = max(target_w / max(cur_w, 1), target_h / max(cur_h, 1))
+
+    if scale_factor > 1.2:
+        # Upscale using LANCZOS for best quality
+        logger.info(f"Upscaling replacement image {scale_factor:.1f}x using LANCZOS...")
+        new_w = int(cur_w * scale_factor)
+        new_h = int(cur_h * scale_factor)
+        rep_img = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+    # Convert to RGB for enhancement (preserve alpha separately)
+    has_alpha = rep_img.mode == "RGBA"
+    alpha_channel = None
+    if has_alpha:
+        alpha_channel = rep_img.split()[3]
+        rgb_img = rep_img.convert("RGB")
+    else:
+        rgb_img = rep_img.convert("RGB")
+
+    # Sharpen to match thumbnail crispness
+    sharpener = ImageEnhance.Sharpness(rgb_img)
+    rgb_img = sharpener.enhance(1.3)
+
+    # Boost contrast for the vibrant thumbnail style
+    contrast_enhancer = ImageEnhance.Contrast(rgb_img)
+    rgb_img = contrast_enhancer.enhance(1.15)
+
+    # Boost color saturation to match YouTube thumbnail vibrancy
+    color_enhancer = ImageEnhance.Color(rgb_img)
+    rgb_img = color_enhancer.enhance(1.1)
+
+    # Re-attach alpha channel if present
+    if has_alpha and alpha_channel is not None:
+        # Resize alpha to match enhanced image size
+        if alpha_channel.size != rgb_img.size:
+            alpha_channel = alpha_channel.resize(rgb_img.size, Image.Resampling.LANCZOS)
+        result = rgb_img.convert("RGBA")
+        result.putalpha(alpha_channel)
+        logger.info(f"Enhanced replacement: {result.size}, sharpened+contrast+color, RGBA preserved")
+        return result
+    else:
+        logger.info(f"Enhanced replacement: {rgb_img.size}, sharpened+contrast+color")
+        return rgb_img
+
+
 @app.post("/replace", response_model=ReplaceResponse)
 def replace(req: ReplaceRequest):
     logger.info(f"Replace request: image_url={req.image_url[:120]}..., mask_url={req.mask_url[:120]}..., prompt={req.prompt}, edit_type={req.edit_type}")
@@ -955,27 +1094,26 @@ def replace(req: ReplaceRequest):
             offset_x = bbox_x1 + (bbox_w - new_w) // 2
             offset_y = bbox_y1 + (bbox_h - new_h) // 2
 
-            # --- Step 5: Create a canvas for the replacement at full image size ---
-            # Start with the original image, erase the masked region, then paste the new person
-            result_img = orig_img.convert("RGBA").copy()
+            # --- Step 5: ERASE the old person cleanly (two-tier approach) ---
+            # Tier 1: Try FLUX inpainting to regenerate clean background
+            # Tier 2: Fallback to cv2.inpaint (Navier-Stokes, 100% local)
+            erased_img = None
+            try:
+                erased_img = _flux_erase_person(orig_img, mask_img)
+                logger.info("FLUX erase succeeded — clean background generated.")
+            except Exception as flux_err:
+                logger.warning(f"FLUX erase failed ({flux_err}), falling back to cv2.inpaint...")
 
-            # Erase the masked region by painting it with the inpainted background
-            # First, create a simple inpainted background by blurring the original in the mask area
-            # This gives a smooth background behind the new person
-            mask_np = np.array(mask_img)
-            mask_bool = mask_np > 128
+            if erased_img is None:
+                erased_img = _cv2_inpaint_erase(orig_img, mask_img)
+                logger.info("cv2.inpaint erase succeeded — background filled locally.")
 
-            # Create a heavily blurred version of the original to fill the background
-            bg_fill = orig_img.copy()
-            bg_fill_blurred = bg_fill.filter(ImageFilter.GaussianBlur(radius=25))
+            result_img = erased_img.convert("RGBA")
 
-            # Build the base: original everywhere except mask region, where we put blurred bg
-            base_np = np.array(orig_img)
-            blurred_np = np.array(bg_fill_blurred)
-            base_np[mask_bool] = blurred_np[mask_bool]
-            result_img = Image.fromarray(base_np).convert("RGBA")
+            # --- Step 6: Enhance the replacement image quality ---
+            rep_resized = _enhance_replacement_quality(rep_resized, target_w=bbox_w, target_h=bbox_h)
 
-            # --- Step 6: Paste the bg-removed replacement onto the result ---
+            # --- Step 7: Paste the bg-removed, enhanced replacement onto the clean background ---
             if rep_resized.mode != "RGBA":
                 rep_resized = rep_resized.convert("RGBA")
 
