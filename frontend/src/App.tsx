@@ -33,6 +33,8 @@ const SharedThumbnailPage = lazy(() => import("./pages/SharedThumbnailPage"));
 const SmartEditorPage = lazy(() => import("./pages/SmartEditorPage"));
 const WaitlistPage = lazy(() => import("./pages/WaitlistPage"));
 
+import PWAInstallBanner from "./components/PWAInstallBanner";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -42,6 +44,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <PWAInstallBanner />
           <BrowserRouter>
             <Suspense fallback={<PageLoader />}>
               <Routes>
