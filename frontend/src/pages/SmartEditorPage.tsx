@@ -47,7 +47,6 @@ export default function SmartEditorPage() {
   const [replaceInstruction, setReplaceInstruction] = useState('');
   const [selectedBgStyle, setSelectedBgStyle] = useState('');
   const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'original' | 'edited'>('edited');
   const [showThumbModal, setShowThumbModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [thumbSearch, setThumbSearch] = useState('');
@@ -59,6 +58,35 @@ export default function SmartEditorPage() {
   const [personUploadPreview, setPersonUploadPreview] = useState<string | null>(null);
   const [isUploadingPerson, setIsUploadingPerson] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [overlayCoords, setOverlayCoords] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  // Initialize/Reset overlay coordinates while preserving original aspect ratio of uploaded photo
+  useEffect(() => {
+    const selected = editor.layers.find(l => l.id === editor.selectedLayerId);
+    if (selected && selected.type === 'person' && personUploadPreview && selected.boundingBox) {
+      const img = new window.Image();
+      img.onload = () => {
+        const aspectRatio = img.width / img.height;
+        // Keep the height of the original bounding box, scale width proportionally
+        const targetH = selected.boundingBox!.h;
+        const targetW = targetH * aspectRatio;
+        
+        // Center the proportional width horizontally over the original bounding box
+        const targetX = selected.boundingBox!.x + (selected.boundingBox!.w - targetW) / 2;
+        const targetY = selected.boundingBox!.y;
+
+        setOverlayCoords({
+          x: targetX,
+          y: targetY,
+          w: targetW,
+          h: targetH
+        });
+      };
+      img.src = personUploadPreview;
+    } else {
+      setOverlayCoords(null);
+    }
+  }, [editor.selectedLayerId, personUploadPreview, personUploadUrl, editor.layers]);
 
   useEffect(() => {
     setPersonUploadUrl(null);
@@ -423,18 +451,9 @@ export default function SmartEditorPage() {
           {editor.currentImageUrl && (
             <div className="h-12 lg:h-14 border-b border-border bg-background/50 backdrop-blur-sm flex items-center justify-between px-3 lg:px-4 shrink-0 transition-all z-10 gap-2">
                 <div className="flex items-center bg-muted p-0.5 rounded-full text-[10px] lg:text-xs">
-                    <button 
-                        className={`px-2 lg:px-3 py-1 rounded-full transition-all ${viewMode === 'original' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        onClick={() => setViewMode('original')}
-                    >
-                        Original
-                    </button>
-                    <button 
-                        className={`px-2 lg:px-3 py-1 rounded-full transition-all ${viewMode === 'edited' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        onClick={() => setViewMode('edited')}
-                    >
-                        Edited
-                    </button>
+                    <span className="px-2 lg:px-3 py-1 rounded-full bg-background shadow-sm text-foreground font-medium">
+                        ✨ Smart Editor
+                    </span>
                 </div>
 
                 <div className="flex items-center gap-1 lg:gap-2">
@@ -485,7 +504,6 @@ export default function SmartEditorPage() {
                           layers={editor.layers}
                           selectedLayerId={editor.selectedLayerId}
                           onLayerClick={editor.selectLayer}
-                          viewMode={viewMode}
                           isReplacing={editor.isReplacing}
                           isDetecting={editor.isDetecting}
                       />
@@ -765,7 +783,7 @@ export default function SmartEditorPage() {
                           <Button 
                              className="w-full h-12 text-sm font-semibold shadow-md bg-[#8B47FF] hover:bg-[#7236d6] transition-all"
                              disabled={editor.isReplacing || isUploadingPerson || (!replaceInstruction && activeTab !== 'upload') || (selectedLayer.type === 'person' && activeTab === 'upload' && !personUploadUrl)}
-                             onClick={() => {
+                             onClick={async () => {
                                  hapticFeedback(30);
                                  const typeMap: Record<string, string> = {
                                      'text': 'replace_text',
@@ -783,9 +801,15 @@ export default function SmartEditorPage() {
                                          toast.error("Please upload a photo first");
                                          return;
                                      }
-                                     editor.replaceLayer(selectedLayer.id, 'replace_person', 'Replace person with uploaded photo', personUploadUrl);
+                                     await editor.replaceLayer(selectedLayer.id, 'replace_person', 'Replace person with uploaded photo', personUploadUrl, overlayCoords);
+                                     setPersonUploadUrl(null);
+                                     if (personUploadPreview) {
+                                         URL.revokeObjectURL(personUploadPreview);
+                                         setPersonUploadPreview(null);
+                                     }
+                                     setOverlayCoords(null);
                                  } else {
-                                     editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type] || 'replace_object', finalInstruction);
+                                     await editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type] || 'replace_object', finalInstruction);
                                  }
                              }}
                           >
@@ -1006,7 +1030,7 @@ export default function SmartEditorPage() {
                                     )}
                                     <Button 
                                         className="w-full h-12 bg-primary mt-2" 
-                                        onClick={() => {
+                                        onClick={async () => {
                                             const typeMap: Record<Layer['type'], 'replace_text' | 'replace_person' | 'replace_background' | 'replace_object'> = {
                                                 text: 'replace_text',
                                                 person: 'replace_person',
@@ -1019,13 +1043,16 @@ export default function SmartEditorPage() {
                                                     toast.error("Please upload a photo first");
                                                     return;
                                                 }
-                                                editor.replaceLayer(selectedLayer.id, 'replace_person', 'Replace person with uploaded photo', personUploadUrl);
-                                            } else {
-                                                let finalInstruction = replaceInstruction;
-                                                if (selectedLayer.type === 'text') {
-                                                    finalInstruction = `The word '${replaceInstruction}' in professional graphic typography, clean modern style, high contrast, matching color`;
+                                                await editor.replaceLayer(selectedLayer.id, 'replace_person', 'Replace person with uploaded photo', personUploadUrl, overlayCoords);
+                                                // Clear upload states after successful replacement!
+                                                setPersonUploadUrl(null);
+                                                if (personUploadPreview) {
+                                                    URL.revokeObjectURL(personUploadPreview);
+                                                    setPersonUploadPreview(null);
                                                 }
-                                                editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type], finalInstruction);
+                                                setOverlayCoords(null);
+                                            } else {
+                                                await editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type] || 'replace_object', finalInstruction);
                                             }
                                             setIsMobileSheetOpen(false);
                                         }} 

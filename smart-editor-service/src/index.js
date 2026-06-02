@@ -57,6 +57,10 @@ const replacePayloadSchema = z.object({
   user_id: z.string().uuid(),
   layer_id: z.string().optional(),
   replacement_image_url: z.string().url().optional(),
+  overlay_x: z.number().optional(),
+  overlay_y: z.number().optional(),
+  overlay_w: z.number().optional(),
+  overlay_h: z.number().optional(),
 });
 
 const rateLimit = async (key, limitSeconds) => {
@@ -161,12 +165,12 @@ const callFalReplace = async ({ image_url, mask_url, prompt }) => {
 };
 
 // --------------- FREE Local Python/Pollinations-based image editing ---------------
-const callLocalReplace = async ({ image_url, mask_url, prompt, replacement_image_url, edit_type }) => {
+const callLocalReplace = async ({ image_url, mask_url, prompt, replacement_image_url, edit_type, overlay_x, overlay_y, overlay_w, overlay_h }) => {
   console.log(`[LOCAL REPLACE] Starting local image replacement with prompt: ${prompt.slice(0, 100)}...`);
   const resp = await fetch(`${aiUrl}/replace`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image_url, mask_url, prompt, replacement_image_url, edit_type }),
+    body: JSON.stringify({ image_url, mask_url, prompt, replacement_image_url, edit_type, overlay_x, overlay_y, overlay_w, overlay_h }),
   });
 
   if (!resp.ok) {
@@ -372,13 +376,13 @@ const replaceWorker = new Worker(
   "smart-editor-replace",
   async (job) => {
     try {
-      const { image_url, mask_url, prompt, replacement_image_url, session_id, user_id, layer_id, edit_type, credit_cost } = job.data;
+      const { image_url, mask_url, prompt, replacement_image_url, session_id, user_id, layer_id, edit_type, credit_cost, overlay_x, overlay_y, overlay_w, overlay_h } = job.data;
       // Try Local (free) first, then FAL as fallback
       let imageBytes;
       let isLocalSuccess = false;
       let imageUrl;
       try {
-        const base64Str = await callLocalReplace({ image_url, mask_url, prompt, replacement_image_url, edit_type });
+        const base64Str = await callLocalReplace({ image_url, mask_url, prompt, replacement_image_url, edit_type, overlay_x, overlay_y, overlay_w, overlay_h });
         const resultBuffer = Buffer.from(base64Str, "base64");
         imageBytes = new Uint8Array(resultBuffer);
         isLocalSuccess = true;

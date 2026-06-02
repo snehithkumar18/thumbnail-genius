@@ -106,7 +106,7 @@ export function useSmartEditor() {
     if (!token) throw new Error("Session expired. Please sign in again");
 
     const pollMs = queue === "detect" ? DETECT_POLL_MS : REPLACE_POLL_MS;
-    for (let attempt = 0; attempt < 60; attempt += 1) {
+    for (let attempt = 0; attempt < 300; attempt += 1) {
       const resp = await fetch(`${apiBase}/smart-editor/jobs/${queue}/${jobId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -254,7 +254,13 @@ export function useSmartEditor() {
     return data.publicUrl;
   };
 
-  const replaceLayer = async (layerId: string, editType: string, instruction: string, replacementImageUrl?: string) => {
+  const replaceLayer = async (
+    layerId: string,
+    editType: string,
+    instruction: string,
+    replacementImageUrl?: string,
+    overlayCoords?: { x: number; y: number; w: number; h: number } | null
+  ) => {
     if (!state.sessionId || !state.currentImageUrl) return;
 
     updateState({ isReplacing: true });
@@ -290,6 +296,10 @@ export function useSmartEditor() {
           user_id: userData.user.id,
           layer_id: layerId,
           replacement_image_url: replacementImageUrl,
+          overlay_x: overlayCoords?.x,
+          overlay_y: overlayCoords?.y,
+          overlay_w: overlayCoords?.w,
+          overlay_h: overlayCoords?.h,
         }),
       });
 

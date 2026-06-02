@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Stage, Layer as KonvaLayer, Image as KonvaImage, Rect, Text } from 'react-konva';
+import { Stage, Layer as KonvaLayer, Image as KonvaImage, Rect, Text, Group, Line } from 'react-konva';
 import useImage from 'use-image';
 import { Layer } from '@/hooks/useSmartEditor';
 import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import { ZoomIn, ZoomOut, Maximize, Sparkles } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Blurhash } from 'react-blurhash';
 
@@ -14,7 +14,6 @@ interface EditorCanvasProps {
   layers: Layer[];
   selectedLayerId: string | null;
   onLayerClick: (layerId: string) => void;
-  viewMode: 'original' | 'edited';
   isReplacing: boolean;
   isDetecting: boolean;
 }
@@ -25,14 +24,11 @@ export function EditorCanvas({
   layers,
   selectedLayerId,
   onLayerClick,
-  viewMode,
   isReplacing,
   isDetecting
 }: EditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
-  const originalImageRef = useRef<Konva.Image>(null);
-  const currentImageRef = useRef<Konva.Image>(null);
 
   // States
   const [scale, setScale] = useState(1);
@@ -41,8 +37,12 @@ export function EditorCanvas({
   const [hoveredLayerId, setHoveredLayerId] = useState<string | null>(null);
   const [dashOffset, setDashOffset] = useState(0);
   const [scanY, setScanY] = useState(0);
-  const [shimmerOffset, setShimmerOffset] = useState(0);
   const [tooltipPos, setTooltipPos] = useState<{ x: number, y: number, text: string } | null>(null);
+
+  // Comparison slider (0 to 1, where 1 = full edited, 0 = full original)
+  const [comparePos, setComparePos] = useState(0.5);
+  const [isDraggingSlider, setIsDraggingSlider] = useState(false);
+  const hasEdits = originalImageUrl !== currentImageUrl;
   
   // Images
   const [currentImage] = useImage(currentImageUrl || '', 'anonymous');
@@ -82,27 +82,12 @@ export function EditorCanvas({
     };
   }, [measureStage, currentImageUrl]);
 
-  // Crossfade
-  useEffect(() => {
-    if (originalImageRef.current && currentImageRef.current) {
-       const duration = 0.3;
-       if (viewMode === 'original') {
-         currentImageRef.current.to({ opacity: 0, duration });
-         originalImageRef.current.to({ opacity: 1, duration });
-       } else {
-         originalImageRef.current.to({ opacity: 0, duration });
-         currentImageRef.current.to({ opacity: 1, duration });
-       }
-    }
-  }, [viewMode]);
-
   // Animations
   useEffect(() => {
     let animFrame: number;
     let scanDirection = 1;
     const animateLoop = () => {
       setDashOffset(prev => prev + 0.3);
-      setShimmerOffset(prev => (prev > 200 ? -50 : prev + 2));
       if (isDetecting) {
          setScanY(prev => {
             let next = prev + (4 * scanDirection);
@@ -124,7 +109,27 @@ export function EditorCanvas({
     if (stageRef.current) stageRef.current.to({ scaleX: 1, scaleY: 1, position: { x: 0, y: 0 }, duration: 0.3 });
   };
 
+  // Comparison slider drag handlers
+  const sliderX = comparePos * stageWidth;
+
+  const handleSliderDragStart = () => {
+    setIsDraggingSlider(true);
+  };
+
+  const handleSliderDragMove = (e: KonvaEventObject<DragEvent>) => {
+    const node = e.target;
+    const newX = Math.max(0, Math.min(stageWidth, node.x()));
+    node.y(0); // Lock vertical
+    node.x(newX);
+    setComparePos(newX / stageWidth);
+  };
+
+  const handleSliderDragEnd = () => {
+    setIsDraggingSlider(false);
+  };
+
   const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+    if (isDraggingSlider) return;
     if (!currentImage) return;
     const sX = stageWidth / currentImage.width;
     const sY = stageHeight / currentImage.height;
@@ -211,14 +216,12 @@ export function EditorCanvas({
 
   return (
     <div className="flex-1 w-full h-full relative flex flex-col items-center justify-center bg-transparent overflow-hidden">
-        {/* Step 10: Performance & Blurhash */}
+        {/* Blurhash placeholder */}
         {!currentImage && (
             <div className="absolute inset-0">
                 <Blurhash hash="LKO2?V%2Tw=w]~RBVZOfof9~%7VZ" width="100%" height="100%" resolutionX={32} resolutionY={32} punch={1} />
             </div>
         )}
-
-
 
         {tooltipPos && !isDetecting && (
             <div className="pointer-events-none absolute z-50 bg-white border border-[#8B47FF] shadow-sm rounded px-2 py-1 text-xs font-medium" style={{ left: tooltipPos.x, top: tooltipPos.y }}>
@@ -238,14 +241,82 @@ export function EditorCanvas({
                 onMouseMove={handleMouseMove} onMouseLeave={handleMouseOut} onClick={handleClick}
                 className="bg-card cursor-crosshair rounded-xl overflow-hidden"
             >
+                {/* Base layer: Edited image (full width) */}
                 <KonvaLayer perfectDrawEnabled={false}>
                     <Rect width={stageWidth} height={stageHeight} fill="#F0F0F0" />
-                    {originalImage && <KonvaImage ref={originalImageRef} image={originalImage} width={stageWidth} height={stageHeight} opacity={viewMode === 'original' ? 1 : 0} />}
-                    {currentImage && <KonvaImage ref={currentImageRef} image={currentImage} width={stageWidth} height={stageHeight} opacity={viewMode === 'edited' ? 1 : 0} />}
+                    {currentImage && <KonvaImage image={currentImage} width={stageWidth} height={stageHeight} />}
                 </KonvaLayer>
+
+                {/* Original image clipped from left edge to slider position */}
+                {hasEdits && originalImage && comparePos < 1 && (
+                    <KonvaLayer>
+                        <Group
+                            clipFunc={(ctx: any) => {
+                                ctx.rect(0, 0, sliderX, stageHeight);
+                            }}
+                        >
+                            <KonvaImage image={originalImage} width={stageWidth} height={stageHeight} listening={false} />
+                        </Group>
+                    </KonvaLayer>
+                )}
+
+                {/* Comparison slider handle */}
+                {hasEdits && (
+                    <KonvaLayer>
+                        {/* Vertical divider line */}
+                        <Line
+                            points={[sliderX, 0, sliderX, stageHeight]}
+                            stroke="white"
+                            strokeWidth={3}
+                            shadowColor="rgba(0,0,0,0.5)"
+                            shadowBlur={6}
+                            shadowOffsetX={0}
+                            shadowOffsetY={0}
+                            listening={false}
+                        />
+                        {/* Draggable handle circle */}
+                        <Group
+                            x={sliderX}
+                            y={stageHeight / 2}
+                            draggable
+                            onDragStart={handleSliderDragStart}
+                            onDragMove={handleSliderDragMove}
+                            onDragEnd={handleSliderDragEnd}
+                            dragBoundFunc={(pos) => ({
+                                x: Math.max(0, Math.min(stageWidth, pos.x)),
+                                y: stageHeight / 2,
+                            })}
+                        >
+                            {/* Handle background circle */}
+                            <Rect
+                                x={-16} y={-20} width={32} height={40}
+                                fill="white"
+                                cornerRadius={16}
+                                shadowColor="rgba(0,0,0,0.3)"
+                                shadowBlur={8}
+                                shadowOffsetY={2}
+                            />
+                            {/* Left arrow */}
+                            <Text x={-13} y={-12} text="◀" fontSize={11} fill="#8B47FF" listening={false} />
+                            {/* Right arrow */}
+                            <Text x={2} y={-12} text="▶" fontSize={11} fill="#8B47FF" listening={false} />
+                        </Group>
+                        {/* Labels */}
+                        {comparePos > 0.05 && comparePos < 0.95 && (
+                            <>
+                                <Text x={8} y={stageHeight - 24} text="Original" fontSize={11} fontStyle="bold" fill="white" shadowColor="rgba(0,0,0,0.7)" shadowBlur={4} listening={false} />
+                                <Text x={stageWidth - 52} y={stageHeight - 24} text="Edited" fontSize={11} fontStyle="bold" fill="white" shadowColor="rgba(0,0,0,0.7)" shadowBlur={4} listening={false} />
+                            </>
+                        )}
+                    </KonvaLayer>
+                )}
+
+                {/* Layer highlights */}
                 <KonvaLayer listening={false}>
                    {drawHighlights}
                 </KonvaLayer>
+
+                {/* Detection scan animation */}
                 {isDetecting && (
                     <KonvaLayer listening={false}>
                          <Rect width={stageWidth} height={stageHeight} fill="rgba(255,255,255,0.2)" />

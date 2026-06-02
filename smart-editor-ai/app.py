@@ -94,6 +94,11 @@ class ReplaceRequest(BaseModel):
     prompt: str
     replacement_image_url: Optional[str] = None
     edit_type: Optional[str] = None
+    overlay_x: Optional[float] = None
+    overlay_y: Optional[float] = None
+    overlay_w: Optional[float] = None
+    overlay_h: Optional[float] = None
+
 
 class ReplaceResponse(BaseModel):
     image_base64: str
@@ -574,26 +579,24 @@ def build_layers(img: Image.Image, scale: float):
         texts_sorted = sorted(texts, key=lambda t: t["bbox"][1])
         for idx, text_item in enumerate(texts_sorted):
             original_bbox = scale_bbox_to_original(text_item["bbox"])
-            text_mask = sam_segment_from_bbox(img, text_item["bbox"])
             layers.append({
                 "id": f"layer_text_{idx + 1}",
                 "type": "text",
                 "label": text_item["text"][:30],
                 "content": text_item["text"],
                 "bbox": original_bbox,
-                "mask": mask_png_from_bool(text_mask) if text_mask is not None else mask_from_bbox_original(original_bbox),
+                "mask": mask_from_bbox_original(original_bbox),
             })
 
     if faces:
         for idx, face_item in enumerate(faces):
             original_bbox = scale_bbox_to_original(face_item["bbox"])
-            face_mask = sam_segment_from_bbox(img, face_item["bbox"])
             layers.append({
                 "id": face_item["id"],
                 "type": "face",
                 "label": "Face",
                 "bbox": original_bbox,
-                "mask": mask_png_from_bool(face_mask) if face_mask is not None else mask_from_bbox_original(original_bbox),
+                "mask": mask_from_bbox_original(original_bbox),
                 "confidence": face_item["confidence"],
             })
 
@@ -602,13 +605,12 @@ def build_layers(img: Image.Image, scale: float):
     for idx, obj in enumerate(objects[:YOLO_MAX_OBJECTS]):
         original_bbox = scale_bbox_to_original(obj["bbox"])
         layer_type = "person" if obj["label"] == "person" else "object"
-        obj_mask = sam_segment_from_bbox(img, obj["bbox"])
         layers.append({
             "id": f"layer_obj_{idx + 1}",
             "type": layer_type,
             "label": obj["label"].capitalize(),
             "bbox": original_bbox,
-            "mask": mask_png_from_bool(obj_mask) if obj_mask is not None else mask_from_bbox_original(original_bbox),
+            "mask": mask_from_bbox_original(original_bbox),
             "confidence": obj["confidence"],
         })
 
@@ -618,13 +620,12 @@ def build_layers(img: Image.Image, scale: float):
         if any(bbox_ioa(region["bbox"], b) > 0.5 for b in occupied_bboxes):
             continue
         original_bbox = scale_bbox_to_original(region["bbox"])
-        region_mask = sam_segment_from_bbox(img, region["bbox"])
         layers.append({
             "id": f"layer_graphic_{idx + 1}",
             "type": "object",
             "label": "Graphic",
             "bbox": original_bbox,
-            "mask": mask_png_from_bool(region_mask) if region_mask is not None else mask_from_bbox_original(original_bbox),
+            "mask": mask_from_bbox_original(original_bbox),
         })
 
     # Dedupe overlapping layers: prefer text > person > object > graphic
@@ -876,6 +877,46 @@ def _cv2_inpaint_erase(orig_img: Image.Image, mask_img: Image.Image) -> Image.Im
     return Image.fromarray(result_rgb)
 
 
+def _color_transfer(source_img: Image.Image, target_region: Image.Image, strength: float = 0.45) -> Image.Image:
+    """Transfer color statistics (mean and standard deviation in LAB space)
+    from target_region to source_img. strength (0.0 to 1.0) controls blending weight.
+    This makes the replacement photo match the ambient lighting of the thumbnail.
+    100% local, runs in milliseconds, completely free.
+    """
+    logger.info(f"Applying LAB color transfer (strength={strength})...")
+    src_rgb = np.array(source_img.convert("RGB"))
+    tgt_rgb = np.array(target_region.convert("RGB"))
+
+    # Skip if either image is too small
+    if src_rgb.size < 10 or tgt_rgb.size < 10:
+        logger.warning("Color transfer skipped: image too small")
+        return source_img
+
+    src_lab = cv2.cvtColor(src_rgb, cv2.COLOR_RGB2LAB).astype(np.float32)
+    tgt_lab = cv2.cvtColor(tgt_rgb, cv2.COLOR_RGB2LAB).astype(np.float32)
+
+    s_mean, s_std = cv2.meanStdDev(src_lab)
+    t_mean, t_std = cv2.meanStdDev(tgt_lab)
+
+    s_mean = s_mean.flatten()
+    s_std = np.clip(s_std.flatten(), 1e-5, None)
+    t_mean = t_mean.flatten()
+    t_std = np.clip(t_std.flatten(), 1e-5, None)
+
+    # Normalize each LAB channel to target statistics
+    result_lab = src_lab.copy()
+    for i in range(3):
+        result_lab[:, :, i] = (src_lab[:, :, i] - s_mean[i]) * (t_std[i] / s_std[i]) + t_mean[i]
+
+    result_lab = np.clip(result_lab, 0, 255).astype(np.uint8)
+    result_rgb = cv2.cvtColor(result_lab, cv2.COLOR_LAB2RGB)
+
+    # Blend original and color-transferred at the given strength
+    final_rgb = cv2.addWeighted(src_rgb, 1.0 - strength, result_rgb, strength, 0)
+    logger.info("LAB color transfer complete.")
+    return Image.fromarray(final_rgb)
+
+
 def _flux_erase_person(orig_img: Image.Image, mask_img: Image.Image) -> Image.Image:
     """Use FLUX.1-Fill-dev to cleanly regenerate the background where the old person was.
     Returns the full image with the person completely erased and background filled.
@@ -1078,42 +1119,70 @@ def replace(req: ReplaceRequest):
                 bbox = (0, 0, width, height)
                 bbox_x1, bbox_y1 = 0, 0
 
-            # --- Step 3: Resize replacement image to fit bbox while preserving aspect ratio ---
-            rep_w, rep_h = rep_img.size
-            scale_w = bbox_w / rep_w
-            scale_h = bbox_h / rep_h
-            fit_scale = min(scale_w, scale_h)  # Fit inside bbox
-            new_w = int(rep_w * fit_scale)
-            new_h = int(rep_h * fit_scale)
-            if new_w < 1: new_w = 1
-            if new_h < 1: new_h = 1
-            rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-            logger.info(f"Resized replacement: {rep_img.size} -> {rep_resized.size} to fit bbox {bbox_w}x{bbox_h}")
+            # --- Step 3: Resize replacement image ---
+            if req.overlay_x is not None and req.overlay_y is not None and req.overlay_w is not None and req.overlay_h is not None:
+                new_w = int(req.overlay_w)
+                new_h = int(req.overlay_h)
+                if new_w < 1: new_w = 1
+                if new_h < 1: new_h = 1
+                rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                logger.info(f"Resized replacement using manual overlay coords: {rep_img.size} -> {rep_resized.size}")
+                
+                # --- Step 4: Position the replacement image ---
+                offset_x = int(req.overlay_x)
+                offset_y = int(req.overlay_y)
+                logger.info(f"Using manual position overlay: offset_x={offset_x}, offset_y={offset_y}")
+            else:
+                # Resize replacement image to fit bbox while preserving aspect ratio
+                rep_w, rep_h = rep_img.size
+                scale_w = bbox_w / rep_w
+                scale_h = bbox_h / rep_h
+                fit_scale = min(scale_w, scale_h)  # Fit inside bbox
+                new_w = int(rep_w * fit_scale)
+                new_h = int(rep_h * fit_scale)
+                if new_w < 1: new_w = 1
+                if new_h < 1: new_h = 1
+                rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                logger.info(f"Resized replacement (auto): {rep_img.size} -> {rep_resized.size} to fit bbox {bbox_w}x{bbox_h}")
 
-            # --- Step 4: Center the resized image within the bbox ---
-            offset_x = bbox_x1 + (bbox_w - new_w) // 2
-            offset_y = bbox_y1 + (bbox_h - new_h) // 2
+                # --- Step 4: Center the resized image within the bbox ---
+                offset_x = bbox_x1 + (bbox_w - new_w) // 2
+                offset_y = bbox_y1 + (bbox_h - new_h) // 2
 
-            # --- Step 5: ERASE the old person cleanly (two-tier approach) ---
-            # Tier 1: Try FLUX inpainting to regenerate clean background
-            # Tier 2: Fallback to cv2.inpaint (Navier-Stokes, 100% local)
-            erased_img = None
-            try:
-                erased_img = _flux_erase_person(orig_img, mask_img)
-                logger.info("FLUX erase succeeded — clean background generated.")
-            except Exception as flux_err:
-                logger.warning(f"FLUX erase failed ({flux_err}), falling back to cv2.inpaint...")
-
-            if erased_img is None:
-                erased_img = _cv2_inpaint_erase(orig_img, mask_img)
-                logger.info("cv2.inpaint erase succeeded — background filled locally.")
+            # --- Step 5: ERASE the old person cleanly (100% local, free) ---
+            erased_img = _cv2_inpaint_erase(orig_img, mask_img)
+            logger.info("cv2.inpaint erase succeeded — background filled locally (free).")
 
             result_img = erased_img.convert("RGBA")
 
             # --- Step 6: Enhance the replacement image quality ---
             rep_resized = _enhance_replacement_quality(rep_resized, target_w=bbox_w, target_h=bbox_h)
 
-            # --- Step 7: Paste the bg-removed, enhanced replacement onto the clean background ---
+            # --- Step 6.5: LOCAL SEAMLESS BLENDING (100% free, runs in milliseconds) ---
+            # A. LAB Color Transfer: match ambient lighting/color tone of the thumbnail
+            try:
+                target_bg_region = orig_img.crop((bbox_x1, bbox_y1, bbox_x1 + bbox_w, bbox_y1 + bbox_h))
+                rep_resized_rgb = _color_transfer(rep_resized.convert("RGB"), target_bg_region, strength=0.45)
+                # Re-attach alpha channel from original cutout
+                if rep_resized.mode == "RGBA":
+                    alpha_channel = rep_resized.split()[-1]
+                    rep_resized = rep_resized_rgb.convert("RGBA")
+                    rep_resized.putalpha(alpha_channel)
+                else:
+                    rep_resized = rep_resized_rgb
+                logger.info("Color transfer applied — replacement matches thumbnail lighting.")
+            except Exception as color_err:
+                logger.warning(f"LAB color transfer failed: {color_err}. Proceeding without it.")
+
+            # B. Alpha Edge Feathering: soften harsh cutout borders with a gentle blur
+            if rep_resized.mode == "RGBA":
+                from PIL import ImageFilter
+                alpha = rep_resized.split()[-1]
+                feathered_alpha = alpha.filter(ImageFilter.GaussianBlur(radius=3))
+                rep_resized.putalpha(feathered_alpha)
+                logger.info("Alpha edge feathering applied — soft, natural border transition.")
+
+            # --- Step 7: Paste the blended replacement onto the clean background ---
             if rep_resized.mode != "RGBA":
                 rep_resized = rep_resized.convert("RGBA")
 
