@@ -9,3 +9,7 @@ insightface==0.7.3
 onnxruntime
 requests==2.32.3
 rembg[cpu]
+torch
+torchvision
+basicsr
+gfpgan
