@@ -6,9 +6,9 @@ def download_file(url, dest_path, expected_min_size):
     print(f"Downloading {url} to {dest_path}...")
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     
-    # Try downloading with a standard User-Agent header
+    # Try downloading with a standard User-Agent header to bypass blocks
     opener = urllib.request.build_opener()
-    opener.addheaders = [('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')]
+    opener.addheaders = [('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')]
     urllib.request.install_opener(opener)
     
     try:
@@ -30,10 +30,12 @@ def download_file(url, dest_path, expected_min_size):
         return True
     return False
 
-# 1. Download inswapper_128.onnx
+# 1. Download inswapper_128.onnx (using verified open HuggingFace / GitHub URLs)
 inswapper_urls = [
-    "https://huggingface.co/Gourieff/ReActor/resolve/main/models/inswapper_128.onnx",
-    "https://github.com/facefusion/facefusion-assets/releases/download/models/inswapper_128.onnx"
+    "https://huggingface.co/ashleykleynhans/inswapper/resolve/main/inswapper_128.onnx",
+    "https://huggingface.co/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx",
+    "https://huggingface.co/Kuvshin/kuvshin8/resolve/main/insightface/inswapper_128.onnx",
+    "https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/inswapper_128.onnx"
 ]
 inswapper_dest = os.path.join("models", "inswapper_128.onnx")
 # Expected size: ~554 MB (554,253,681 bytes)
