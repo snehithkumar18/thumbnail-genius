@@ -13,10 +13,14 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy requirements file
-COPY requirements.txt .
+# Step 1: Install CPU-only PyTorch first (smaller, no CUDA conflicts)
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-# Install python dependencies
+# Step 2: Install gfpgan and basicsr with PEP 517 build
+RUN pip install --no-cache-dir --use-pep517 basicsr gfpgan
+
+# Step 3: Install remaining requirements
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code
