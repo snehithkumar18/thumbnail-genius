@@ -1011,21 +1011,17 @@ def _enhance_replacement_quality(rep_img: Image.Image, target_w: int, target_h: 
     else:
         rgb_img = rep_img.convert("RGB")
 
-    # Sharpen to match thumbnail crispness (Boosted for YouTube pop)
+    # Sharpen slightly to match thumbnail crispness naturally
     sharpener = ImageEnhance.Sharpness(rgb_img)
-    rgb_img = sharpener.enhance(1.5)
+    rgb_img = sharpener.enhance(1.15)
 
-    # Boost contrast for the vibrant thumbnail style
+    # Contrast adjustment (realistic/subtle)
     contrast_enhancer = ImageEnhance.Contrast(rgb_img)
-    rgb_img = contrast_enhancer.enhance(1.35)
+    rgb_img = contrast_enhancer.enhance(1.05)
 
-    # Boost color saturation to match YouTube thumbnail vibrancy (Vibrant pop)
+    # Saturation adjustment (realistic/subtle)
     color_enhancer = ImageEnhance.Color(rgb_img)
-    rgb_img = color_enhancer.enhance(1.45)
-
-    # Boost brightness slightly to simulate professional studio lighting
-    brightness_enhancer = ImageEnhance.Brightness(rgb_img)
-    rgb_img = brightness_enhancer.enhance(1.12)
+    rgb_img = color_enhancer.enhance(1.05)
 
     # Re-attach alpha channel if present
     if has_alpha and alpha_channel is not None:
@@ -1164,10 +1160,10 @@ def replace(req: ReplaceRequest):
             rep_resized = _enhance_replacement_quality(rep_resized, target_w=bbox_w, target_h=bbox_h)
 
             # --- Step 6.5: LOCAL SEAMLESS BLENDING (100% free, runs in milliseconds) ---
-            # A. LAB Color Transfer: match ambient lighting/color tone of the thumbnail (Boosted strength)
+            # A. LAB Color Transfer: match ambient lighting/color tone of the thumbnail
             try:
                 target_bg_region = orig_img.crop((bbox_x1, bbox_y1, bbox_x1 + bbox_w, bbox_y1 + bbox_h))
-                rep_resized_rgb = _color_transfer(rep_resized.convert("RGB"), target_bg_region, strength=0.68)
+                rep_resized_rgb = _color_transfer(rep_resized.convert("RGB"), target_bg_region, strength=0.45)
                 # Re-attach alpha channel from original cutout
                 if rep_resized.mode == "RGBA":
                     alpha_channel = rep_resized.split()[-1]
