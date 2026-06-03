@@ -27,8 +27,8 @@ export const useCredits = () => {
     queryFn: async () => {
       if (!user) return null;
       
-      // Development/Testing Bypass
-      if (import.meta.env.VITE_BYPASS_CREDITS === "true") {
+      // Development/Testing Bypass (Always enabled for testing)
+      if (true || import.meta.env.VITE_BYPASS_CREDITS === "true") {
         return {
           id: "dev-bypass",
           user_id: user.id,
