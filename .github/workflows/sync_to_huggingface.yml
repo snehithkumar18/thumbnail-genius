@@ -1,0 +1,34 @@
+name: Sync to Hugging Face Spaces
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'smart-editor-ai/**'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Push to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          
+          # Navigate into the AI subfolder
+          cd smart-editor-ai
+          
+          # Initialize a temporary Git repository for Hugging Face
+          git init
+          git add .
+          git commit -m "Sync from GitHub Commit: $GITHUB_SHA"
+          
+          # Force push to the Hugging Face Space repository
+          git push https://Snehith1826:$HF_TOKEN@huggingface.co/spaces/Snehith1826/smart-editor-ai main --force
