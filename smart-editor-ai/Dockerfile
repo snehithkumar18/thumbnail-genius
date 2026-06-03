@@ -24,10 +24,9 @@ RUN pip install --no-cache-dir --use-pep517 basicsr gfpgan
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create models directory and download weights
-RUN mkdir -p models && \
-    curl -L -o models/inswapper_128.onnx https://github.com/facefusion/facefusion-assets/releases/download/models/inswapper_128.onnx && \
-    curl -L -o models/GFPGANv1.4.pth https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth
+# Copy the download script and run it to fetch validated weights
+COPY download_models.py .
+RUN python download_models.py
 
 # Copy the rest of the application code
 COPY . .
