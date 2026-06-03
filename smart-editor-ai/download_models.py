@@ -59,12 +59,30 @@ for url in gfpgan_urls:
         success_gfpgan = True
         break
 
+# 3. Download sam_vit_b_01ec64.pth (SAM checkpoint)
+sam_urls = [
+    "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
+    "https://huggingface.co/YouLiXiya/YL-SAM/resolve/main/sam_vit_b_01ec64.pth",
+    "https://huggingface.co/scenario-labs/sam_vit/resolve/main/sam_vit_b_01ec64.pth"
+]
+sam_dest = os.path.join("weights", "sam_vit_b_01ec64.pth")
+# Expected size: ~375 MB (375,042,383 bytes)
+success_sam = False
+for url in sam_urls:
+    if download_file(url, sam_dest, 350 * 1024 * 1024):
+        success_sam = True
+        break
+
 if not success_inswapper:
     print("FATAL: Failed to download inswapper_128.onnx")
     sys.exit(1)
 
 if not success_gfpgan:
     print("FATAL: Failed to download GFPGANv1.4.pth")
+    sys.exit(1)
+
+if not success_sam:
+    print("FATAL: Failed to download sam_vit_b_01ec64.pth")
     sys.exit(1)
 
 print("All models downloaded successfully!")

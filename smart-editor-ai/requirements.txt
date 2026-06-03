@@ -10,3 +10,4 @@ onnxruntime
 requests==2.32.3
 rembg[cpu]
 gradio-client
+segment-anything
