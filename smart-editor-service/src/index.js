@@ -187,7 +187,41 @@ const callLocalReplace = async ({ image_url, mask_url, prompt, replacement_image
 };
 
 app.register(cors, {
-  origin: process.env.SMART_EDITOR_CORS_ORIGIN?.split(",") || true,
+  origin: (origin, cb) => {
+    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+    if (!origin) {
+      cb(null, true);
+      return;
+    }
+    
+    try {
+      const parsedUrl = new URL(origin);
+      const hostname = parsedUrl.hostname;
+      const protocol = parsedUrl.protocol;
+
+      // Allow localhost, 127.0.0.1, Vercel deployments, and thumb-ly.vercel.app
+      if (
+        hostname === "localhost" || 
+        hostname === "127.0.0.1" || 
+        hostname.endsWith(".vercel.app") ||
+        origin.includes("thumb-ly.vercel.app")
+      ) {
+        cb(null, true);
+        return;
+      }
+    } catch (e) {
+      // Ignore URL parsing errors
+    }
+    
+    // Fallback to configured environment variables
+    const configuredOrigins = process.env.SMART_EDITOR_CORS_ORIGIN?.split(",") || [];
+    if (configuredOrigins.includes(origin)) {
+      cb(null, true);
+      return;
+    }
+    
+    cb(null, false);
+  },
   credentials: true,
 });
 app.register(multipart);

@@ -32,7 +32,19 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Avoid intercepting API calls, only cache static local files
+  // Serve cached index.html for navigation/HTML requests so client-side SPA routing works offline
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('/index.html').then((cachedResponse) => {
+        return cachedResponse || fetch(event.request);
+      }).catch(() => {
+        return caches.match('/index.html');
+      })
+    );
+    return;
+  }
+
+  // Avoid intercepting non-GET requests or requests from other origins
   if (!event.request.url.startsWith(self.location.origin) || event.request.method !== 'GET') {
     return;
   }
