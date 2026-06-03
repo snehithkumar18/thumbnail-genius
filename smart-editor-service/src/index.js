@@ -412,21 +412,12 @@ const replaceWorker = new Worker(
   async (job) => {
     try {
       const { image_url, mask_url, prompt, replacement_image_url, session_id, user_id, layer_id, edit_type, credit_cost, overlay_x, overlay_y, overlay_w, overlay_h } = job.data;
-      // Try Local (free) first, then FAL as fallback
+      // Use our free local Python AI server only (no FAL fallback)
       let imageBytes;
-      let isLocalSuccess = false;
-      let imageUrl;
-      try {
-        const base64Str = await callLocalReplace({ image_url, mask_url, prompt, replacement_image_url, edit_type, overlay_x, overlay_y, overlay_w, overlay_h });
-        const resultBuffer = Buffer.from(base64Str, "base64");
-        imageBytes = new Uint8Array(resultBuffer);
-        isLocalSuccess = true;
-      } catch (localErr) {
-        console.warn(`[REPLACE] Local replace failed, trying FAL: ${localErr.message}`);
-        imageUrl = await callFalReplace({ image_url, mask_url, prompt });
-        const imageResp = await fetch(imageUrl);
-        imageBytes = new Uint8Array(await imageResp.arrayBuffer());
-      }
+      const base64Str = await callLocalReplace({ image_url, mask_url, prompt, replacement_image_url, edit_type, overlay_x, overlay_y, overlay_w, overlay_h });
+      const resultBuffer = Buffer.from(base64Str, "base64");
+      imageBytes = new Uint8Array(resultBuffer);
+      const isLocalSuccess = true;
 
       // Upload to Supabase storage
       const fileName = `${user_id}/smart-editor/replace_${crypto.randomUUID()}.png`;
