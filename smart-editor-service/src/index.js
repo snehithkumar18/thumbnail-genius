@@ -20,7 +20,7 @@ const rawAiUrl = process.env.SMART_EDITOR_AI_URL || "http://localhost:8000";
 const aiUrl = rawAiUrl.trim().replace(/\/+$/, "").replace(/\/(detect|replace|face-swap)$/, "");
 const falKey = process.env.FAL_KEY;
 const geminiApiKey = process.env.GEMINI_API_KEY;
-const bypassCredits = process.env.BYPASS_CREDITS === "true";
+const bypassCredits = true; // Always bypass credits during testing phase
 
 if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
   throw new Error("Missing Supabase env vars");
