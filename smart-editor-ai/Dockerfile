@@ -1,13 +1,14 @@
 # Use a lightweight python image
 FROM python:3.10-slim
 
-# Install system dependencies required by OpenCV and other libraries
+# Install system dependencies required by OpenCV and other libraries (including curl for downloads)
 RUN apt-get update && apt-get install -y \
     build-essential \
     libgl1 \
     libglib2.0-0 \
     libgomp1 \
     git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -22,6 +23,11 @@ RUN pip install --no-cache-dir --use-pep517 basicsr gfpgan
 # Step 3: Install remaining requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Create models directory and download weights
+RUN mkdir -p models && \
+    curl -L -o models/inswapper_128.onnx https://github.com/facefusion/facefusion-assets/releases/download/models/inswapper_128.onnx && \
+    curl -L -o models/GFPGANv1.4.pth https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth
 
 # Copy the rest of the application code
 COPY . .
