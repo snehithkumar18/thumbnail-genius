@@ -1011,17 +1011,21 @@ def _enhance_replacement_quality(rep_img: Image.Image, target_w: int, target_h: 
     else:
         rgb_img = rep_img.convert("RGB")
 
-    # Sharpen to match thumbnail crispness
+    # Sharpen to match thumbnail crispness (Boosted for YouTube pop)
     sharpener = ImageEnhance.Sharpness(rgb_img)
-    rgb_img = sharpener.enhance(1.3)
+    rgb_img = sharpener.enhance(1.5)
 
     # Boost contrast for the vibrant thumbnail style
     contrast_enhancer = ImageEnhance.Contrast(rgb_img)
-    rgb_img = contrast_enhancer.enhance(1.15)
+    rgb_img = contrast_enhancer.enhance(1.35)
 
-    # Boost color saturation to match YouTube thumbnail vibrancy
+    # Boost color saturation to match YouTube thumbnail vibrancy (Vibrant pop)
     color_enhancer = ImageEnhance.Color(rgb_img)
-    rgb_img = color_enhancer.enhance(1.1)
+    rgb_img = color_enhancer.enhance(1.45)
+
+    # Boost brightness slightly to simulate professional studio lighting
+    brightness_enhancer = ImageEnhance.Brightness(rgb_img)
+    rgb_img = brightness_enhancer.enhance(1.12)
 
     # Re-attach alpha channel if present
     if has_alpha and alpha_channel is not None:
@@ -1133,21 +1137,22 @@ def replace(req: ReplaceRequest):
                 offset_y = int(req.overlay_y)
                 logger.info(f"Using manual position overlay: offset_x={offset_x}, offset_y={offset_y}")
             else:
-                # Resize replacement image to fit bbox while preserving aspect ratio
+                # Cover the bounding box (CSS 'cover' style) to ensure no blurry background margins are left exposed!
                 rep_w, rep_h = rep_img.size
                 scale_w = bbox_w / rep_w
                 scale_h = bbox_h / rep_h
-                fit_scale = min(scale_w, scale_h)  # Fit inside bbox
+                fit_scale = max(scale_w, scale_h)  # Cover the box instead of fitting inside
                 new_w = int(rep_w * fit_scale)
                 new_h = int(rep_h * fit_scale)
                 if new_w < 1: new_w = 1
                 if new_h < 1: new_h = 1
                 rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                logger.info(f"Resized replacement (auto): {rep_img.size} -> {rep_resized.size} to fit bbox {bbox_w}x{bbox_h}")
+                logger.info(f"Resized replacement (auto-cover): {rep_img.size} -> {rep_resized.size} to cover bbox {bbox_w}x{bbox_h}")
 
-                # --- Step 4: Center the resized image within the bbox ---
+                # Center horizontally
                 offset_x = bbox_x1 + (bbox_w - new_w) // 2
-                offset_y = bbox_y1 + (bbox_h - new_h) // 2
+                # Align to bottom of the bounding box for a natural placement (grounding people/objects)
+                offset_y = bbox_y1 + bbox_h - new_h
 
             # --- Step 5: ERASE the old person cleanly (100% local, free) ---
             erased_img = _cv2_inpaint_erase(orig_img, mask_img)
@@ -1159,10 +1164,10 @@ def replace(req: ReplaceRequest):
             rep_resized = _enhance_replacement_quality(rep_resized, target_w=bbox_w, target_h=bbox_h)
 
             # --- Step 6.5: LOCAL SEAMLESS BLENDING (100% free, runs in milliseconds) ---
-            # A. LAB Color Transfer: match ambient lighting/color tone of the thumbnail
+            # A. LAB Color Transfer: match ambient lighting/color tone of the thumbnail (Boosted strength)
             try:
                 target_bg_region = orig_img.crop((bbox_x1, bbox_y1, bbox_x1 + bbox_w, bbox_y1 + bbox_h))
-                rep_resized_rgb = _color_transfer(rep_resized.convert("RGB"), target_bg_region, strength=0.45)
+                rep_resized_rgb = _color_transfer(rep_resized.convert("RGB"), target_bg_region, strength=0.68)
                 # Re-attach alpha channel from original cutout
                 if rep_resized.mode == "RGBA":
                     alpha_channel = rep_resized.split()[-1]
