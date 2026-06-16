@@ -246,20 +246,38 @@ const callGeminiImage = async (req: GeminiRequest, apiKey: string): Promise<Prov
 };
 
 const callPollinationsImage = async (req: PollinationsRequest): Promise<ProviderResult> => {
-  const encodedPrompt = encodeURIComponent(req.prompt);
-  const params = new URLSearchParams({
-    model: req.model,
-    width: String(req.width),
-    height: String(req.height),
-    nologo: "true",
-  });
-  if (req.imageUrl) {
-    params.set("image", req.imageUrl);
+  const hfToken = Deno.env.get("HF_TOKEN") || Deno.env.get("HUGGING_FACE_HUB_TOKEN") || "";
+  if (!hfToken) {
+    throw new Error("Hugging Face token not configured. Please set HF_TOKEN environment variable.");
   }
 
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?${params.toString()}`;
-  const modelUsed = req.model === "kontext" ? "Pollinations Kontext" : "Pollinations Flux";
-  return { imageUrl, provider: "pollinations", modelUsed };
+  console.log("[aiRouter] Calling Hugging Face Serverless FLUX.1-schnell...");
+  const response = await fetch("https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${hfToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ inputs: req.prompt }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Hugging Face Serverless API failed (${response.status}): ${errText}`);
+  }
+
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  
+  // Convert binary bytes to base64 in Deno
+  let binaryString = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binaryString += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binaryString);
+  const imageUrl = `data:image/png;base64,${base64}`;
+
+  return { imageUrl, provider: "huggingface", modelUsed: "FLUX.1 Schnell (HF)" };
 };
 
 export const runImageProviders = async (
