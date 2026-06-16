@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encodeBase64 } from "https://deno.land/std@0.203.0/encoding/base64.ts";
 
 type CacheEntry = {
   image_url: string;
@@ -251,12 +252,7 @@ const callPollinationsImage = async (req: PollinationsRequest): Promise<Provider
   const buffer = await response.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   
-  // Convert binary bytes to base64 in Deno
-  let binaryString = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binaryString += String.fromCharCode(bytes[i]);
-  }
-  const base64 = btoa(binaryString);
+  const base64 = encodeBase64(bytes);
   const imageUrl = `data:image/png;base64,${base64}`;
 
   return { imageUrl, provider: "huggingface", modelUsed: "FLUX.1 Schnell (HF)" };
@@ -267,45 +263,56 @@ export const runImageProviders = async (
   options: ProviderOptions,
 ): Promise<ProviderResult> => {
   const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || "";
+  let geminiError = "Gemini key not configured or disabled.";
+  let hfError = "Hugging Face disabled.";
 
-  if (options.gemini && geminiKey) {
+  // 1. Always try Gemini first if key is available
+  if (geminiKey && options.gemini) {
     const cooling = await isProviderCoolingDown(supabaseAdmin, "gemini");
     if (!cooling) {
       try {
+        console.log("[aiRouter] Attempting Gemini (gemini-2.5-flash-image)...");
         return await callGeminiImage(options.gemini, geminiKey);
       } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : String(e);
-        console.error("[aiRouter] Gemini failed:", message);
-        const statusMatch = message.match(/\((\d{3})\)/);
+        geminiError = e instanceof Error ? e.message : String(e);
+        console.error("[aiRouter] Gemini failed:", geminiError);
+
+        // Detect rate limit / quota exhaustion
+        const statusMatch = geminiError.match(/\((\d{3})\)/);
         const status = statusMatch ? Number(statusMatch[1]) : 0;
-        if (isRateLimitError(status, message)) {
+        if (isRateLimitError(status, geminiError)) {
           await markProviderRateLimited(supabaseAdmin, "gemini");
+          console.warn("[aiRouter] Gemini quota exhausted. Falling back to Pollinations.");
         }
+        // Fall through to Pollinations
       }
+    } else {
+      geminiError = "Gemini is cooling down (quota exhausted).";
+      console.warn("[aiRouter] Gemini is cooling down (quota exhausted). Using Pollinations.");
     }
   }
 
+  // 2. Fallback to Pollinations
   if (options.pollinations) {
-    const cooling = await isProviderCoolingDown(supabaseAdmin, "pollinations");
-    if (!cooling) {
-      try {
-        return await callPollinationsImage(options.pollinations);
-      } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : String(e);
-        const statusMatch = message.match(/\((\d{3})\)/);
-        const status = statusMatch ? Number(statusMatch[1]) : 0;
-        if (isRateLimitError(status, message)) {
-          await markProviderRateLimited(supabaseAdmin, "pollinations");
-        }
-      }
+    try {
+      console.log("[aiRouter] Using Pollinations as fallback.");
+      return await callPollinationsImage(options.pollinations);
+    } catch (e: unknown) {
+      hfError = e instanceof Error ? e.message : String(e);
+      console.error("[aiRouter] Pollinations also failed:", hfError);
     }
   }
 
   if (options.allowPaidFallback && options.paidFallback) {
-    return await options.paidFallback();
+    try {
+      return await options.paidFallback();
+    } catch (e: unknown) {
+      const paidError = e instanceof Error ? e.message : String(e);
+      throw new Error(`All AI providers failed. Gemini: ${geminiError} | HF: ${hfError} | Paid fallback: ${paidError}`);
+    }
   }
 
-  throw new Error("All providers failed");
+  throw new Error(`All AI providers failed. Gemini: ${geminiError} | HF: ${hfError}`);
 };
 
 export const loadImagePartFromUrl = async (imageUrl: string): Promise<ImagePart> => {
