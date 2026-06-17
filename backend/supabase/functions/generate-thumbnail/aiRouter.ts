@@ -253,7 +253,7 @@ const callPollinationsImage = async (req: PollinationsRequest): Promise<Provider
   }
 
   console.log("[aiRouter] Calling Hugging Face Serverless FLUX.1-schnell...");
-  const response = await fetch("https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell", {
+  const response = await fetch("https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${hfToken}`,
@@ -269,9 +269,9 @@ const callPollinationsImage = async (req: PollinationsRequest): Promise<Provider
 
   const buffer = await response.arrayBuffer();
   const bytes = new Uint8Array(buffer);
-  
   const base64 = encodeBase64(bytes);
-  const imageUrl = `data:image/png;base64,${base64}`;
+  const mimeType = response.headers.get("content-type") || "image/jpeg";
+  const imageUrl = `data:${mimeType};base64,${base64}`;
 
   return { imageUrl, provider: "huggingface", modelUsed: "FLUX.1 Schnell (HF)" };
 };
