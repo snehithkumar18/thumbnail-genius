@@ -225,9 +225,9 @@ const callPollinationsImage = async (req: PollinationsRequest): Promise<Provider
     throw new Error("Hugging Face token not configured. Please set HF_TOKEN environment variable.");
   }
 
+  // TEMPORARILY: Only use Stable Diffusion 3 (no fallback to FLUX) for testing quality
   const models = [
-    { id: "stabilityai/stable-diffusion-3-medium-diffusers", name: "Stable Diffusion 3 (HF)" },
-    { id: "black-forest-labs/FLUX.1-schnell", name: "FLUX.1 Schnell (HF)" }
+    { id: "stabilityai/stable-diffusion-3-medium-diffusers", name: "Stable Diffusion 3 (HF)" }
   ];
 
   let lastErr = "";
