@@ -234,28 +234,44 @@ const callPollinationsImage = async (req: PollinationsRequest): Promise<Provider
     throw new Error("Hugging Face token not configured. Please set HF_TOKEN environment variable.");
   }
 
-  console.log("[aiRouter] Calling Hugging Face Serverless FLUX.1-schnell...");
-  const response = await fetch("https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${hfToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ inputs: req.prompt }),
-  });
+  const models = [
+    { id: "stabilityai/stable-diffusion-3-medium-diffusers", name: "Stable Diffusion 3 (HF)" },
+    { id: "black-forest-labs/FLUX.1-schnell", name: "FLUX.1 Schnell (HF)" }
+  ];
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Hugging Face Serverless API failed (${response.status}): ${errText}`);
+  let lastErr = "";
+  for (const model of models) {
+    try {
+      console.log(`[aiRouter] Calling Hugging Face Serverless model: ${model.id}...`);
+      const response = await fetch(`https://router.huggingface.co/hf-inference/models/${model.id}`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${hfToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ inputs: req.prompt }),
+      });
+
+      if (response.ok) {
+        const buffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        const base64 = encodeBase64(bytes);
+        const mimeType = response.headers.get("content-type") || "image/jpeg";
+        const imageUrl = `data:${mimeType};base64,${base64}`;
+
+        return { imageUrl, provider: "huggingface", modelUsed: model.name };
+      } else {
+        const errText = await response.text();
+        lastErr = `Model ${model.id} failed (${response.status}): ${errText}`;
+        console.warn(`[aiRouter] Hugging Face model ${model.id} failed:`, lastErr);
+      }
+    } catch (e) {
+      lastErr = `Fetch error for Hugging Face model ${model.id}: ${e instanceof Error ? e.message : String(e)}`;
+      console.error(`[aiRouter] Hugging Face fetch failed for ${model.id}:`, lastErr);
+    }
   }
 
-  const buffer = await response.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  const base64 = encodeBase64(bytes);
-  const mimeType = response.headers.get("content-type") || "image/jpeg";
-  const imageUrl = `data:${mimeType};base64,${base64}`;
-
-  return { imageUrl, provider: "huggingface", modelUsed: "FLUX.1 Schnell (HF)" };
+  throw new Error(`All Hugging Face models failed. Last error: ${lastErr}`);
 };
 
 export const runImageProviders = async (

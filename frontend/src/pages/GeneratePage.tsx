@@ -266,10 +266,9 @@ const GeneratePage = () => {
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="e.g. Shocked Indian man holding ₹1 lakh cash, bold text saying I MADE THIS IN 1 WEEK, dramatic red lighting"
               className="min-h-[120px] bg-background border-border text-foreground placeholder:text-muted-foreground resize-none"
-              maxLength={500}
             />
             <span className="absolute bottom-2 right-3 text-[10px] text-muted-foreground">
-              {prompt.length}/500
+              {prompt.length} characters
             </span>
           </div>
           <div className="flex items-center gap-2 mt-2">

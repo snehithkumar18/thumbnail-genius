@@ -213,9 +213,8 @@ const ShortsPage = () => {
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="e.g. Close-up shocked face, eyes wide open, pointing at camera, bold text: WAIT FOR IT, vibrant neon pink background"
               className="min-h-[120px] bg-background border-border text-foreground placeholder:text-muted-foreground resize-none"
-              maxLength={500}
             />
-            <span className="absolute bottom-2 right-3 text-[10px] text-muted-foreground">{prompt.length}/500</span>
+            <span className="absolute bottom-2 right-3 text-[10px] text-muted-foreground">{prompt.length} characters</span>
           </div>
           <div className="flex items-center gap-2 mt-2">
             <Switch checked={enhancePrompt} onCheckedChange={setEnhancePrompt} id="enhance-shorts" />

@@ -229,9 +229,8 @@ const RecreatePage = () => {
               onChange={(e) => setChanges(e.target.value)}
               placeholder="e.g. Replace the person with an Indian man, change background to space, keep the text style but change it to say MY RESULT"
               className="min-h-[80px] bg-background border-border text-foreground text-sm resize-none"
-              maxLength={300}
             />
-            <span className="text-[10px] text-muted-foreground float-right">{changes.length}/300</span>
+            <span className="text-[10px] text-muted-foreground float-right">{changes.length} characters</span>
           </div>
         </div>
 
