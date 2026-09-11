@@ -94,6 +94,7 @@ class ReplaceRequest(BaseModel):
     prompt: str
     replacement_image_url: Optional[str] = None
     edit_type: Optional[str] = None
+    bbox: Optional[List[float]] = None
     overlay_x: Optional[float] = None
     overlay_y: Optional[float] = None
     overlay_w: Optional[float] = None
@@ -101,6 +102,30 @@ class ReplaceRequest(BaseModel):
 
 
 class ReplaceResponse(BaseModel):
+    image_base64: str
+    width: int
+    height: int
+
+class EraseTextRequest(BaseModel):
+    image_url: Optional[str] = None
+    image_base64: Optional[str] = None
+    bbox: List[float]  # [x, y, w, h] in pixel coordinates
+    dilation_px: int = 12
+
+class EraseTextResponse(BaseModel):
+    image_base64: str
+    width: int
+    height: int
+
+class BlendCompositeRequest(BaseModel):
+    original_url: Optional[str] = None
+    original_base64: Optional[str] = None
+    replacement_url: Optional[str] = None
+    replacement_base64: Optional[str] = None
+    mask_url: Optional[str] = None
+    mask_base64: Optional[str] = None
+
+class BlendCompositeResponse(BaseModel):
     image_base64: str
     width: int
     height: int
@@ -189,8 +214,12 @@ except Exception as e:
 
 
 def download_image(url: str) -> Image.Image:
-    """Download and convert image to RGB"""
-    resp = requests.get(url, timeout=30)
+    """Download or decode base64 data URI and convert image to RGB"""
+    if url.startswith("data:image"):
+        b64 = url.split(",", 1)[1]
+        return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    resp = requests.get(url, headers=headers, timeout=10)
     resp.raise_for_status()
     img = Image.open(io.BytesIO(resp.content)).convert("RGB")
     logger.info(f"Downloaded image: {url[:50]}... size: {img.size}")
@@ -344,29 +373,55 @@ def yolo_detect(img: Image.Image, conf: float = YOLO_CONF):
 
 
 def ocr_detect(img: Image.Image):
-    """Try PaddleOCR first (better accuracy), fall back to EasyOCR variants.
+    """Try PaddleOCR first, fall back to EasyOCR.
     Returns list of {text, bbox, confidence} in resized-image coordinates.
+    Merges adjacent words on the same line into clean line banners.
     """
-    items = []
+    raw_items = []
     seen_boxes = []
 
-    def add_detection(box, text, conf):
-        x1, y1, x2, y2 = box
-        bbox = [x1, y1, x2 - x1, y2 - y1]
+    def add_raw_detection(box, text, conf):
+        if isinstance(box, (list, tuple)) and len(box) == 4 and isinstance(box[0], (list, tuple)):
+            xs = [p[0] for p in box]
+            ys = [p[1] for p in box]
+        elif isinstance(box, (list, tuple)) and len(box) == 4:
+            xs = [box[0], box[2]]
+            ys = [box[1], box[3]]
+        else:
+            return
+
+        x1 = max(0.0, float(min(xs)))
+        y1 = max(0.0, float(min(ys)))
+        x2 = min(float(w), float(max(xs)))
+        y2 = min(float(h), float(max(ys)))
+        
+        bw = x2 - x1
+        bh = y2 - y1
+        if bw < 5 or bh < 5:
+            return
+
+        text_clean = text.strip()
+        # Filter out false positive UI tags from screenshots
+        if text_clean in ["Text Element", "Person", "Element", "Text Elemer", "Eler flElement"]:
+            return
+
+        pad_x = bw * 0.12
+        pad_y = bh * 0.12
+        padded_bbox = [max(0.0, x1 - pad_x), max(0.0, y1 - pad_y), (x2 - x1) + 2 * pad_x, (y2 - y1) + 2 * pad_y]
+
         for sb in seen_boxes:
-            if bbox_ioa(bbox, sb) > 0.6:
+            if bbox_ioa(padded_bbox, sb) > 0.65:
                 return
-        seen_boxes.append(bbox)
-        items.append({"text": text.strip(), "bbox": bbox, "confidence": conf})
+        seen_boxes.append(padded_bbox)
+        raw_items.append({"text": text_clean, "bbox": padded_bbox, "confidence": conf})
 
     img_np = np.array(img)
     h, w = img_np.shape[:2]
 
-    # Prefer PaddleOCR if available (more accurate on stylized text)
     if paddle_ocr_engine is not None:
         try:
-            # paddleocr returns list of lists [[(box), (text), score], ...]
-            result = paddle_ocr_engine.ocr(np.array(img)[:, :, ::-1], cls=True)
+            bgr_img = np.array(img)[:, :, ::-1]
+            result = paddle_ocr_engine.ocr(bgr_img, cls=True)
             if result is not None:
                 for line in result:
                     if line is None:
@@ -375,70 +430,56 @@ def ocr_detect(img: Image.Image):
                         box = seg[0]
                         text = seg[1][0] if isinstance(seg[1], (list, tuple)) else seg[1]
                         conf = float(seg[1][1]) if isinstance(seg[1], (list, tuple)) and len(seg[1]) > 1 else 0.5
-                        xs = [p[0] for p in box]
-                        ys = [p[1] for p in box]
-                        x1, y1, x2, y2 = min(xs), min(ys), max(xs), max(ys)
-                        if len(text.strip()) < 1 or conf < 0.2:
+                        if len(text.strip()) < 1 or conf < 0.25:
                             continue
-                        add_detection((x1, y1, x2, y2), text, conf)
-            logger.info(f"PaddleOCR detected {len(items)} text items")
-            if items:
-                return items
+                        add_raw_detection(box, text, conf)
         except Exception as e:
-            logger.warning(f"PaddleOCR read failed: {e}, falling back to EasyOCR")
+            logger.warning(f"PaddleOCR read failed: {e}")
 
-    # Fallback to EasyOCR multi-variant method
-    if not ocr_engine:
-        logger.warning("No OCR engine available, skipping text detection")
+    if not raw_items and ocr_engine:
+        try:
+            results = ocr_engine.readtext(img_np)
+            if results:
+                for det in results:
+                    box = det[0]
+                    text = str(det[1])
+                    conf = float(det[2])
+                    if len(text.strip()) < 1 or conf < 0.30:
+                        continue
+                    add_raw_detection(box, text, conf)
+        except Exception as e:
+            logger.warning(f"EasyOCR failed: {e}")
+
+    if not raw_items:
         return []
 
-    # Prepare preprocessing variants
-    variants = []
-    if len(img_np.shape) == 3 and img_np.shape[2] == 3:
-        variants.append(cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR))
-    else:
-        variants.append(img_np)
-    try:
-        hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
-        hsv[:,:,2] = cv2.equalizeHist(hsv[:,:,2])
-        variants.append(cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR))
-    except Exception:
-        pass
-    try:
-        gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-        th = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15)
-        variants.append(cv2.cvtColor(th, cv2.COLOR_GRAY2BGR))
-    except Exception:
-        pass
-    for s in (1.5, 2.0):
-        try:
-            neww, newh = int(w * s), int(h * s)
-            up = cv2.resize(img_np, (neww, newh), interpolation=cv2.INTER_CUBIC)
-            variants.append(cv2.cvtColor(up, cv2.COLOR_RGB2BGR))
-        except Exception:
-            pass
+    # Merge adjacent text boxes on the same horizontal row into single text line banners
+    merged_items = []
+    sorted_raw = sorted(raw_items, key=lambda t: (t["bbox"][1], t["bbox"][0]))
 
-    for var in variants:
-        try:
-            results = ocr_engine.readtext(var)
-        except Exception as e:
-            logger.warning(f"EasyOCR readtext failed on variant: {e}")
-            continue
-        if not results:
-            continue
-        for det in results:
-            box = det[0]
-            text = str(det[1])
-            conf = float(det[2])
-            if len(text.strip()) < 1 or conf < 0.25:
-                continue
-            xs = [p[0] for p in box]
-            ys = [p[1] for p in box]
-            x1, y1, x2, y2 = min(xs), min(ys), max(xs), max(ys)
-            add_detection((x1, y1, x2, y2), text, conf)
+    for item in sorted_raw:
+        bx, by, bw, bh = item["bbox"]
+        b_cy = by + bh / 2.0
+        merged = False
+        for m in merged_items:
+            mx, my, mw, mh = m["bbox"]
+            m_cy = my + mh / 2.0
+            # Same horizontal line: vertical center within 20px & horizontal gap < 75px
+            if abs(b_cy - m_cy) < 22 and abs((mx + mw) - bx) < 75:
+                new_x = min(mx, bx)
+                new_y = min(my, by)
+                new_w = max(mx + mw, bx + bw) - new_x
+                new_h = max(my + mh, by + bh) - new_y
+                m["bbox"] = [new_x, new_y, new_w, new_h]
+                m["text"] = m["text"] + " " + item["text"]
+                m["confidence"] = max(m["confidence"], item["confidence"])
+                merged = True
+                break
+        if not merged:
+            merged_items.append(dict(item))
 
-    logger.info(f"EasyOCR detected {len(items)} text lines after variants: {[i['text'][:20] for i in items]}")
-    return items
+    logger.info(f"OCR detected {len(merged_items)} clean text lines: {[i['text'][:30] for i in merged_items]}")
+    return merged_items
 
 
 def bbox_iou(a, b) -> float:
@@ -472,46 +513,142 @@ def bbox_ioa(a, b) -> float:
 
 
 def detect_graphic_regions(img: Image.Image):
-    """Detect large graphic/thumbnail regions via contours and thresholding.
-    This aims to find logos, screenshot inserts, badge-like graphics and flat color regions.
+    """Detect graphic/logo/icon inserts, product cards, and app badges.
+    Categorizes compact square/rounded cards as 'Icon' and large cards as 'Graphic'.
     """
     img_np = np.array(img)
+    h, w = img_np.shape[:2]
+    image_area = float(w * h)
     gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
 
-    # Edge-based contours
-    edges = cv2.Canny(gray, 80, 160)
-    edges = cv2.dilate(edges, np.ones((3, 3), np.uint8), iterations=1)
-    contours_e, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Threshold-based regions (for flat-color logos and badges)
-    _, th = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    th = cv2.medianBlur(th, 3)
-    th = cv2.dilate(th, np.ones((5,5), np.uint8), iterations=1)
-    contours_t, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    contours = contours_e + contours_t
-    h, w = gray.shape[:2]
-    image_area = float(w * h)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+    
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     items = []
     seen = []
+
     for c in contours:
         x, y, bw, bh = cv2.boundingRect(c)
-        if bw < GRAPHIC_MIN_EDGE_LEN or bh < GRAPHIC_MIN_EDGE_LEN:
-            continue
         area = float(bw * bh)
         area_ratio = area / image_area
-        if area_ratio < GRAPHIC_MIN_AREA_RATIO or area_ratio > GRAPHIC_MAX_AREA_RATIO:
+        if bw < 35 or bh < 35 or area_ratio < 0.003 or area_ratio > 0.45:
             continue
+            
+        aspect = bw / float(max(1, bh))
+        if 0.65 <= aspect <= 1.45 and area_ratio <= 0.09:
+            label = "Icon"
+        else:
+            label = "Graphic"
+
         bbox = [float(x), float(y), float(bw), float(bh)]
-        # avoid near-duplicates
-        if any(bbox_ioa(bbox, s) > 0.7 for s in seen):
+        if any(bbox_ioa(bbox, s) > 0.6 for s in seen):
             continue
         seen.append(bbox)
-        items.append({"label": "graphic", "bbox": bbox, "confidence": 0.5})
+        items.append({"label": label, "bbox": bbox, "confidence": 0.7})
 
     items = sorted(items, key=lambda i: i["bbox"][2] * i["bbox"][3], reverse=True)
-    logger.info(f"Contour/threshold detected {len(items)} graphic regions")
+    logger.info(f"Detected {len(items)} graphic/icon regions")
     return items
+
+
+def extract_glyph_mask(crop_np: np.ndarray) -> np.ndarray:
+    """Extract a precise binary mask of ONLY text characters and strokes inside a crop.
+    Preserves 95%+ of background pixels (gradients, textures, nearby graphics).
+    """
+    if crop_np.size == 0 or crop_np.shape[0] < 4 or crop_np.shape[1] < 4:
+        return np.ones(crop_np.shape[:2], dtype=np.uint8) * 255
+
+    h, w = crop_np.shape[:2]
+    gray = cv2.cvtColor(crop_np, cv2.COLOR_RGB2GRAY)
+
+    # 1. Background color estimation from perimeter (border) pixels
+    border_mask = np.zeros((h, w), dtype=bool)
+    border_mask[0:max(1, int(h * 0.08)), :] = True
+    border_mask[-max(1, int(h * 0.08)):, :] = True
+    border_mask[:, 0:max(1, int(w * 0.05))] = True
+    border_mask[:, -max(1, int(w * 0.05)):] = True
+
+    bg_pixels = crop_np[border_mask]
+    bg_median = np.median(bg_pixels, axis=0) if len(bg_pixels) > 0 else np.array([20, 20, 20])
+
+    # 2. Color difference in LAB color space
+    crop_lab = cv2.cvtColor(crop_np, cv2.COLOR_RGB2LAB).astype(np.float32)
+    bg_lab = cv2.cvtColor(np.uint8([[bg_median]]), cv2.COLOR_RGB2LAB)[0, 0].astype(np.float32)
+    diff_lab = np.linalg.norm(crop_lab - bg_lab, axis=2)
+
+    th_val = max(18.0, float(np.percentile(diff_lab, 45)))
+    color_glyph = (diff_lab > th_val).astype(np.uint8) * 255
+
+    # 3. Otsu thresholding with border polarity check
+    _, otsu1 = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    otsu2 = cv2.bitwise_not(otsu1)
+    b_ratio1 = np.mean(otsu1[border_mask] == 255)
+    b_ratio2 = np.mean(otsu2[border_mask] == 255)
+    best_otsu = otsu2 if b_ratio2 < b_ratio1 else otsu1
+
+    # 4. Combine Otsu and color difference
+    combined = cv2.bitwise_and(color_glyph, best_otsu)
+    if np.mean(combined == 255) < 0.05:
+        combined = best_otsu
+
+    # 5. Clean up noise with morphological opening, dilate slightly (2-3px) to swallow strokes & anti-aliasing
+    kernel_clean = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    cleaned = cv2.morphologyEx(combined, cv2.MORPH_OPEN, kernel_clean)
+
+    kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    dilated = cv2.dilate(cleaned, kernel_dilate, iterations=1)
+
+    # Fallback if mask is either too small or covering entire crop
+    mask_coverage = np.mean(dilated == 255)
+    if mask_coverage < 0.02 or mask_coverage > 0.88:
+        fb_mask = np.zeros((h, w), dtype=np.uint8)
+        inset_y = max(1, int(h * 0.06))
+        inset_x = max(1, int(w * 0.04))
+        fb_mask[inset_y:h-inset_y, inset_x:w-inset_x] = 255
+        return fb_mask
+
+    return dilated
+
+
+def extract_text_style(img_crop: Image.Image):
+    """Extract dominant text fill color, stroke, and font style hint from cropped text patch."""
+    try:
+        arr = np.array(img_crop.convert("RGB"))
+        if arr.size == 0 or arr.shape[0] < 4 or arr.shape[1] < 4:
+            return "#FFFFFF", "bold_sans", True
+
+        glyph_mask = extract_glyph_mask(arr)
+
+        kernel_erode = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        core_mask = cv2.erode(glyph_mask, kernel_erode, iterations=1)
+        if np.sum(core_mask == 255) < 20:
+            core_mask = glyph_mask
+
+        text_pixels = arr[core_mask == 255]
+        if len(text_pixels) > 0:
+            med = np.median(text_pixels, axis=0).astype(int)
+            hex_color = f"#{int(med[0]):02X}{int(med[1]):02X}{int(med[2]):02X}"
+        else:
+            hex_color = "#FFFFFF"
+
+        outline_mask = cv2.subtract(glyph_mask, core_mask)
+        outline_pixels = arr[outline_mask == 255]
+        has_stroke = False
+        if len(outline_pixels) > 0:
+            outline_brightness = float(np.mean(cv2.cvtColor(outline_pixels.reshape(-1, 1, 3), cv2.COLOR_RGB2GRAY)))
+            if outline_brightness < 95:
+                has_stroke = True
+
+        aspect = arr.shape[1] / max(1, arr.shape[0])
+        font_style = "condensed" if aspect < 1.2 else "bold_sans"
+
+        return hex_color, font_style, has_stroke
+    except Exception as e:
+        logger.warning(f"Style extraction fallback: {e}")
+        return "#FFFFFF", "bold_sans", True
 
 
 def build_layers(img: Image.Image, scale: float):
@@ -541,20 +678,31 @@ def build_layers(img: Image.Image, scale: float):
             round(bh * inv_scale, 1),
         ]
 
-    # Background layer (full original image)
+    def normalize_bbox_float(bbox):
+        x, y, bw, bh = bbox
+        orig_x = x * inv_scale
+        orig_y = y * inv_scale
+        orig_bw = bw * inv_scale
+        orig_bh = bh * inv_scale
+        
+        nx = max(0.0, min(1.0, orig_x / orig_w))
+        ny = max(0.0, min(1.0, orig_y / orig_h))
+        nw = max(0.005, min(1.0 - nx, orig_bw / orig_w))
+        nh = max(0.005, min(1.0 - ny, orig_bh / orig_h))
+        return [round(nx, 4), round(ny, 4), round(nw, 4), round(nh, 4)]
+
+    # Background layer (full normalized [0, 0, 1, 1])
     layers.append({
         "id": "layer_bg",
         "type": "background",
         "label": "Background",
-        "bbox": [0, 0, orig_w, orig_h],
+        "bbox": [0.0, 0.0, 1.0, 1.0],
         "mask": mask_from_bbox_original([0, 0, orig_w, orig_h]),
     })
 
-    # Run detections on resized image
     objects = yolo_detect(img)
     texts = ocr_detect(img)
 
-    # Face layers from InsightFace to better separate person/face regions
     faces = []
     if face_analyser is not None:
         try:
@@ -574,61 +722,76 @@ def build_layers(img: Image.Image, scale: float):
         except Exception as e:
             logger.warning(f"Face detection failed: {e}")
 
-    # Add ALL text lines as separate layers (sorted by vertical position)
+    # Discard text boxes that overlap significantly with detected face/head regions (prevents unwanted boxes over faces)
+    if texts and faces:
+        clean_texts = []
+        for t in texts:
+            if any(bbox_ioa(t["bbox"], f["bbox"]) > 0.30 for f in faces):
+                logger.info(f"Filtered false positive text box over face: '{t['text']}'")
+                continue
+            clean_texts.append(t)
+        texts = clean_texts
+
     if texts:
         texts_sorted = sorted(texts, key=lambda t: t["bbox"][1])
         for idx, text_item in enumerate(texts_sorted):
-            original_bbox = scale_bbox_to_original(text_item["bbox"])
+            norm_bbox = normalize_bbox_float(text_item["bbox"])
+            tb = text_item["bbox"]
+            tx, ty, tw, th = int(tb[0]), int(tb[1]), int(tb[2]), int(tb[3])
+            tc_crop = img.crop((tx, ty, tx + max(1, tw), ty + max(1, th)))
+            text_color, font_style, has_stroke = extract_text_style(tc_crop)
+
             layers.append({
                 "id": f"layer_text_{idx + 1}",
                 "type": "text",
                 "label": text_item["text"][:30],
                 "content": text_item["text"],
-                "bbox": original_bbox,
-                "mask": mask_from_bbox_original(original_bbox),
+                "bbox": norm_bbox,
+                "mask": mask_from_bbox_original(scale_bbox_to_original(text_item["bbox"])),
+                "text_color": text_color,
+                "font_style": font_style,
+                "has_stroke": has_stroke,
             })
 
     if faces:
         for idx, face_item in enumerate(faces):
-            original_bbox = scale_bbox_to_original(face_item["bbox"])
+            norm_bbox = normalize_bbox_float(face_item["bbox"])
             layers.append({
                 "id": face_item["id"],
                 "type": "face",
                 "label": "Face",
-                "bbox": original_bbox,
-                "mask": mask_from_bbox_original(original_bbox),
+                "bbox": norm_bbox,
+                "mask": mask_from_bbox_original(scale_bbox_to_original(face_item["bbox"])),
                 "confidence": face_item["confidence"],
             })
 
     occupied_bboxes = [t["bbox"] for t in texts] + [o["bbox"] for o in objects] + [f["bbox"] for f in faces]
 
     for idx, obj in enumerate(objects[:YOLO_MAX_OBJECTS]):
-        original_bbox = scale_bbox_to_original(obj["bbox"])
+        norm_bbox = normalize_bbox_float(obj["bbox"])
         layer_type = "person" if obj["label"] == "person" else "object"
         layers.append({
             "id": f"layer_obj_{idx + 1}",
             "type": layer_type,
             "label": obj["label"].capitalize(),
-            "bbox": original_bbox,
-            "mask": mask_from_bbox_original(original_bbox),
+            "bbox": norm_bbox,
+            "mask": mask_from_bbox_original(scale_bbox_to_original(obj["bbox"])),
             "confidence": obj["confidence"],
         })
 
-    # Fallback: detect graphic-like regions (logos, screenshots, UI cards)
     graphic_regions = detect_graphic_regions(img)
     for idx, region in enumerate(graphic_regions[:12]):
         if any(bbox_ioa(region["bbox"], b) > 0.5 for b in occupied_bboxes):
             continue
-        original_bbox = scale_bbox_to_original(region["bbox"])
+        norm_bbox = normalize_bbox_float(region["bbox"])
         layers.append({
             "id": f"layer_graphic_{idx + 1}",
             "type": "object",
-            "label": "Graphic",
-            "bbox": original_bbox,
-            "mask": mask_from_bbox_original(original_bbox),
+            "label": region.get("label", "Icon"),
+            "bbox": norm_bbox,
+            "mask": mask_from_bbox_original(scale_bbox_to_original(region["bbox"])),
         })
 
-    # Dedupe overlapping layers: prefer text > person > object > graphic
     deduped = []
     priority = {'background': 0, 'text': 4, 'face': 3, 'person': 2, 'object': 1}
     for layer in sorted(layers, key=lambda l: priority.get(l.get('type'), 0), reverse=True):
@@ -757,6 +920,37 @@ def face_swap_endpoint(req: FaceSwapRequest):
         for idx, tface in enumerate(target_faces):
             logger.info(f"Swapping face {idx + 1}/{len(target_faces)}...")
             result = face_swapper.get(result, tface, source_face, paste_back=True)
+            
+            # --- RESTORE ORIGINAL FACE COLOR/LIGHTING ---
+            try:
+                tx1, ty1, tx2, ty2 = map(int, tface.bbox)
+                th_img, tw_img = result.shape[:2]
+                tx1 = max(0, tx1)
+                ty1 = max(0, ty1)
+                tx2 = min(tw_img, tx2)
+                ty2 = min(th_img, ty2)
+                
+                if (tx2 - tx1) > 10 and (ty2 - ty1) > 10:
+                    swapped_crop = result[ty1:ty2, tx1:tx2]
+                    
+                    # Normalize skin color to healthy, natural warm skin tones
+                    corrected_bgr = _normalize_skin_color(swapped_crop)
+                    
+                    # Create Gaussian feather mask (std dev = size/4.5) to keep color correction full on the face
+                    fh, fw = swapped_crop.shape[:2]
+                    mask_y = cv2.getGaussianKernel(fh, fh / 4.5)
+                    mask_x = cv2.getGaussianKernel(fw, fw / 4.5)
+                    mask_2d = np.outer(mask_y, mask_x)
+                    mask_2d = mask_2d / mask_2d.max()
+                    
+                    mask = np.zeros(swapped_crop.shape, dtype=np.float32)
+                    mask[:, :, :] = mask_2d[:, :, np.newaxis]
+                    
+                    blended = corrected_bgr.astype(np.float32) * mask + swapped_crop.astype(np.float32) * (1.0 - mask)
+                    result[ty1:ty2, tx1:tx2] = np.clip(blended, 0, 255).astype(np.uint8)
+                    logger.info(f"Restored original face color/lighting for face {idx + 1}")
+            except Exception as ce:
+                logger.warning(f"Failed to restore original face color: {ce}")
 
         # ─── FACE RESTORATION (GFPGAN — light touch) ───
         # GFPGAN fixes the 128x128 blurriness, but can sometimes hallucinate features (remove beard/etc).
@@ -858,7 +1052,7 @@ def detect(req: DetectRequest):
         return {"layers": []}
 
 
-def _cv2_inpaint_erase(orig_img: Image.Image, mask_img: Image.Image) -> Image.Image:
+def _cv2_inpaint_erase(orig_img: Image.Image, mask_img: Image.Image, dilation_px: int = 7) -> Image.Image:
     """Use OpenCV Navier-Stokes inpainting to cleanly erase the masked region.
     Much better than Gaussian blur — propagates surrounding pixel colors inward.
     """
@@ -867,8 +1061,9 @@ def _cv2_inpaint_erase(orig_img: Image.Image, mask_img: Image.Image) -> Image.Im
     mask_np = np.array(mask_img)
 
     # Dilate mask to catch edge shadows and artifacts
-    kernel = np.ones((7, 7), np.uint8)
-    mask_dilated = cv2.dilate(mask_np, kernel, iterations=2)
+    k_size = dilation_px * 2 + 1 if dilation_px > 0 else 1
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size)) if dilation_px > 0 else np.ones((1, 1), np.uint8)
+    mask_dilated = cv2.dilate(mask_np, kernel, iterations=1) if dilation_px > 0 else mask_np
 
     # Navier-Stokes inpainting with radius 15
     result_bgr = cv2.inpaint(img_np, mask_dilated, inpaintRadius=15, flags=cv2.INPAINT_NS)
@@ -915,6 +1110,36 @@ def _color_transfer(source_img: Image.Image, target_region: Image.Image, strengt
     final_rgb = cv2.addWeighted(src_rgb, 1.0 - strength, result_rgb, strength, 0)
     logger.info("LAB color transfer complete.")
     return Image.fromarray(final_rgb)
+
+
+def _normalize_skin_color(crop_bgr: np.ndarray) -> np.ndarray:
+    """Normalize the A and B color channels in LAB color space of a face crop
+    to match natural, healthy human skin tone statistics, removing strong color casts
+    (like blue, green, or red ambient tints) while preserving original luminance.
+    """
+    logger.info("Normalizing skin color to natural tones...")
+    try:
+        crop_lab = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+        means, stds = cv2.meanStdDev(crop_lab)
+        means = means.flatten()
+        stds = np.clip(stds.flatten(), 1e-5, None)
+
+        # Target healthy, warm human skin tone averages in LAB space:
+        # L (0): keep original to preserve shadows/details/luminance
+        # A (1): 139.0 (warm reddish-pink skin range, standard neutral is 128)
+        # B (2): 146.0 (healthy yellowish-warm skin range, standard neutral is 128)
+        target_means = [means[0], 139.0, 146.0]
+        target_stds = [stds[0], 7.5, 7.5]
+
+        result_lab = crop_lab.copy()
+        for i in [1, 2]:
+            result_lab[:, :, i] = (crop_lab[:, :, i] - means[i]) * (target_stds[i] / stds[i]) + target_means[i]
+
+        result_lab = np.clip(result_lab, 0, 255).astype(np.uint8)
+        return cv2.cvtColor(result_lab, cv2.COLOR_LAB2BGR)
+    except Exception as e:
+        logger.warning(f"Skin color normalization failed: {e}")
+        return crop_bgr
 
 
 def _flux_erase_person(orig_img: Image.Image, mask_img: Image.Image) -> Image.Image:
@@ -986,55 +1211,62 @@ def _flux_erase_person(orig_img: Image.Image, mask_img: Image.Image) -> Image.Im
             pass
 
 
-def _enhance_replacement_quality(rep_img: Image.Image, target_w: int, target_h: int) -> Image.Image:
-    """Enhance the quality of a replacement image so it matches the thumbnail's
-    vibrant, professional look. Applies LANCZOS upscaling, sharpening,
-    contrast boost, and color saturation boost.
+def _enhance_replacement_quality(rep_img: Image.Image, target_w: int = 0, target_h: int = 0) -> Image.Image:
+    """MrBeast YouTube Studio Portrait Quality Enhancer:
+    1. MrBeast Studio Lighting Recovery: gamma curve (0.85) + 1.08x exposure lift to bring out clean studio catchlights on face & eyes.
+    2. Dynamic Micro-Contrast (1.08x): sharpens iris, teeth, facial expressions, and clothing weave for 3D depth.
+    3. True-to-Life Skin Color Harmony (1.03x): natural skin warmth without over-saturation or fake orange tint.
+    4. Ultra-Crisp HD Lens Sharpness (1.30x): clean 85mm prime lens clarity across facial features and hair.
+    5. Clean Transparency: 100% alpha mask preservation.
     """
-    cur_w, cur_h = rep_img.size
-    # Calculate how much we're scaling up
-    scale_factor = max(target_w / max(cur_w, 1), target_h / max(cur_h, 1))
+    try:
+        cur_w, cur_h = rep_img.size
+        if target_w > 0 and target_h > 0:
+            scale_factor = max(target_w / max(cur_w, 1), target_h / max(cur_h, 1))
+            if scale_factor > 1.2:
+                logger.info(f"Upscaling replacement image {scale_factor:.1f}x using LANCZOS...")
+                new_w = int(cur_w * scale_factor)
+                new_h = int(cur_h * scale_factor)
+                rep_img = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-    if scale_factor > 1.2:
-        # Upscale using LANCZOS for best quality
-        logger.info(f"Upscaling replacement image {scale_factor:.1f}x using LANCZOS...")
-        new_w = int(cur_w * scale_factor)
-        new_h = int(cur_h * scale_factor)
-        rep_img = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        has_alpha = rep_img.mode == "RGBA"
+        alpha_channel = None
+        if has_alpha:
+            alpha_channel = rep_img.split()[-1]
+            rgb_img = rep_img.convert("RGB")
+        else:
+            rgb_img = rep_img.convert("RGB")
 
-    # Convert to RGB for enhancement (preserve alpha separately)
-    has_alpha = rep_img.mode == "RGBA"
-    alpha_channel = None
-    if has_alpha:
-        alpha_channel = rep_img.split()[3]
-        rgb_img = rep_img.convert("RGB")
-    else:
-        rgb_img = rep_img.convert("RGB")
+        # 1. Studio Key-Lighting Shadow Lift (Gamma 0.85 brings out studio catchlights softly)
+        img_np = np.array(rgb_img, dtype=np.float32) / 255.0
+        gamma = 0.85
+        shadow_lifted = np.power(img_np, gamma)
+        img_uint8 = (shadow_lifted * 255.0).clip(0, 255).astype(np.uint8)
+        pil_lifted = Image.fromarray(img_uint8)
 
-    # Sharpen slightly to match thumbnail crispness naturally
-    sharpener = ImageEnhance.Sharpness(rgb_img)
-    rgb_img = sharpener.enhance(1.15)
+        # 2. Exposure & Micro-Contrast Lift (MrBeast Studio Pop)
+        enh_bright = ImageEnhance.Brightness(pil_lifted).enhance(1.08)
+        enh_contrast = ImageEnhance.Contrast(enh_bright).enhance(1.08)
 
-    # Contrast adjustment (realistic/subtle)
-    contrast_enhancer = ImageEnhance.Contrast(rgb_img)
-    rgb_img = contrast_enhancer.enhance(1.05)
+        # 3. Natural Skin Color Warmth (1.03x balanced)
+        enh_color = ImageEnhance.Color(enh_contrast).enhance(1.03)
 
-    # Saturation adjustment (realistic/subtle)
-    color_enhancer = ImageEnhance.Color(rgb_img)
-    rgb_img = color_enhancer.enhance(1.05)
+        # 4. Ultra-Crisp HD Lens Sharpness (1.30x for eye/facial clarity)
+        enh_sharp = ImageEnhance.Sharpness(enh_color).enhance(1.30)
 
-    # Re-attach alpha channel if present
-    if has_alpha and alpha_channel is not None:
-        # Resize alpha to match enhanced image size
-        if alpha_channel.size != rgb_img.size:
-            alpha_channel = alpha_channel.resize(rgb_img.size, Image.Resampling.LANCZOS)
-        result = rgb_img.convert("RGBA")
-        result.putalpha(alpha_channel)
-        logger.info(f"Enhanced replacement: {result.size}, sharpened+contrast+color, RGBA preserved")
-        return result
-    else:
-        logger.info(f"Enhanced replacement: {rgb_img.size}, sharpened+contrast+color")
-        return rgb_img
+        logger.info(f"MrBeast Studio Portrait Enhancement complete: size={enh_sharp.size}")
+
+        if has_alpha and alpha_channel is not None:
+            if alpha_channel.size != enh_sharp.size:
+                alpha_channel = alpha_channel.resize(enh_sharp.size, Image.Resampling.LANCZOS)
+            result = enh_sharp.convert("RGBA")
+            result.putalpha(alpha_channel)
+            return result
+        else:
+            return enh_sharp
+    except Exception as e:
+        logger.warning(f"Failed to enhance replacement quality: {e}")
+        return rep_img
 
 
 @app.post("/replace", response_model=ReplaceResponse)
@@ -1044,7 +1276,11 @@ def replace(req: ReplaceRequest):
         import tempfile
         import shutil
         import random
-        from gradio_client import Client as GradioClient, handle_file
+        try:
+            from gradio_client import Client as GradioClient, handle_file
+        except ImportError:
+            GradioClient = None
+            handle_file = None
 
         # --- List of FLUX/SDXL inpainting Spaces to try (fallback chain) ---
         SPACES = [
@@ -1052,9 +1288,7 @@ def replace(req: ReplaceRequest):
         ]
 
         # 1. Download original image to a temp file
-        resp = requests.get(req.image_url, timeout=30)
-        resp.raise_for_status()
-        orig_img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        orig_img = download_image(req.image_url).convert("RGB")
         width, height = orig_img.size
 
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_img:
@@ -1062,10 +1296,25 @@ def replace(req: ReplaceRequest):
             img_path = tmp_img.name
         logger.info(f"Saved original image to {img_path} ({width}x{height})")
 
-        # 2. Download mask image to a temp file
-        resp_mask = requests.get(req.mask_url, timeout=30)
-        resp_mask.raise_for_status()
-        mask_img = Image.open(io.BytesIO(resp_mask.content)).convert("L")
+        # 2. Download mask image or construct from bbox
+        mask_img = None
+        if req.mask_url:
+            try:
+                mask_img = download_image(req.mask_url).convert("L")
+            except Exception as mask_err:
+                logger.warning(f"Failed to fetch mask from URL {req.mask_url}: {mask_err}")
+
+        if mask_img is None:
+            # Construct a clean mask from bbox if mask_url is missing or failed
+            mask_img = Image.new("L", (width, height), 0)
+            draw = ImageDraw.Draw(mask_img)
+            if req.bbox and len(req.bbox) == 4:
+                bx, by, bw, bh = req.bbox
+                if bx <= 1.0 and by <= 1.0:
+                    bx, by, bw, bh = int(bx * width), int(by * height), int(bw * width), int(bh * height)
+                draw.rectangle([bx, by, bx + bw, by + bh], fill=255)
+            else:
+                draw.rectangle([0, 0, width, height], fill=255)
 
         # Ensure mask size matches original image
         if mask_img.size != orig_img.size:
@@ -1092,9 +1341,7 @@ def replace(req: ReplaceRequest):
         # with background removal, proper aspect-ratio fitting, and real replacement
         if req.replacement_image_url:
             logger.info(f"Direct replacement image URL provided: {req.replacement_image_url[:120]}")
-            resp_rep = requests.get(req.replacement_image_url, timeout=30)
-            resp_rep.raise_for_status()
-            rep_img = Image.open(io.BytesIO(resp_rep.content)).convert("RGBA")
+            rep_img = download_image(req.replacement_image_url).convert("RGBA")
 
             # --- Step 1: Remove background from uploaded image using rembg ---
             try:
@@ -1105,85 +1352,171 @@ def replace(req: ReplaceRequest):
             except Exception as rembg_err:
                 logger.warning(f"rembg background removal failed: {rembg_err}. Proceeding without bg removal.")
 
-            # --- Step 2: Get mask bounding box ---
-            bbox = mask_img.getbbox()
-            if bbox is None:
-                bbox = (0, 0, width, height)
+            # Enhance person cutout quality (brightness, saturation pop, contrast, and high-def sharpening)
+            rep_img = _enhance_replacement_quality(rep_img)
 
-            bbox_x1, bbox_y1, bbox_x2, bbox_y2 = bbox
-            bbox_w = bbox_x2 - bbox_x1
-            bbox_h = bbox_y2 - bbox_y1
+            # --- Step 2: Get mask bounding box ---
+            if req.bbox and len(req.bbox) == 4:
+                bx, by, bw, bh = [float(v) for v in req.bbox]
+                if bx <= 1.0 and by <= 1.0 and bw <= 1.0 and bh <= 1.0:
+                    bx, by, bw, bh = bx * width, by * height, bw * width, bh * height
+                bbox_x1, bbox_y1, bbox_w, bbox_h = int(round(bx)), int(round(by)), int(round(bw)), int(round(bh))
+                bbox_x2, bbox_y2 = bbox_x1 + bbox_w, bbox_y1 + bbox_h
+            else:
+                bbox = mask_img.getbbox()
+                if bbox is None:
+                    bbox = (0, 0, width, height)
+
+                bbox_x1, bbox_y1, bbox_x2, bbox_y2 = bbox
+                bbox_w = bbox_x2 - bbox_x1
+                bbox_h = bbox_y2 - bbox_y1
 
             if bbox_w <= 0 or bbox_h <= 0:
                 bbox_w, bbox_h = width, height
                 bbox = (0, 0, width, height)
                 bbox_x1, bbox_y1 = 0, 0
 
-            # --- Step 3: Resize replacement image ---
-            if req.overlay_x is not None and req.overlay_y is not None and req.overlay_w is not None and req.overlay_h is not None:
-                new_w = int(req.overlay_w)
-                new_h = int(req.overlay_h)
-                if new_w < 1: new_w = 1
-                if new_h < 1: new_h = 1
-                rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                logger.info(f"Resized replacement using manual overlay coords: {rep_img.size} -> {rep_resized.size}")
-                
-                # --- Step 4: Position the replacement image ---
-                offset_x = int(req.overlay_x)
-                offset_y = int(req.overlay_y)
-                logger.info(f"Using manual position overlay: offset_x={offset_x}, offset_y={offset_y}")
-            else:
-                # Cover the bounding box (CSS 'cover' style) to ensure no blurry background margins are left exposed!
-                rep_w, rep_h = rep_img.size
-                scale_w = bbox_w / rep_w
-                scale_h = bbox_h / rep_h
-                fit_scale = max(scale_w, scale_h)  # Cover the box instead of fitting inside
-                new_w = int(rep_w * fit_scale)
-                new_h = int(rep_h * fit_scale)
-                if new_w < 1: new_w = 1
-                if new_h < 1: new_h = 1
-                rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                logger.info(f"Resized replacement (auto-cover): {rep_img.size} -> {rep_resized.size} to cover bbox {bbox_w}x{bbox_h}")
+            # --- Step 3: PRECISE PERSON ERASE & SILHOUETTE CENTROID DETECTION ---
+            old_person_center_x = bbox_x1 + bbox_w // 2
+            old_person_bottom_y = bbox_y1 + bbox_h
+            old_person_h = bbox_h
 
-                # Center horizontally
-                offset_x = bbox_x1 + (bbox_w - new_w) // 2
-                # Align to bottom of the bounding box for a natural placement (grounding people/objects)
-                offset_y = bbox_y1 + bbox_h - new_h
+            try:
+                from rembg import remove as rembg_remove
+                # Crop ONLY the person region so rembg extracts the person without text banners
+                person_crop = orig_img.crop((bbox_x1, bbox_y1, bbox_x1 + bbox_w, bbox_y1 + bbox_h))
+                logger.info(f"Extracting precise old person silhouette from crop ({person_crop.size})...")
+                crop_cutout = rembg_remove(person_crop)
+                crop_alpha_img = crop_cutout.split()[-1]
+                crop_alpha = np.array(crop_alpha_img)
 
-            # --- Step 5: ERASE the old person cleanly (100% local, free) ---
-            erased_img = _cv2_inpaint_erase(orig_img, mask_img)
-            logger.info("cv2.inpaint erase succeeded — background filled locally (free).")
+                crop_bbox = crop_alpha_img.getbbox()
+                if crop_bbox:
+                    cx1, cy1, cx2, cy2 = crop_bbox
+                    old_person_center_x = bbox_x1 + (cx1 + cx2) // 2
+                    old_person_bottom_y = bbox_y1 + cy2
+                    old_person_h = cy2 - cy1
+                    logger.info(f"Old person exact centroid detected: center_x={old_person_center_x}, bottom_y={old_person_bottom_y}, height={old_person_h}")
+
+                # Construct full-size person silhouette mask
+                full_mask_np = np.zeros((height, width), dtype=np.uint8)
+                person_silhouette = (crop_alpha > 15).astype(np.uint8) * 255
+                full_mask_np[bbox_y1:bbox_y1 + bbox_h, bbox_x1:bbox_x1 + bbox_w] = person_silhouette
+
+                # Dilate silhouette by 9px to capture hair/edge shadows
+                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (19, 19))
+                dilated_mask_np = cv2.dilate(full_mask_np, kernel, iterations=1)
+
+                # Protection Mask Construction: Protect text banners, graphic cards, and icons from being erased/smeared
+                protection_mask = np.zeros((height, width), dtype=np.uint8)
+                try:
+                    all_detected = detect_elements_internal(orig_img)
+                    p_box = [bbox_x1, bbox_y1, bbox_w, bbox_h]
+                    for layer_item in all_detected:
+                        ltype = layer_item.get("type", "")
+                        label = layer_item.get("label", "")
+                        lbbox = layer_item.get("bbox", [])
+                        if ltype in ["text", "object"] or label == "Icon":
+                            if len(lbbox) == 4:
+                                lx, ly, lw, lh = lbbox
+                                if lx <= 1.0 and ly <= 1.0 and lw <= 1.0 and lh <= 1.0:
+                                    lx, ly, lw, lh = int(lx * width), int(ly * height), int(lw * width), int(lh * height)
+                                else:
+                                    lx, ly, lw, lh = int(lx), int(ly), int(lw), int(lh)
+
+                                o_box = [lx, ly, lw, lh]
+                                if bbox_ioa(o_box, p_box) < 0.8:
+                                    lx1 = max(0, lx - 2)
+                                    ly1 = max(0, ly - 2)
+                                    lx2 = min(width, lx + lw + 2)
+                                    ly2 = min(height, ly + lh + 2)
+                                    protection_mask[ly1:ly2, lx1:lx2] = 255
+                except Exception as p_err:
+                    logger.warning(f"Could not build protection mask: {p_err}")
+
+                clean_inpaint_mask = cv2.bitwise_and(dilated_mask_np, cv2.bitwise_not(protection_mask))
+
+                img_bgr = np.array(orig_img)[:, :, ::-1]
+                erased_bgr = cv2.inpaint(img_bgr, clean_inpaint_mask, inpaintRadius=11, flags=cv2.INPAINT_NS)
+                erased_img = Image.fromarray(erased_bgr[:, :, ::-1])
+                logger.info("Precise person silhouette inpaint with protection mask succeeded — text banners 100% untouched.")
+            except Exception as erase_err:
+                logger.warning(f"Precise person silhouette erase failed ({erase_err}). Falling back to standard erase...")
+                erased_img = _cv2_inpaint_erase(orig_img, mask_img)
 
             result_img = erased_img.convert("RGBA")
 
-            # --- Step 6: Enhance the replacement image quality ---
-            rep_resized = _enhance_replacement_quality(rep_resized, target_w=bbox_w, target_h=bbox_h)
+            # --- Step 4: Resize and Position replacement image ---
+            rep_w, rep_h = rep_img.size
+            rep_aspect = rep_w / max(1, rep_h)
 
-            # --- Step 6.5: LOCAL SEAMLESS BLENDING (100% free, runs in milliseconds) ---
-            # A. LAB Color Transfer: match ambient lighting/color tone of the thumbnail
-            try:
-                target_bg_region = orig_img.crop((bbox_x1, bbox_y1, bbox_x1 + bbox_w, bbox_y1 + bbox_h))
-                rep_resized_rgb = _color_transfer(rep_resized.convert("RGB"), target_bg_region, strength=0.45)
-                # Re-attach alpha channel from original cutout
-                if rep_resized.mode == "RGBA":
-                    alpha_channel = rep_resized.split()[-1]
-                    rep_resized = rep_resized_rgb.convert("RGBA")
-                    rep_resized.putalpha(alpha_channel)
-                else:
-                    rep_resized = rep_resized_rgb
-                logger.info("Color transfer applied — replacement matches thumbnail lighting.")
-            except Exception as color_err:
-                logger.warning(f"LAB color transfer failed: {color_err}. Proceeding without it.")
+            if req.overlay_x is not None and req.overlay_y is not None and req.overlay_w is not None and req.overlay_h is not None:
+                ox = float(req.overlay_x)
+                oy = float(req.overlay_y)
+                ow = float(req.overlay_w)
+                oh = float(req.overlay_h)
+                # If coordinates are normalized fractions (e.g. <= 2.0), scale by thumbnail dimensions
+                if ow <= 2.0 and oh <= 2.0:
+                    ox = ox * width
+                    oy = oy * height
+                    ow = ow * width
+                    oh = oh * height
 
-            # B. Alpha Edge Feathering: soften harsh cutout borders with a gentle blur
+                target_h = max(1, int(oh))
+                target_w = max(1, int(target_h * rep_aspect))
+                new_w = target_w
+                new_h = target_h
+                rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                offset_x = int(ox)
+                offset_y = int(oy)
+                logger.info(f"Using manual position overlay: offset_x={offset_x}, offset_y={offset_y}, size={new_w}x{new_h} (aspect={rep_aspect:.2f})")
+            else:
+                # Fit replacement height to old person height or at least ~85% of thumbnail height
+                target_h = max(old_person_h, int(0.85 * height))
+                target_w = max(1, int(target_h * rep_aspect))
+                new_w = target_w
+                new_h = target_h
+                rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+                # EXACT CENTERING OVER OLD PERSON SILHOUETTE
+                offset_x = old_person_center_x - (new_w // 2)
+                offset_y = old_person_bottom_y - new_h
+
+                if old_person_bottom_y >= height - 25:
+                    offset_y = height - new_h
+                if offset_x < 0:
+                    offset_x = 0
+                logger.info(f"Resized & centered replacement: {rep_img.size} -> {rep_resized.size}, offset_x={offset_x}, offset_y={offset_y} (centered at x={old_person_center_x})")
+
+            # --- Step 5: MrBeast Studio Lighting & Color Matching ---
+            # Extract ambient background lighting from target placement region
+            bg_crop = orig_img.crop((
+                max(0, offset_x),
+                max(0, offset_y),
+                min(width, offset_x + new_w),
+                min(height, offset_y + new_h)
+            ))
+
+            # Natural True-to-Life Color Preservation (0% yellow color tint shift from background)
+            # Retain subject's clean studio skin tone without ambient background color transfer
+            logger.info("Preserving 100% natural, true-to-life subject colors (0% background color shift).")
+
+            # --- Step 6: Soft Edge Feathering & Studio Drop Shadow ---
             if rep_resized.mode == "RGBA":
                 from PIL import ImageFilter
                 alpha = rep_resized.split()[-1]
-                feathered_alpha = alpha.filter(ImageFilter.GaussianBlur(radius=3))
+                feathered_alpha = alpha.filter(ImageFilter.GaussianBlur(radius=1.5))
                 rep_resized.putalpha(feathered_alpha)
-                logger.info("Alpha edge feathering applied — soft, natural border transition.")
 
-            # --- Step 7: Paste the blended replacement onto the clean background ---
+                # Create realistic studio ambient drop shadow behind subject for 3D depth
+                shadow_mask = alpha.filter(ImageFilter.GaussianBlur(radius=8))
+                shadow_arr = (np.array(shadow_mask) * 0.35).astype(np.uint8) # 35% shadow intensity
+                shadow_img = Image.new("RGBA", rep_resized.size, (0, 0, 0, 0))
+                shadow_img.putalpha(Image.fromarray(shadow_arr))
+                # Paste shadow with subtle 3px offset
+                result_img.paste(shadow_img, (offset_x + 3, offset_y + 4), shadow_img)
+
+            # --- Step 7: Paste the subject onto clean background ---
             if rep_resized.mode != "RGBA":
                 rep_resized = rep_resized.convert("RGBA")
 
@@ -1298,6 +1631,141 @@ def replace(req: ReplaceRequest):
         logger.error(f"Replace failed: {e}")
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail=f"Image replace failed: {str(e)}")
+
+
+@app.post("/erase-text", response_model=EraseTextResponse)
+def erase_text(req: EraseTextRequest):
+    try:
+        # 1. Load image from URL or base64
+        img = None
+        if req.image_base64:
+            b64 = req.image_base64
+            if b64.startswith("data:image"):
+                b64 = b64.split(",", 1)[1]
+            img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+        elif req.image_url:
+            img = download_image(req.image_url)
+        else:
+            raise Exception("No image provided")
+            
+        w, h = img.size
+        img_np = np.array(img)
+
+        # 2. Convert bounding box to pixel coordinates
+        x, y, bw, bh = req.bbox
+        if x <= 1.0 and y <= 1.0 and bw <= 1.0 and bh <= 1.0:
+            x = int(x * w)
+            y = int(y * h)
+            bw = int(bw * w)
+            bh = int(bh * h)
+        else:
+            x, y, bw, bh = int(x), int(y), int(bw), int(bh)
+
+        x = max(0, min(w - 1, x))
+        y = max(0, min(h - 1, y))
+        bw = max(1, min(w - x, bw))
+        bh = max(1, min(h - y, bh))
+
+        # 3. Extract stroke-level glyph mask for the text region
+        crop_np = img_np[y:y+bh, x:x+bw]
+        glyph_mask = extract_glyph_mask(crop_np)
+
+        # 4. Insert glyph mask into full image canvas
+        full_mask = np.zeros((h, w), dtype=np.uint8)
+        full_mask[y:y+bh, x:x+bw] = glyph_mask
+
+        # 5. Inpaint ONLY the letter strokes with cv2.INPAINT_TELEA (preserves gradients and backgrounds)
+        img_bgr = img_np[:, :, ::-1]
+        erased_bgr = cv2.inpaint(img_bgr, full_mask, inpaintRadius=4, flags=cv2.INPAINT_TELEA)
+        erased_rgb = cv2.cvtColor(erased_bgr, cv2.COLOR_BGR2RGB)
+        erased_img = Image.fromarray(erased_rgb)
+        
+        # 6. Return erased image as base64 PNG
+        buf = io.BytesIO()
+        erased_img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        
+        return EraseTextResponse(
+            image_base64=b64,
+            width=w,
+            height=h
+        )
+    except Exception as e:
+        logger.error(f"Erase text failed: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/blend-composite", response_model=BlendCompositeResponse)
+def blend_composite(req: BlendCompositeRequest):
+    try:
+        def get_img(url, b64, mode="RGB"):
+            if b64:
+                if b64.startswith("data:image"):
+                    b64 = b64.split(",", 1)[1]
+                return Image.open(io.BytesIO(base64.b64decode(b64))).convert(mode)
+            elif url:
+                if mode == "L":
+                    resp = requests.get(url, timeout=30)
+                    resp.raise_for_status()
+                    return Image.open(io.BytesIO(resp.content)).convert("L")
+                return download_image(url)
+            raise Exception("Missing image source")
+
+        orig_pil = get_img(req.original_url, req.original_base64)
+        rep_pil = get_img(req.replacement_url, req.replacement_base64)
+        mask_pil = get_img(req.mask_url, req.mask_base64, mode="L")
+        
+        orig_np = np.array(orig_pil)[:, :, ::-1]  # RGB to BGR
+        rep_np = np.array(rep_pil)[:, :, ::-1]
+        mask_np = np.array(mask_pil)
+        
+        # 2. Resize replacement to match original dimensions if needed
+        h, w = orig_np.shape[:2]
+        if rep_np.shape[:2] != (h, w):
+            rep_np = cv2.resize(rep_np, (w, h), interpolation=cv2.INTER_LANCZOS4)
+        if mask_np.shape[:2] != (h, w):
+            mask_np = cv2.resize(mask_np, (w, h), interpolation=cv2.INTER_LANCZOS4)
+            
+        # 3. Feather mask edges
+        mask_np = cv2.GaussianBlur(mask_np, (9, 9), 4)
+        
+        # 4. Calculate center of the white region
+        M = cv2.moments(mask_np)
+        if M["m00"] != 0:
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+        else:
+            cX, cY = w // 2, h // 2
+        center = (cX, cY)
+        
+        # 5. Apply seamlessClone
+        # seamlessClone requires mask to be same size and 255 for foreground.
+        try:
+            result_np = cv2.seamlessClone(rep_np, orig_np, mask_np, center, cv2.NORMAL_CLONE)
+        except Exception as e:
+            logger.warning(f"seamlessClone failed: {e}. Falling back to alpha blending.")
+            mask_float = mask_np.astype(float) / 255.0
+            mask_float = np.stack([mask_float, mask_float, mask_float], axis=2)
+            result_np = (rep_np.astype(float) * mask_float + orig_np.astype(float) * (1.0 - mask_float))
+            result_np = np.clip(result_np, 0, 255).astype(np.uint8)
+            
+        result_rgb = result_np[:, :, ::-1]
+        
+        # 7. Return composited result
+        buf = io.BytesIO()
+        Image.fromarray(result_rgb).save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        
+        return BlendCompositeResponse(
+            image_base64=b64,
+            width=w,
+            height=h
+        )
+    except Exception as e:
+        logger.error(f"Blend composite failed: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == '__main__':

@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSmartEditor, Layer } from '@/hooks/useSmartEditor';
-import { Sparkles, UploadCloud, Layers, Eye, EyeOff, Lock, LockOpen, CheckCircle2, RotateCcw, Download, CopyX, Search, Image as ImageIcon, Type, Sparkle, User, LayoutGrid, X, ArrowLeft, HelpCircle, Youtube, FolderOpen, ChevronUp, ChevronDown, Twitter } from 'lucide-react';
+import { Sparkles, UploadCloud, Layers, Eye, EyeOff, Lock, LockOpen, CheckCircle2, RotateCcw, Download, Copy, CopyX, Search, Image as ImageIcon, Type, Sparkle, User, LayoutGrid, X, ArrowLeft, HelpCircle, Youtube, FolderOpen, ChevronUp, ChevronDown, Twitter, Plus, Trash2, Palette, Wand2, SlidersHorizontal, Bold, MousePointerClick, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePlanAccess } from '@/hooks/usePlanAccess';
 import { useCredits, useThumbnails } from '@/hooks/useSupabaseData';
-import { EditorCanvas } from '@/components/SmartEditor/EditorCanvas';
+import { EditorCanvas, TextOverlay } from '@/components/SmartEditor/EditorCanvas';
+import { TEXT_PRESET_COLORS } from '@/utils/editorConstants';
 import { HistoryStrip } from '@/components/SmartEditor/HistoryStrip';
 import { CreditsBadge } from '@/components/CreditsBadge';
 import { FeatureTour } from '@/components/SmartEditor/FeatureTour';
@@ -18,6 +20,7 @@ import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle } from '@/components/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { hapticFeedback } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { loadThumbnailFonts } from '@/utils/fontMatcher';
 
 const BACKGROUND_STYLES = [
   { id: 'city_night', label: '🌃 City Night', desc: 'Dark city skyline at night with lights' },
@@ -32,6 +35,23 @@ const BACKGROUND_STYLES = [
   { id: 'space', label: '🚀 Space', desc: 'Vast cosmos with stars' },
   { id: 'gradient', label: '🎭 Gradient', desc: 'Smooth purple to pink gradient' },
   { id: 'black', label: '⬛ Pure Black', desc: 'Solid black background' },
+];
+
+const AVAILABLE_FONTS = [
+  { id: 'Impact, Arial Black, sans-serif', label: 'Impact (Classic)' },
+  { id: 'Luckiest Guy, cursive', label: 'Luckiest Guy (MrBeast)' },
+  { id: 'Bebas Neue, sans-serif', label: 'Bebas Neue (Viral)' },
+  { id: 'Anton, sans-serif', label: 'Anton (Heavy Bold)' },
+  { id: 'Bangers, cursive', label: 'Bangers (Comic)' },
+  { id: 'Montserrat, sans-serif', label: 'Montserrat Black' },
+  { id: 'Lilita One, sans-serif', label: 'Lilita One (Rounded)' },
+  { id: 'Oswald, sans-serif', label: 'Oswald (Condensed)' },
+  { id: 'Rubik Mono One, sans-serif', label: 'Rubik Mono (Wide)' },
+  { id: 'Titan One, sans-serif', label: 'Titan One (Fat)' },
+  { id: 'Permanent Marker, cursive', label: 'Permanent Marker' },
+  { id: 'Alfa Slab One, serif', label: 'Alfa Slab One' },
+  { id: 'Russo One, sans-serif', label: 'Russo One' },
+  { id: 'Graduate, serif', label: 'Graduate' },
 ];
 
 export default function SmartEditorPage() {
@@ -54,26 +74,188 @@ export default function SmartEditorPage() {
   const [mobileTab, setMobileTab] = useState<'layers' | 'edit'>('layers');
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
 
+  // Canva-Style Interactive Text Overlays State
+  const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([]);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const canvasStageRef = useRef<any>(null);
+
+  // Load Google thumbnail fonts on mount
+  useEffect(() => {
+    loadThumbnailFonts();
+  }, []);
+
+  // Parse text from URL params on mount
+  useEffect(() => {
+    const urlText = searchParams.get('text');
+    if (urlText && textOverlays.length === 0) {
+      const newId = crypto.randomUUID();
+      setTextOverlays([{
+        id: newId,
+        text: urlText,
+        x: 640, // centered horizontally on 1280 canvas
+        y: 540, // lower third of 720 canvas
+        fontSize: 72,
+        colorPreset: 'yellow',
+        fontFamily: 'Impact, Arial Black, sans-serif',
+      }]);
+      setSelectedTextId(newId);
+    }
+  }, [searchParams]);
+
+  // High-Resolution 2K/4K Canvas Export
+  const downloadWithTextOverlays = () => {
+    const stage = canvasStageRef.current;
+    if (stage) {
+      // Export at pixelRatio 2.5 for crystal-clear broadcast 1920x1080/2K quality
+      const dataURL = stage.toDataURL({ pixelRatio: 2.5 });
+      const a = document.createElement('a');
+      a.href = dataURL;
+      a.download = `Thumbly-CanvaEdit-${Date.now()}.png`;
+      a.click();
+      toast.success('High-resolution thumbnail downloaded!');
+    } else {
+      editor.downloadFinal();
+    }
+  };
+
+  const handleAddTextOverlay = (presetText = 'NEW TEXT', presetFont = 'Impact, Arial Black, sans-serif') => {
+    const newId = crypto.randomUUID();
+    const newOverlay: TextOverlay = {
+      id: newId,
+      text: presetText,
+      x: 340 + Math.random() * 200,
+      y: 260 + Math.random() * 150,
+      fontSize: 72,
+      colorPreset: 'yellow',
+      fontFamily: presetFont,
+      isBold: true,
+      shadowBlur: 8,
+      shadowOffsetX: 3,
+      shadowOffsetY: 3,
+    };
+    setTextOverlays(prev => [...prev, newOverlay]);
+    setSelectedTextId(newId);
+    toast.success('Text element added to canvas');
+  };
+
+  const handleDuplicateTextOverlay = (id: string) => {
+    const target = textOverlays.find(t => t.id === id);
+    if (!target) return;
+    const newId = crypto.randomUUID();
+    const duplicate: TextOverlay = {
+      ...target,
+      id: newId,
+      x: Math.min(1100, target.x + 30),
+      y: Math.min(650, target.y + 30),
+    };
+    setTextOverlays(prev => [...prev, duplicate]);
+    setSelectedTextId(newId);
+    toast.success('Text element duplicated');
+  };
+
+  const handleUpdateTextOverlay = (id: string, updates: Partial<TextOverlay>) => {
+    setTextOverlays(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
+
+  const handleDeleteTextOverlay = (id: string) => {
+    setTextOverlays(prev => prev.filter(t => t.id !== id));
+    if (selectedTextId === id) setSelectedTextId(null);
+  };
+
+  const handleTextOverlayMove = (id: string, x: number, y: number) => {
+    setTextOverlays(prev => prev.map(t => t.id === id ? { ...t, x, y } : t));
+  };
+
+  // One-Click Canva "Grab All Text" (Promotes OCR text layers into live vector canvas text)
+  const handleGrabAllText = () => {
+    const textLayers = editor.layers.filter(l => l.type === 'text');
+    if (textLayers.length === 0) {
+      toast.info('No text detected in this thumbnail to grab.');
+      return;
+    }
+
+    const newOverlays: TextOverlay[] = [];
+    textLayers.forEach(l => {
+      const detectedText = l.originalContent || l.label || 'TEXT';
+      const bbox = l.boundingBox || { x: 0.2, y: 0.3, w: 0.4, h: 0.1 };
+      
+      // Convert normalized [0..1] bbox to 1280x720 canvas coordinates
+      const canvasX = Math.round((bbox.x <= 1.0 ? bbox.x * 1280 : bbox.x));
+      const canvasY = Math.round((bbox.y <= 1.0 ? bbox.y * 720 : bbox.y));
+      const canvasH = (bbox.h <= 1.0 ? bbox.h * 720 : bbox.h);
+      const approxFontSize = Math.max(24, Math.min(130, Math.round(canvasH * 0.85)));
+
+      newOverlays.push({
+        id: crypto.randomUUID(),
+        text: detectedText,
+        x: canvasX,
+        y: canvasY,
+        fontSize: approxFontSize,
+        colorPreset: 'custom',
+        textColor: l.textColor || '#FFFFFF',
+        fontFamily: l.fontFamily || 'Impact, Arial Black, sans-serif',
+        isBold: true,
+        strokeColor: l.hasStroke ? '#000000' : undefined,
+        strokeWidth: l.hasStroke ? Math.max(2, approxFontSize * 0.08) : 0,
+        shadowBlur: 8,
+        shadowOffsetX: 3,
+        shadowOffsetY: 3,
+      });
+    });
+
+    setTextOverlays(prev => [...prev, ...newOverlays]);
+    if (newOverlays.length > 0) {
+      setSelectedTextId(newOverlays[0].id);
+    }
+    toast.success(`✨ Grabbed ${newOverlays.length} text element(s) into editable canvas text!`);
+  };
+
   const [personUploadUrl, setPersonUploadUrl] = useState<string | null>(null);
   const [personUploadPreview, setPersonUploadPreview] = useState<string | null>(null);
   const [isUploadingPerson, setIsUploadingPerson] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [overlayCoords, setOverlayCoords] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [personSwapMode, setPersonSwapMode] = useState<'full_person' | 'face_only'>('full_person');
+
+  // Auto-switch person swap mode based on layer type
+  useEffect(() => {
+    const selected = editor.layers.find(l => l.id === editor.selectedLayerId);
+    if (selected?.type === 'face') {
+      setPersonSwapMode('face_only');
+    } else if (selected?.type === 'person') {
+      setPersonSwapMode('full_person');
+    }
+  }, [editor.selectedLayerId, editor.layers]);
 
   // Initialize/Reset overlay coordinates while preserving original aspect ratio of uploaded photo
   useEffect(() => {
     const selected = editor.layers.find(l => l.id === editor.selectedLayerId);
-    if (selected && selected.type === 'person' && personUploadPreview && selected.boundingBox) {
+    if (selected && (selected.type === 'person' || selected.type === 'face') && personUploadPreview && selected.boundingBox) {
       const img = new window.Image();
       img.onload = () => {
-        const aspectRatio = img.width / img.height;
-        // Keep the height of the original bounding box, scale width proportionally
-        const targetH = selected.boundingBox!.h;
-        const targetW = targetH * aspectRatio;
-        
-        // Center the proportional width horizontally over the original bounding box
-        const targetX = selected.boundingBox!.x + (selected.boundingBox!.w - targetW) / 2;
-        const targetY = selected.boundingBox!.y;
+        const bbox = selected.boundingBox!;
+        // Bounding box coords in 0..1280, 0..720 space
+        const bboxX = bbox.x <= 1 ? bbox.x * 1280 : bbox.x;
+        const bboxY = bbox.y <= 1 ? bbox.y * 720 : bbox.y;
+        const bboxW = bbox.w <= 1 ? bbox.w * 1280 : bbox.w;
+        const bboxH = bbox.h <= 1 ? bbox.h * 720 : bbox.h;
+
+        const imgAspect = img.width / Math.max(1, img.height);
+        // Height matches original person height or at least 85% of canvas height (612px)
+        const targetH = Math.max(bboxH, 500);
+        const targetW = Math.round(targetH * imgAspect);
+
+        // Align bottom-center of uploaded person cutout with bottom-center of target bounding box
+        const centerX = bboxX + bboxW / 2;
+        const bottomY = bboxY + bboxH;
+
+        let targetX = Math.round(centerX - targetW / 2);
+        let targetY = Math.round(bottomY - targetH);
+
+        // Ensure targetY aligns with bottom of canvas if person is grounded
+        if (bottomY >= 680) {
+          targetY = 720 - targetH;
+        }
 
         setOverlayCoords({
           x: targetX,
@@ -95,15 +277,11 @@ export default function SmartEditorPage() {
       setPersonUploadPreview(null);
     }
     const selected = editor.layers.find(l => l.id === editor.selectedLayerId);
-    if (selected?.type === 'person') {
+    if (selected?.type === 'person' || selected?.type === 'object' || selected?.type === 'face') {
       setActiveTab('upload');
       setReplaceInstruction('');
     } else if (selected?.type === 'background') {
       setActiveTab('pick');
-      setReplaceInstruction('');
-    } else if (selected?.type === 'text') {
-      setReplaceInstruction(selected.originalContent || '');
-    } else {
       setReplaceInstruction('');
     }
   }, [editor.selectedLayerId]);
@@ -244,24 +422,70 @@ export default function SmartEditorPage() {
         });
     };
 
-    // Load from URL params on mount
+  const [showAllBoxes, setShowAllBoxes] = useState(false);
+  const prevIsDetectingRef = useRef(false);
+
+  // When AI detection finishes scanning, light up ALL element boxes first!
+  useEffect(() => {
+    if (prevIsDetectingRef.current && !editor.isDetecting && editor.layers.length > 0) {
+      setShowAllBoxes(true);
+      editor.selectLayer(null as any);
+    }
+    prevIsDetectingRef.current = editor.isDetecting;
+  }, [editor.isDetecting, editor.layers]);
+
+  const handleStartFresh = () => {
+    editor.reset();
+    setTextOverlays([]);
+    setSelectedTextId(null);
+    setInputUrl('');
+    setPersonUploadUrl(null);
+    if (personUploadPreview) {
+      URL.revokeObjectURL(personUploadPreview);
+      setPersonUploadPreview(null);
+    }
+    setShowAllBoxes(false);
+    navigate('/smart-editor', { replace: true });
+    toast.success('Started a fresh editing session!');
+  };
+
+  const handleLayerClick = (layerId: string) => {
+    setShowAllBoxes(false);
+    if (!layerId) {
+      editor.selectLayer(null as any);
+      setSelectedTextId(null);
+    } else {
+      editor.selectLayer(layerId);
+      setSelectedTextId(null);
+    }
+  };
+
+  // Load from URL params on mount or reset when tab is refreshed
   useEffect(() => {
     const thumbId = searchParams.get('thumbnail_id');
     const imgUrl = searchParams.get('image_url');
     if (thumbId && !editor.sessionId) {
       if (imgUrl) {
-                      editor.initSession(imgUrl, 'from_thumbnail', thumbId).then((sessionId) => {
-                          if (!sessionId) return;
-                          runDetectWithWorker(sessionId, imgUrl);
-                      });
+        editor.initSession(imgUrl, 'from_thumbnail', thumbId).then((sessionId) => {
+          if (!sessionId) return;
+          runDetectWithWorker(sessionId, imgUrl);
+          navigate('/smart-editor', { replace: true });
+        });
       }
     } else if (imgUrl && !editor.sessionId) {
-                  editor.initSession(imgUrl, 'from_url').then((sessionId) => {
-                      if (!sessionId) return;
-                      runDetectWithWorker(sessionId, imgUrl);
-                  });
+      editor.initSession(imgUrl, 'from_url').then((sessionId) => {
+        if (!sessionId) return;
+        runDetectWithWorker(sessionId, imgUrl);
+        navigate('/smart-editor', { replace: true });
+      });
+    } else if (!imgUrl && !thumbId) {
+      // Clear previous in-memory session when browser tab is refreshed
+      editor.reset();
+      setTextOverlays([]);
+      setSelectedTextId(null);
+      setShowAllBoxes(false);
     }
-  }, [searchParams]);
+  }, []);
 
   const handleUrlLoad = async () => {
     if (!inputUrl) return;
@@ -276,7 +500,20 @@ export default function SmartEditorPage() {
     }
   };
 
+  const [textFontFamily, setTextFontFamily] = useState('Impact, Arial Black, sans-serif');
+  const [textFillColor, setTextFillColor] = useState('#FFFFFF');
+  const [textHasStroke, setTextHasStroke] = useState(true);
+
   const selectedLayer = editor.layers.find(l => l.id === editor.selectedLayerId);
+
+  useEffect(() => {
+    if (selectedLayer && selectedLayer.type === 'text') {
+      setReplaceInstruction(selectedLayer.replacementText || selectedLayer.originalContent || '');
+      setTextFillColor(selectedLayer.textColor || '#FFFFFF');
+      if (selectedLayer.fontFamily) setTextFontFamily(selectedLayer.fontFamily);
+      if (selectedLayer.hasStroke !== undefined) setTextHasStroke(selectedLayer.hasStroke);
+    }
+  }, [selectedLayer?.id, selectedLayer?.textColor, selectedLayer?.fontFamily, selectedLayer?.replacementText]);
 
     return (
         <div className="flex flex-col min-h-screen-d overflow-x-hidden bg-background">
@@ -308,6 +545,20 @@ export default function SmartEditorPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
+              {/* Refresh / Start Fresh Button */}
+              {editor.sessionId && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleStartFresh}
+                  className="flex items-center gap-1.5 text-xs font-semibold hover:bg-muted border-border"
+                  title="Start a new thumbnail session"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-[#8B47FF]" />
+                  <span className="hidden sm:inline">Start Fresh</span>
+                </Button>
+              )}
+
               {/* STEP 8: CREDIT DEDUCTION CHIP */}
               <CreditsBadge balance={currentCredits} />
 
@@ -447,68 +698,126 @@ export default function SmartEditorPage() {
         {/* -------------------- CENTER COLUMN: CANVAS -------------------- */}
         <div id="tour-canvas" className="flex-1 flex flex-col relative bg-muted/10 h-full min-w-0 pb-16 lg:pb-0 min-h-0">
           
-          {/* Top Controls */}
+          {/* Clean, Professional Top Action Bar */}
           {editor.currentImageUrl && (
             <div className="h-12 lg:h-14 border-b border-border bg-background/50 backdrop-blur-sm flex items-center justify-between px-3 lg:px-4 shrink-0 transition-all z-10 gap-2">
-                <div className="flex items-center bg-muted p-0.5 rounded-full text-[10px] lg:text-xs">
-                    <span className="px-2 lg:px-3 py-1 rounded-full bg-background shadow-sm text-foreground font-medium">
-                        ✨ Smart Editor
-                    </span>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full bg-muted/80 text-[11px] font-medium text-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3 text-[#8B47FF]" />
+                  {editor.layers.length > 0 ? `${editor.layers.length} Elements Detected` : 'Smart Editor'}
+                </span>
+              </div>
 
-                <div className="flex items-center gap-1 lg:gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => runDetectWithWorker(editor.sessionId || undefined, editor.currentImageUrl || undefined, true)}
-                        disabled={editor.isDetecting || !editor.currentImageUrl}
-                        title="Scan layers"
-                    >
-                        <Search className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editor.undoLastEdit()} disabled={editor.editHistory.length <= 1}>
-                        <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editor.downloadFinal()}>
-                        <Download className="h-3.5 w-3.5" />
-                    </Button>
-                </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs font-semibold border-[#8B47FF]/30 text-[#8B47FF] hover:bg-[#8B47FF]/10 gap-1.5"
+                  onClick={handleGrabAllText}
+                  title="Make all detected thumbnail text editable like Canva"
+                >
+                  <Wand2 className="h-3.5 w-3.5" /> Grab Text
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs font-semibold gap-1.5"
+                  onClick={() => handleAddTextOverlay()}
+                  title="Add new text overlay"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Text
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => runDetectWithWorker(editor.sessionId || undefined, editor.currentImageUrl || undefined, true)}
+                  disabled={editor.isDetecting || !editor.currentImageUrl}
+                  title="Rescan layers"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => editor.undoLastEdit()}
+                  disabled={editor.editHistory.length <= 1}
+                  title="Undo last edit"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs font-semibold bg-[#8B47FF] hover:bg-[#7236d6] text-white shadow-sm gap-1.5"
+                  onClick={downloadWithTextOverlays}
+                  title="Download High-Resolution Thumbnail"
+                >
+                  <Download className="h-3.5 w-3.5" /> Download HD
+                </Button>
+              </div>
             </div>
           )}
 
-                    {/* Canvas Area */}
-                    <div className="flex-1 relative flex items-center justify-center px-3 sm:px-4 lg:px-6 py-3 lg:py-4 min-h-0">
-                            {editor.isDetecting && (
-                                <div className="absolute inset-0 z-30 bg-white/50 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-                                    <div className="h-10 w-10 border-4 border-[#8B47FF] border-t-transparent rounded-full animate-spin" />
-                                    <p className="text-xs font-medium text-[#8B47FF]">Scanning for layers...</p>
-                                </div>
-                            )}
+          {/* Canvas Area */}
+          <div className="flex-1 relative flex items-center justify-center px-3 sm:px-4 lg:px-6 py-3 lg:py-4 min-h-0">
+            {editor.isDetecting && (
+              <div className="absolute inset-0 z-30 bg-white/50 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+                <div className="h-10 w-10 border-4 border-[#8B47FF] border-t-transparent rounded-full animate-spin" />
+                <p className="text-xs font-medium text-[#8B47FF]">Detecting elements...</p>
+              </div>
+            )}
               
-              {editor.currentImageUrl ? (
-                  <>
-                      {/* Locking UI for non-premium users */}
-                      {isLockedPlan && (
-                          <div className="absolute inset-0 z-50 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 pointer-events-auto">
-                              <Lock className="h-12 w-12 text-[#8B47FF] mb-4" />
-                              <h3 className="font-bold text-lg mb-2">This feature requires Basic plan or higher</h3>
-                              <p className="text-sm text-muted-foreground mb-4">Upgrade to unlock full Smart Editor access — from $10/month</p>
-                              <Button className="bg-[#8B47FF] hover:bg-[#7236d6]" onClick={() => navigate('/pricing')}>Upgrade Now</Button>
-                          </div>
-                      )}
+            {editor.currentImageUrl ? (
+              <>
+                {/* Locking UI for non-premium users */}
+                {isLockedPlan && (
+                  <div className="absolute inset-0 z-50 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 pointer-events-auto">
+                    <Lock className="h-12 w-12 text-[#8B47FF] mb-4" />
+                    <h3 className="font-bold text-lg mb-2">This feature requires Basic plan or higher</h3>
+                    <p className="text-sm text-muted-foreground mb-4">Upgrade to unlock full Smart Editor access — from $10/month</p>
+                    <Button className="bg-[#8B47FF] hover:bg-[#7236d6]" onClick={() => navigate('/pricing')}>Upgrade Now</Button>
+                  </div>
+                )}
 
-                      <EditorCanvas 
-                          currentImageUrl={editor.currentImageUrl}
-                          originalImageUrl={editor.originalImageUrl || editor.currentImageUrl}
-                          layers={editor.layers}
-                          selectedLayerId={editor.selectedLayerId}
-                          onLayerClick={editor.selectLayer}
-                          isReplacing={editor.isReplacing}
-                          isDetecting={editor.isDetecting}
-                      />
-                  </>
-              ) : (
+                <EditorCanvas 
+                  currentImageUrl={editor.currentImageUrl}
+                  originalImageUrl={editor.originalImageUrl || editor.currentImageUrl}
+                  layers={editor.layers}
+                  selectedLayerId={editor.selectedLayerId}
+                  onLayerClick={handleLayerClick}
+                  isReplacing={editor.isReplacing}
+                  isDetecting={editor.isDetecting}
+                  showAllBoxes={showAllBoxes}
+                  textOverlays={textOverlays}
+                  selectedTextId={selectedTextId}
+                  personOverlay={
+                    personUploadPreview && overlayCoords
+                      ? {
+                          previewUrl: personUploadPreview,
+                          coords: overlayCoords,
+                          onMove: (newCoords) => setOverlayCoords(newCoords),
+                        }
+                      : null
+                  }
+                  onSelectText={setSelectedTextId}
+                  onTextOverlayMove={handleTextOverlayMove}
+                  onUpdateTextOverlay={handleUpdateTextOverlay}
+                  onDeleteTextOverlay={handleDeleteTextOverlay}
+                  onUpdateLayerText={async (layerId, text) => {
+                    setReplaceInstruction(text);
+                    const targetLayer = editor.layers.find(l => l.id === layerId);
+                    await editor.replaceTextVector(layerId, text, {
+                      fontFamily: targetLayer?.fontFamily || textFontFamily,
+                      textColor: targetLayer?.textColor || textFillColor,
+                      hasStroke: targetLayer?.hasStroke !== undefined ? targetLayer.hasStroke : textHasStroke,
+                    });
+                  }}
+                  stageRef={canvasStageRef}
+                />
+              </>
+            ) : (
+
                   /* STEP 5: EMPTY STATE */
                   <div className="flex-1 w-full flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in-95 duration-700">
                       <div className="relative w-64 h-40 mb-8 flex items-center justify-center">
@@ -614,7 +923,7 @@ export default function SmartEditorPage() {
                       <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
                           <h3 className="font-bold flex items-center gap-2">
                               {selectedLayer.type === 'text' && "📝 Edit Text"}
-                              {selectedLayer.type === 'person' && "👤 Replace Person"}
+                              {(selectedLayer.type === 'person' || selectedLayer.type === 'face') && "👤 Replace Person / Face"}
                               {selectedLayer.type === 'background' && "🌆 Replace Background"}
                               {selectedLayer.type === 'object' && `🎭 Replace Object: ${selectedLayer.label}`}
                           </h3>
@@ -644,20 +953,97 @@ export default function SmartEditorPage() {
                                      </button>
                                   </label>
                                   <Textarea 
-                                     className="text-lg font-bold min-h-[100px] border-[#8B47FF]/50 focus-visible:ring-[#8B47FF]" 
+                                     className="text-lg font-bold min-h-[70px] border-[#8B47FF]/50 focus-visible:ring-[#8B47FF]" 
                                      placeholder="Type your new text here..."
                                      value={replaceInstruction}
                                      onChange={e => setReplaceInstruction(e.target.value)}
-                                  />
-                               </div>
-                               <div className="bg-primary/5 p-3 rounded text-xs text-primary font-medium flex items-start gap-2">
+                                   />
+                                </div>
+
+                                {/* Canva-Style Typography Controls */}
+                                <div className="space-y-3 pt-2 border-t border-border/50">
+                                  <div>
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Font Family</label>
+                                    <Select 
+                                      value={textFontFamily} 
+                                      onValueChange={(val) => {
+                                        setTextFontFamily(val);
+                                        if (selectedLayer.isEdited) {
+                                          editor.updateLayer(selectedLayer.id, { fontFamily: val });
+                                        }
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Font" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {AVAILABLE_FONTS.map(f => (
+                                          <SelectItem key={f.id} value={f.id} style={{ fontFamily: f.id }}>
+                                            {f.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div>
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Text Color</label>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {['#FFD600', '#FFFFFF', '#00E5FF', '#FF6D00', '#FF4081', '#00E676', '#FF3333', '#8B47FF'].map(c => (
+                                        <button
+                                          key={c}
+                                          type="button"
+                                          className={`w-7 h-7 rounded-full border-2 transition-transform ${textFillColor === c ? 'scale-110 border-white ring-2 ring-primary shadow-md' : 'border-transparent hover:scale-105'}`}
+                                          style={{ backgroundColor: c }}
+                                          onClick={() => {
+                                            setTextFillColor(c);
+                                            if (selectedLayer.isEdited) {
+                                              editor.updateLayer(selectedLayer.id, { textColor: c });
+                                            }
+                                          }}
+                                        />
+                                      ))}
+                                      <input 
+                                        type="color" 
+                                        value={textFillColor} 
+                                        onChange={e => {
+                                          setTextFillColor(e.target.value);
+                                          if (selectedLayer.isEdited) {
+                                            editor.updateLayer(selectedLayer.id, { textColor: e.target.value });
+                                          }
+                                        }}
+                                        className="w-7 h-7 rounded cursor-pointer border border-border bg-transparent" 
+                                        title="Custom Color"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between pt-1">
+                                    <span className="text-xs font-semibold text-muted-foreground uppercase">High-Contrast Outline</span>
+                                    <button 
+                                      type="button" 
+                                      onClick={() => {
+                                        const nextVal = !textHasStroke;
+                                        setTextHasStroke(nextVal);
+                                        if (selectedLayer.isEdited) {
+                                          editor.updateLayer(selectedLayer.id, { hasStroke: nextVal });
+                                        }
+                                      }}
+                                      className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${textHasStroke ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}
+                                    >
+                                      {textHasStroke ? '✓ Outline On' : 'Outline Off'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="bg-primary/5 p-3 rounded text-xs text-primary font-medium flex items-start gap-2">
                                   <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
                                   <div>Our AI will mathematically extract the exact font family, weight, kerning, color, rotation and shadow drops to perfectly match the original aesthetic.</div>
                                </div>
                              </>
                          )}
 
-                         {selectedLayer.type === 'person' && (
+                          {(selectedLayer.type === 'person' || selectedLayer.type === 'face') && (
                              <>
                                <div className="flex bg-muted rounded p-1 mb-2">
                                   <button className={`flex-1 py-1.5 text-xs font-medium rounded ${activeTab === 'upload' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('upload')}>📸 Upload Photo</button>
@@ -665,7 +1051,28 @@ export default function SmartEditorPage() {
                                </div>
 
                                {activeTab === 'upload' && (
-                                  <div className="space-y-4">
+                                   <div className="space-y-4">
+                                       <div className="flex bg-muted/70 p-1 rounded-lg gap-1 border border-border/60">
+                                          <button
+                                              type="button"
+                                              onClick={() => setPersonSwapMode('full_person')}
+                                              className={`flex-1 py-1.5 px-2 rounded-md font-medium text-xs transition-all flex items-center justify-center gap-1.5 ${personSwapMode === 'full_person' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                          >
+                                              👤 Whole Person
+                                          </button>
+                                          <button
+                                              type="button"
+                                              onClick={() => setPersonSwapMode('face_only')}
+                                              className={`flex-1 py-1.5 px-2 rounded-md font-medium text-xs transition-all flex items-center justify-center gap-1.5 ${personSwapMode === 'face_only' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                          >
+                                              🎭 Face Only
+                                          </button>
+                                       </div>
+                                       <p className="text-[11px] text-muted-foreground">
+                                          {personSwapMode === 'full_person'
+                                              ? '✨ Replaces complete person with your photo in pose. Background is erased and lighting matched.'
+                                              : '✨ Keeps thumbnail person body & pose, swapping only the face with InsightFace.'}
+                                       </p>
                                       <input 
                                           type="file" 
                                           accept="image/*" 
@@ -698,35 +1105,138 @@ export default function SmartEditorPage() {
                                               )}
                                           </label>
                                       ) : (
-                                          <div className="border border-border rounded-xl p-4 bg-muted/30 relative flex flex-col items-center justify-center group">
-                                              <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border border-border bg-black/5">
-                                                  <img src={personUploadPreview} className="w-full h-full object-contain" alt="Upload preview" />
-                                                  {isUploadingPerson && (
-                                                      <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
-                                                          <RotateCcw className="h-8 w-8 text-white animate-spin" />
-                                                      </div>
-                                                  )}
-                                              </div>
-                                              <div className="flex w-full justify-between items-center mt-3">
-                                                  <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[150px]">
-                                                      {personUploadUrl ? "✓ Uploaded to Cloud" : "Uploading..."}
-                                                  </span>
-                                                  <Button 
-                                                      variant="ghost" 
-                                                      size="sm" 
-                                                      className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2"
-                                                      onClick={() => {
-                                                          setPersonUploadUrl(null);
-                                                          if (personUploadPreview) {
-                                                              URL.revokeObjectURL(personUploadPreview);
-                                                              setPersonUploadPreview(null);
-                                                          }
-                                                      }}
-                                                  >
-                                                      <X className="h-3.5 w-3.5 mr-1" /> Remove
-                                                  </Button>
-                                              </div>
-                                          </div>
+                                          <div className="border border-border rounded-xl p-4 bg-muted/30 relative flex flex-col items-center justify-center group space-y-3">
+                                               <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border border-border bg-black/5">
+                                                   <img src={personUploadPreview} className="w-full h-full object-contain" alt="Upload preview" />
+                                                   {isUploadingPerson && (
+                                                       <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                                                           <RotateCcw className="h-8 w-8 text-white animate-spin" />
+                                                       </div>
+                                                   )}
+                                               </div>
+
+                                               {/* Fine-tune Position & Size Controls */}
+                                               {overlayCoords && (
+                                                   <div className="w-full border-t border-border pt-3 space-y-2">
+                                                       <div className="flex items-center justify-between">
+                                                           <span className="text-xs font-semibold text-foreground flex items-center gap-1">
+                                                               🎯 Position & Size Controls
+                                                           </span>
+                                                           <Button
+                                                               variant="ghost"
+                                                               size="sm"
+                                                               className="h-6 text-[10px] text-muted-foreground hover:text-foreground px-1.5"
+                                                               onClick={() => {
+                                                                   const selected = editor.layers.find(l => l.id === editor.selectedLayerId);
+                                                                   if (selected?.boundingBox && personUploadPreview) {
+                                                                       const bbox = selected.boundingBox;
+                                                                       const bx = bbox.x <= 1 ? bbox.x * 1280 : bbox.x;
+                                                                       const by = bbox.y <= 1 ? bbox.y * 720 : bbox.y;
+                                                                       const bw = bbox.w <= 1 ? bbox.w * 1280 : bbox.w;
+                                                                       const bh = bbox.h <= 1 ? bbox.h * 720 : bbox.h;
+
+                                                                       const img = new window.Image();
+                                                                       img.onload = () => {
+                                                                           const imgAspect = img.width / Math.max(1, img.height);
+                                                                           const targetH = Math.max(bh, 500);
+                                                                           const targetW = Math.round(targetH * imgAspect);
+                                                                           const centerX = bx + bw / 2;
+                                                                           const bottomY = by + bh;
+                                                                           setOverlayCoords({
+                                                                               x: Math.round(centerX - targetW / 2),
+                                                                               y: Math.round(bottomY >= 680 ? 720 - targetH : bottomY - targetH),
+                                                                               w: targetW,
+                                                                               h: targetH,
+                                                                           });
+                                                                       };
+                                                                       img.src = personUploadPreview;
+                                                                   }
+                                                               }}
+                                                           >
+                                                               Auto-Center
+                                                           </Button>
+                                                       </div>
+
+                                                       <p className="text-[10px] text-muted-foreground">
+                                                           💡 Drag/resize photo on canvas or adjust below:
+                                                       </p>
+
+                                                       {/* Horizontal Position (X) */}
+                                                       <div className="space-y-1">
+                                                           <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                                                               <span>Horizontal Position (X)</span>
+                                                               <span>{overlayCoords.x}px</span>
+                                                           </div>
+                                                           <input
+                                                               type="range"
+                                                               min={0}
+                                                               max={1280}
+                                                               value={overlayCoords.x}
+                                                               onChange={(e) => setOverlayCoords({ ...overlayCoords, x: parseInt(e.target.value) })}
+                                                               className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-[#8B47FF]"
+                                                           />
+                                                       </div>
+
+                                                       {/* Vertical Position (Y) */}
+                                                       <div className="space-y-1">
+                                                           <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                                                               <span>Vertical Position (Y)</span>
+                                                               <span>{overlayCoords.y}px</span>
+                                                           </div>
+                                                           <input
+                                                               type="range"
+                                                               min={0}
+                                                               max={720}
+                                                               value={overlayCoords.y}
+                                                               onChange={(e) => setOverlayCoords({ ...overlayCoords, y: parseInt(e.target.value) })}
+                                                               className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-[#8B47FF]"
+                                                           />
+                                                       </div>
+
+                                                       {/* Height / Scale */}
+                                                       <div className="space-y-1">
+                                                           <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                                                               <span>Height / Scale</span>
+                                                               <span>{overlayCoords.h}px</span>
+                                                           </div>
+                                                           <input
+                                                               type="range"
+                                                               min={100}
+                                                               max={720}
+                                                               value={overlayCoords.h}
+                                                               onChange={(e) => {
+                                                                   const newH = parseInt(e.target.value);
+                                                                   const ratio = overlayCoords.w / Math.max(1, overlayCoords.h);
+                                                                   const newW = Math.round(newH * ratio);
+                                                                   setOverlayCoords({ ...overlayCoords, w: newW, h: newH });
+                                                               }}
+                                                               className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-[#8B47FF]"
+                                                           />
+                                                       </div>
+                                                   </div>
+                                               )}
+
+                                               <div className="flex w-full justify-between items-center mt-3 border-t border-border/50 pt-2">
+                                                   <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[150px]">
+                                                       {personUploadUrl ? "✓ Uploaded to Cloud" : "Uploading..."}
+                                                   </span>
+                                                   <Button 
+                                                       variant="ghost" 
+                                                       size="sm" 
+                                                       className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2"
+                                                       onClick={() => {
+                                                           setPersonUploadUrl(null);
+                                                           if (personUploadPreview) {
+                                                               URL.revokeObjectURL(personUploadPreview);
+                                                               setPersonUploadPreview(null);
+                                                           }
+                                                           setOverlayCoords(null);
+                                                       }}
+                                                   >
+                                                       <X className="h-3.5 w-3.5 mr-1" /> Remove
+                                                   </Button>
+                                               </div>
+                                           </div>
                                       )}
                                   </div>
                                )}
@@ -782,41 +1292,46 @@ export default function SmartEditorPage() {
                       <div className="mt-auto pt-6">
                           <Button 
                              className="w-full h-12 text-sm font-semibold shadow-md bg-[#8B47FF] hover:bg-[#7236d6] transition-all"
-                             disabled={editor.isReplacing || isUploadingPerson || (!replaceInstruction && activeTab !== 'upload') || (selectedLayer.type === 'person' && activeTab === 'upload' && !personUploadUrl)}
+                             disabled={editor.isReplacing || isUploadingPerson || (!replaceInstruction && activeTab !== 'upload') || ((selectedLayer.type === 'person' || selectedLayer.type === 'face') && activeTab === 'upload' && !personUploadUrl)}
                              onClick={async () => {
                                  hapticFeedback(30);
                                  const typeMap: Record<string, string> = {
                                      'text': 'replace_text',
                                      'person': 'replace_person',
+                                     'face': 'replace_person',
                                      'background': 'replace_background',
                                      'object': 'replace_object'
                                  };
-                                 let finalInstruction = replaceInstruction;
-                                 if (selectedLayer.type === 'text') {
-                                     finalInstruction = `The word '${replaceInstruction}' in professional graphic typography, clean modern style, high contrast, matching color`;
-                                 }
                                  
-                                 if (selectedLayer.type === 'person' && activeTab === 'upload') {
-                                     if (!personUploadUrl) {
-                                         toast.error("Please upload a photo first");
-                                         return;
-                                     }
-                                     await editor.replaceLayer(selectedLayer.id, 'replace_person', 'Replace person with uploaded photo', personUploadUrl, overlayCoords);
-                                     setPersonUploadUrl(null);
-                                     if (personUploadPreview) {
-                                         URL.revokeObjectURL(personUploadPreview);
-                                         setPersonUploadPreview(null);
-                                     }
-                                     setOverlayCoords(null);
-                                 } else {
-                                     await editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type] || 'replace_object', finalInstruction);
-                                 }
+                                 if ((selectedLayer.type === 'person' || selectedLayer.type === 'face') && activeTab === 'upload') {
+                                      if (!personUploadUrl) {
+                                          toast.error("Please upload a photo first");
+                                          return;
+                                      }
+                                      const finalEditType = (selectedLayer.type === 'face' || personSwapMode === 'face_only') ? 'face_swap' : 'replace_person';
+                                      const promptDesc = finalEditType === 'face_swap' ? 'Swap face with uploaded photo' : 'Replace person with uploaded photo';
+                                      await editor.replaceLayer(selectedLayer.id, finalEditType, promptDesc, personUploadUrl, overlayCoords);
+                                      setPersonUploadUrl(null);
+                                      if (personUploadPreview) {
+                                          URL.revokeObjectURL(personUploadPreview);
+                                          setPersonUploadPreview(null);
+                                      }
+                                      setOverlayCoords(null);
+                                  } else if (selectedLayer.type === 'text') {
+                                       await editor.replaceTextVector(selectedLayer.id, replaceInstruction, {
+                                           fontFamily: textFontFamily,
+                                           textColor: textFillColor,
+                                           hasStroke: textHasStroke,
+                                       });
+                                  } else {
+                                      await editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type] || 'replace_object', replaceInstruction);
+                                  }
                              }}
                           >
                              {editor.isReplacing ? (
                                  <><RotateCcw className="mr-2 h-4 w-4 animate-spin" /> Replacing...</>
                              ) : (
-                                 <>✨ Replace {selectedLayer.type.charAt(0).toUpperCase() + selectedLayer.type.slice(1)} — {selectedLayer.type === 'text' ? '5' : (selectedLayer.type === 'person' ? '7' : '6')} credits</>
+                                 <>✨ {selectedLayer.type === 'text' ? 'Update Text (Vector Crisp)' : (selectedLayer.type === 'person' || selectedLayer.type === 'face') ? (personSwapMode === 'face_only' ? 'Swap Face (Photorealistic)' : 'Replace Whole Person (Cutout & Blend)') : `Replace ${selectedLayer.type.charAt(0).toUpperCase() + selectedLayer.type.slice(1)}`} — {selectedLayer.type === 'text' ? '5' : ((selectedLayer.type === 'person' || selectedLayer.type === 'face') ? '7' : '6')} credits</>
                              )}
                           </Button>
                           
@@ -833,8 +1348,7 @@ export default function SmartEditorPage() {
                   </div>
               )}
           </div>
-
-                </div>
+        </div>
 
                 {/* -------------------- MOBILE DRAWER -------------------- */}
         {editor.sessionId && (
@@ -850,7 +1364,7 @@ export default function SmartEditorPage() {
                          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => editor.undoLastEdit()} disabled={editor.editHistory.length <= 1}>
                             <RotateCcw className="h-4 w-4" />
                          </Button>
-                         <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => editor.downloadFinal()}>
+                         <Button variant="outline" size="icon" className="h-9 w-9" onClick={downloadWithTextOverlays}>
                             <Download className="h-4 w-4" />
                          </Button>
                     </div>
@@ -864,164 +1378,105 @@ export default function SmartEditorPage() {
                             <TabsTrigger value="edit" className="text-xs font-bold">✨ Edit</TabsTrigger>
                         </TabsList>
                         
-                        <TabsContent value="layers" className="flex-1 overflow-y-auto p-4 focus-visible:ring-0">
-                             <div className="grid grid-cols-1 gap-2">
-                                {editor.layers.map(layer => (
-                                    <div 
-                                        key={layer.id}
-                                        onClick={() => { editor.selectLayer(layer.id); }}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${editor.selectedLayerId === layer.id ? 'border-primary bg-primary/5' : 'border-border'}`}
-                                    >
-                                        <div className="h-10 w-10 flex items-center justify-center bg-background rounded-lg border">
-                                            {layer.type === 'text' && <Type className="h-5 w-5" />}
-                                            {layer.type === 'person' && <User className="h-5 w-5" />}
-                                            {layer.type === 'object' && <CopyX className="h-5 w-5" />}
-                                            {layer.type === 'background' && <ImageIcon className="h-5 w-5" />}
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-sm font-bold">{layer.label}</p>
-                                            <p className="text-[10px] text-muted-foreground uppercase">{layer.type}</p>
-                                        </div>
-                                        {editor.selectedLayerId === layer.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                                    </div>
-                                ))}
-                                                                {editor.layers.length === 0 && editor.currentImageUrl && (
-                                                                    <div className="flex flex-col items-center justify-center text-center py-6 text-muted-foreground">
-                                                                        <Layers className="h-6 w-6 mb-2" />
-                                                                        <p className="text-xs mb-2">No layers detected yet.</p>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            onClick={() => runDetectWithWorker(editor.sessionId || undefined, editor.currentImageUrl || undefined, true)}
-                                                                        >
-                                                                            Scan Again
-                                                                        </Button>
-                                                                    </div>
-                                                                )}
-                             </div>
+                        <TabsContent value="layers" className="p-4 flex-1 overflow-y-auto max-h-[60vh] space-y-2">
+                             {editor.layers.map(layer => (
+                                 <div 
+                                     key={layer.id} 
+                                     className={`p-3 rounded-lg border flex items-center justify-between cursor-pointer ${editor.selectedLayerId === layer.id ? 'border-primary bg-primary/5' : 'border-border'}`}
+                                     onClick={() => { editor.selectLayer(layer.id); }}
+                                 >
+                                     <div className="flex items-center gap-3">
+                                         <div className="p-2 rounded bg-muted">
+                                             {layer.type === 'text' && <Type className="h-4 w-4 text-primary" />}
+                                             {layer.type === 'person' && <User className="h-4 w-4 text-primary" />}
+                                             {layer.type === 'object' && <Sparkle className="h-4 w-4 text-primary" />}
+                                             {layer.type === 'background' && <LayoutGrid className="h-4 w-4 text-primary" />}
+                                         </div>
+                                         <div>
+                                             <p className="text-sm font-semibold">{layer.label}</p>
+                                             <p className="text-[10px] text-muted-foreground capitalize">{layer.type}</p>
+                                         </div>
+                                     </div>
+                                 </div>
+                             ))}
                         </TabsContent>
 
-                        <TabsContent value="edit" className="flex-1 overflow-y-auto p-4 focus-visible:ring-0">
-                             {/* Re-use the right column logic here but condensed for mobile */}
-                             {!selectedLayer ? (
-                                <div className="h-40 flex flex-col items-center justify-center text-center">
-                                    <p className="text-sm text-muted-foreground">Select a layer first</p>
-                                </div>
-                             ) : (
+                        <TabsContent value="edit" className="p-4 flex-1 overflow-y-auto max-h-[60vh]">
+                             {selectedLayer && (
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-bold">Edit {selectedLayer.label}</h3>
-                                    {/* ... Simplified Inputs ... */}
+                                    <div className="flex items-center gap-2 border-b pb-2">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{selectedLayer.type} Element</span>
+                                    </div>
                                     {selectedLayer.type === 'text' && (
                                         <Textarea 
-                                            className="text-lg font-bold min-h-[80px]" 
-                                            placeholder="Enter new text..."
-                                            value={replaceInstruction}
-                                            onChange={e => setReplaceInstruction(e.target.value)}
+                                            className="text-sm font-bold min-h-[80px]" 
+                                            placeholder="New text..." 
+                                            value={replaceInstruction} 
+                                            onChange={e => setReplaceInstruction(e.target.value)} 
                                         />
                                     )}
-                                    {selectedLayer.type === 'person' && (
+                                    {(selectedLayer.type === 'person' || selectedLayer.type === 'face' || selectedLayer.type === 'object') && (
                                         <>
                                             <div className="flex bg-muted rounded p-1 mb-2">
-                                                <button className={`flex-1 py-1.5 text-xs font-medium rounded ${activeTab === 'upload' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('upload')}>📸 Upload Photo</button>
-                                                <button className={`flex-1 py-1.5 text-xs font-medium rounded ${activeTab === 'describe' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('describe')}>✍️ Describe</button>
+                                                <button className={`flex-1 py-1 text-xs font-medium rounded ${activeTab === 'upload' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('upload')}>📸 Photo</button>
+                                                <button className={`flex-1 py-1 text-xs font-medium rounded ${activeTab === 'describe' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('describe')}>✍️ Describe</button>
                                             </div>
                                             {activeTab === 'upload' && (
-                                                <div className="space-y-4">
-                                                    <input 
-                                                        type="file" 
-                                                        accept="image/*" 
-                                                        id="person-photo-upload-mobile" 
-                                                        className="hidden" 
-                                                        onChange={e => {
-                                                            const file = e.target.files?.[0];
-                                                            if (file) handlePersonPhotoFile(file);
-                                                        }}
-                                                    />
-                                                    {!personUploadPreview ? (
-                                                        <label 
-                                                            htmlFor="person-photo-upload-mobile"
-                                                            className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isDragging ? 'border-[#8B47FF] bg-[#8B47FF]/5' : 'border-border hover:bg-muted/50'} bg-background`}
-                                                            onDragOver={handleDragOver}
-                                                            onDragLeave={handleDragLeave}
-                                                            onDrop={handleDrop}
+                                                <div className="space-y-2">
+                                                    <div className="flex bg-muted/70 p-1 rounded gap-1 border text-xs">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setPersonSwapMode('full_person')}
+                                                            className={`flex-1 py-1 text-[11px] rounded font-medium ${personSwapMode === 'full_person' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
                                                         >
-                                                            {isUploadingPerson ? (
-                                                                <div className="flex flex-col items-center justify-center">
-                                                                    <RotateCcw className="h-6 w-6 text-primary animate-spin mb-2" />
-                                                                    <p className="text-xs font-medium">Uploading...</p>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    <UploadCloud className="h-8 w-8 text-primary/40 mb-2" />
-                                                                    <p className="text-xs font-medium">Click to upload photo</p>
-                                                                </>
-                                                            )}
+                                                            👤 Whole Person
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setPersonSwapMode('face_only')}
+                                                            className={`flex-1 py-1 text-[11px] rounded font-medium ${personSwapMode === 'face_only' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                                                        >
+                                                            🎭 Face Only
+                                                        </button>
+                                                    </div>
+                                                    <input type="file" accept="image/*" id="mobile-person-photo-upload" className="hidden" onChange={e => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) handlePersonPhotoFile(file);
+                                                    }} />
+                                                    {!personUploadPreview ? (
+                                                        <label htmlFor="mobile-person-photo-upload" className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer bg-background">
+                                                            <UploadCloud className="h-6 w-6 text-primary mb-1" />
+                                                            <p className="text-xs font-medium">Upload photo</p>
                                                         </label>
                                                     ) : (
-                                                        <div className="border border-border rounded-xl p-3 bg-muted/30 relative flex flex-col items-center justify-center">
-                                                            <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border border-border bg-black/5">
-                                                                <img src={personUploadPreview} className="w-full h-full object-contain" alt="Upload preview" />
-                                                                {isUploadingPerson && (
-                                                                    <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
-                                                                        <RotateCcw className="h-6 w-6 text-white animate-spin" />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex w-full justify-between items-center mt-2">
-                                                                <span className="text-[10px] text-muted-foreground font-medium truncate">
-                                                                    {personUploadUrl ? "✓ Uploaded" : "Uploading..."}
-                                                                </span>
-                                                                <Button 
-                                                                    variant="ghost" 
-                                                                    size="sm" 
-                                                                    className="text-xs text-red-500 hover:text-red-700 h-7 px-1.5"
-                                                                    onClick={() => {
-                                                                        setPersonUploadUrl(null);
-                                                                        if (personUploadPreview) {
-                                                                            URL.revokeObjectURL(personUploadPreview);
-                                                                            setPersonUploadPreview(null);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <X className="h-3 w-3 mr-1" /> Remove
-                                                                </Button>
-                                                            </div>
+                                                        <div className="relative rounded overflow-hidden aspect-video border bg-black/5">
+                                                            <img src={personUploadPreview} className="w-full h-full object-contain" alt="Preview" />
                                                         </div>
                                                     )}
                                                 </div>
                                             )}
                                             {activeTab === 'describe' && (
-                                                <Textarea 
-                                                    className="text-sm min-h-[80px]" 
-                                                    placeholder="Describe the person you want..."
-                                                    value={replaceInstruction}
-                                                    onChange={e => setReplaceInstruction(e.target.value)}
-                                                />
+                                                <Textarea className="text-xs min-h-[85px]" placeholder="Describe person..." value={replaceInstruction} onChange={e => setReplaceInstruction(e.target.value)} />
                                             )}
                                         </>
                                     )}
                                     {selectedLayer.type === 'background' && (
                                         <>
                                             <div className="flex bg-muted rounded p-1 mb-2">
-                                                <button className={`flex-1 py-1 text-xs font-medium rounded ${activeTab === 'pick' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('pick')}>🎨 Pick Style</button>
-                                                <button className={`flex-1 py-1 text-xs font-medium rounded ${activeTab === 'describe' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('describe')}>✍️ Describe</button>
+                                                <button className={`flex-1 py-1 text-[11px] font-medium rounded ${activeTab === 'pick' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('pick')}>🎨 Style</button>
+                                                <button className={`flex-1 py-1 text-[11px] font-medium rounded ${activeTab === 'describe' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`} onClick={() => setActiveTab('describe')}>✍️ Describe</button>
                                             </div>
                                             {activeTab === 'pick' && (
-                                                <div className="grid grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                                                <div className="grid grid-cols-2 gap-1.5 max-h-[160px] overflow-y-auto">
                                                     {BACKGROUND_STYLES.map(style => (
-                                                        <div 
-                                                            key={style.id} 
-                                                            className={`h-12 rounded border cursor-pointer flex items-end p-1 text-[10px] font-medium text-white shadow-sm relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-800 ${selectedBgStyle === style.id ? 'border-[#8B47FF] ring-1 ring-[#8B47FF]/20' : 'border-transparent'}`}
-                                                            onClick={() => { setSelectedBgStyle(style.id); setReplaceInstruction(style.desc); }}
-                                                        >
-                                                            <div className="absolute inset-0 bg-black/20" />
-                                                            <span className="relative z-10 truncate w-full shadow-sm">{style.label}</span>
+                                                        <div key={style.id} className={`p-1.5 rounded border text-[10px] font-medium bg-muted cursor-pointer ${selectedBgStyle === style.id ? 'border-primary bg-primary/10' : ''}`} onClick={() => { setSelectedBgStyle(style.id); setReplaceInstruction(style.desc); }}>
+                                                            {style.label}
                                                         </div>
                                                     ))}
                                                 </div>
                                             )}
                                             {activeTab === 'describe' && (
-                                                <Textarea className="text-xs min-h-[85px]" placeholder="Mumbai city at night..." value={replaceInstruction} onChange={e => setReplaceInstruction(e.target.value)} />
+                                                <Textarea className="text-xs min-h-[85px]" placeholder="Describe background..." value={replaceInstruction} onChange={e => setReplaceInstruction(e.target.value)} />
                                             )}
                                         </>
                                     )}
@@ -1031,34 +1486,42 @@ export default function SmartEditorPage() {
                                     <Button 
                                         className="w-full h-12 bg-primary mt-2" 
                                         onClick={async () => {
-                                            const typeMap: Record<Layer['type'], 'replace_text' | 'replace_person' | 'replace_background' | 'replace_object'> = {
+                                            const typeMap: Record<string, string> = {
                                                 text: 'replace_text',
                                                 person: 'replace_person',
+                                                face: 'face_swap',
                                                 background: 'replace_background',
                                                 object: 'replace_object'
                                             };
                                             
-                                            if (selectedLayer.type === 'person' && activeTab === 'upload') {
+                                            if ((selectedLayer.type === 'person' || selectedLayer.type === 'face') && activeTab === 'upload') {
                                                 if (!personUploadUrl) {
                                                     toast.error("Please upload a photo first");
                                                     return;
                                                 }
-                                                await editor.replaceLayer(selectedLayer.id, 'replace_person', 'Replace person with uploaded photo', personUploadUrl, overlayCoords);
-                                                // Clear upload states after successful replacement!
+                                                const finalEditType = (selectedLayer.type === 'face' || personSwapMode === 'face_only') ? 'face_swap' : 'replace_person';
+                                                const promptDesc = finalEditType === 'face_swap' ? 'Swap face with uploaded photo' : 'Replace person with uploaded photo';
+                                                await editor.replaceLayer(selectedLayer.id, finalEditType, promptDesc, personUploadUrl, overlayCoords);
                                                 setPersonUploadUrl(null);
                                                 if (personUploadPreview) {
                                                     URL.revokeObjectURL(personUploadPreview);
                                                     setPersonUploadPreview(null);
                                                 }
                                                 setOverlayCoords(null);
+                                            } else if (selectedLayer.type === 'text') {
+                                                await editor.replaceTextVector(selectedLayer.id, replaceInstruction, {
+                                                    fontFamily: textFontFamily,
+                                                    textColor: textFillColor,
+                                                    hasStroke: textHasStroke,
+                                                });
                                             } else {
-                                                await editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type] || 'replace_object', finalInstruction);
+                                                await editor.replaceLayer(selectedLayer.id, typeMap[selectedLayer.type] || 'replace_object', replaceInstruction);
                                             }
                                             setIsMobileSheetOpen(false);
                                         }} 
-                                        disabled={editor.isReplacing || isUploadingPerson || (!replaceInstruction && activeTab !== 'upload') || (selectedLayer.type === 'person' && activeTab === 'upload' && !personUploadUrl)}
+                                        disabled={editor.isReplacing || isUploadingPerson || (!replaceInstruction && activeTab !== 'upload') || ((selectedLayer.type === 'person' || selectedLayer.type === 'face') && activeTab === 'upload' && !personUploadUrl)}
                                     >
-                                        {editor.isReplacing ? 'Replacing...' : `Replace (${selectedLayer.type === 'text' ? 5 : (selectedLayer.type === 'person' ? 7 : 6)} Credits)`}
+                                        {editor.isReplacing ? 'Replacing...' : `${selectedLayer.type === 'text' ? 'Update Text' : (selectedLayer.type === 'person' || selectedLayer.type === 'face') ? (personSwapMode === 'face_only' ? 'Swap Face' : 'Replace Whole Person') : 'Replace'} (${selectedLayer.type === 'text' ? 5 : ((selectedLayer.type === 'person' || selectedLayer.type === 'face') ? 7 : 6)} Credits)`}
                                     </Button>
                                 </div>
                              )}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Type, Download, Heart, Share2, RefreshCw, Pencil, Eye } from "lucide-react";
+import { Sparkles, Type, Download, Heart, Share2, RefreshCw, Pencil, Eye, Upload, Camera, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits } from "@/hooks/useSupabaseData";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { CREDIT_COSTS } from "@/lib/credits";
 import { LANGUAGES, type LanguageId } from "@/lib/languages";
 import ZeroCreditsModal from "@/components/ZeroCreditsModal";
@@ -38,6 +38,11 @@ const SHORTS_LOADING = [
   { range: [80, 99], text: "Rendering your Shorts cover..." },
 ];
 
+const extractQuotedText = (promptStr: string): string => {
+  const match = promptStr.match(/"([^"]{2,40})"|'([^']{2,40})'/);
+  return (match ? (match[1] || match[2] || "") : "").trim();
+};
+
 const ShortsPage = () => {
   const { user } = useAuth();
   const { data: credits } = useCredits();
@@ -45,8 +50,6 @@ const ShortsPage = () => {
 
   const [prompt, setPrompt] = useState("");
   const [enhancePrompt, setEnhancePrompt] = useState(true);
-  const [textOverlay, setTextOverlay] = useState(false);
-  const [textContent, setTextContent] = useState("");
   const [style, setStyle] = useState("viral reaction");
   const [compositionGuide, setCompositionGuide] = useState(true);
   const [quality, setQuality] = useState<"fast" | "pro">("pro");
@@ -64,6 +67,35 @@ const ShortsPage = () => {
   const [showPollinationsUpsell, setShowPollinationsUpsell] = useState(false);
   const abortRef = useRef(false);
   const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
+
+  // Avatar state
+  const [useAvatar, setUseAvatar] = useState(false);
+  const [overrideFaceFile, setOverrideFaceFile] = useState<File | null>(null);
+  const [overrideFacePreview, setOverrideFacePreview] = useState<string | null>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+
+  // Fetch saved faces
+  const { data: savedFaces } = useQuery({
+    queryKey: ["faces", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase.from("faces").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!user,
+  });
+  const defaultFaceUrl = savedFaces?.[0]?.face_url || null;
+
+  const handleAvatarDrop = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOverrideFaceFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setOverrideFacePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const activeFaceUrl = overrideFacePreview || defaultFaceUrl;
 
   const creditCost = (quality === "fast" ? CREDIT_COSTS.FAST_GENERATE : CREDIT_COSTS.PRO_GENERATE) * variations;
   const remaining = credits?.credits_remaining ?? 0;
@@ -105,12 +137,13 @@ const ShortsPage = () => {
         finalPrompt += ". Close-up face fills top 60% of frame, subject centered, bottom third reserved for text.";
       }
 
+      const textVal = extractQuotedText(prompt);
       const { data, error } = await supabase.functions.invoke("generate-thumbnail", {
         body: {
           prompt: finalPrompt,
           enhance_prompt: enhancePrompt,
-          text_overlay: textOverlay,
-          text_content: textContent,
+          text_overlay: !!textVal,
+          text_content: textVal,
           style,
           format: "9:16",
           quality,
@@ -130,6 +163,50 @@ const ShortsPage = () => {
       setResults(data.images || []);
       setEnhancedPrompt(data.enhanced_prompt || "");
       setProgress(100);
+
+      // Face swap post-processing
+      if (useAvatar && activeFaceUrl && data.images?.length > 0) {
+        try {
+          let faceUrl = activeFaceUrl;
+          // If override file, upload it first
+          if (overrideFaceFile) {
+            const tempPath = `${user.id}/faces/temp_${crypto.randomUUID()}.png`;
+            const { error: upErr } = await supabase.storage.from('thumbnails').upload(tempPath, overrideFaceFile, { contentType: overrideFaceFile.type });
+            if (!upErr) {
+              const { data: urlData } = supabase.storage.from('thumbnails').getPublicUrl(tempPath);
+              faceUrl = urlData.publicUrl;
+            }
+          }
+
+          const editorBase = import.meta.env.VITE_SMART_EDITOR_API_BASE || "http://localhost:3001";
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData?.session?.access_token;
+
+          const swappedResults: GeneratedImage[] = [];
+          for (const img of data.images) {
+            try {
+              const swapResp = await fetch(`${editorBase}/face-swap`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                body: JSON.stringify({ face_url: faceUrl, target_url: img.image_url, swap_strength: 90 }),
+              });
+              if (swapResp.ok) {
+                const swapData = await swapResp.json();
+                const swappedUrl = swapData.image_url || (swapData.image_base64 ? `data:image/png;base64,${swapData.image_base64}` : img.image_url);
+                swappedResults.push({ ...img, image_url: swappedUrl, thumbnail_id: swapData.thumbnail_id || img.thumbnail_id });
+              } else {
+                swappedResults.push(img);
+              }
+            } catch {
+              swappedResults.push(img);
+            }
+          }
+          setResults(swappedResults);
+          toast.success("Avatar face-swapped!");
+        } catch {
+          toast.info("Face swap skipped — using original");
+        }
+      }
       if (credits?.plan_type === "free" || credits?.plan_type === "none") {
         const usedPollinations = (data.images || []).some((img: GeneratedImage) => img.provider === "pollinations");
         if (usedPollinations) setShowPollinationsUpsell(true);
@@ -145,7 +222,7 @@ const ShortsPage = () => {
     } finally {
       setGenerating(false);
     }
-  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, compositionGuide, quality, variations, language, remaining, creditCost, queryClient, credits?.plan_type, modelChoice]);
+  }, [user, prompt, enhancePrompt, style, compositionGuide, quality, variations, language, remaining, creditCost, queryClient, credits?.plan_type, modelChoice, useAvatar, activeFaceUrl, overrideFaceFile]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -224,31 +301,34 @@ const ShortsPage = () => {
           </div>
         </div>
 
-        {/* Text overlay */}
+
+
+        {/* Avatar / Face-Swap */}
         <div className="glass-card rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
             <Label className="text-sm font-medium text-foreground flex items-center gap-2">
-              <Type className="h-4 w-4" /> Include text in cover
+              <UserCircle className="h-4 w-4" /> Use My Avatar
             </Label>
-            <Switch checked={textOverlay} onCheckedChange={setTextOverlay} />
+            <Switch checked={useAvatar} onCheckedChange={setUseAvatar} />
           </div>
-          {textOverlay && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
-              <Input
-                value={textContent}
-                onChange={(e) => setTextContent(e.target.value)}
-                placeholder="e.g. WAIT FOR IT"
-                maxLength={20}
-                className="bg-background border-border text-foreground text-sm mb-2"
-              />
-              <div className="flex justify-between text-[10px]">
-                <span className="text-muted-foreground">
-                  {textContent.split(/\s+/).filter(Boolean).length > 3 && (
-                    <span className="text-secondary">⚠️ Keep it punchy! 1-3 words hit hardest</span>
-                  )}
-                </span>
-                <span className="text-muted-foreground">{textContent.length}/20</span>
+          {useAvatar && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+              <div className="flex items-center gap-3">
+                {activeFaceUrl ? (
+                  <img src={activeFaceUrl} alt="Avatar" className="w-14 h-14 rounded-full object-cover border-2 border-border" />
+                ) : (
+                  <div className="w-14 h-14 rounded-full border-2 border-dashed border-border flex items-center justify-center bg-muted">
+                    <UserCircle className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-1">
+                  <Button variant="outline" size="sm" onClick={() => avatarFileRef.current?.click()}>
+                    <Camera className="h-3.5 w-3.5 mr-1.5" /> Change
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground">Your face will be swapped onto the generated thumbnail</p>
+                </div>
               </div>
+              <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarDrop} />
             </motion.div>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Type, Zap, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, User } from "lucide-react";
+import { Sparkles, Type, Zap, BookOpen, ChevronRight, X, Download, Heart, Share2, RefreshCw, User, Upload, Camera, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits } from "@/hooks/useSupabaseData";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { NICHE_TEMPLATES, LOADING_MESSAGES, CTR_TIPS } from "@/lib/generate-constants";
 import { CREDIT_COSTS } from "@/lib/credits";
@@ -28,6 +28,11 @@ type GeneratedImage = {
   model_used?: string;
 };
 
+const extractQuotedText = (promptStr: string): string => {
+  const match = promptStr.match(/"([^"]{2,40})"|'([^']{2,40})'/);
+  return (match ? (match[1] || match[2] || "") : "").trim();
+};
+
 const GeneratePage = () => {
   const { user } = useAuth();
   const { data: credits } = useCredits();
@@ -37,10 +42,10 @@ const GeneratePage = () => {
   const navigate = useNavigate();
 
   // Controls
+  const [inputMode, setInputMode] = useState<"prompt" | "script">("prompt");
   const [prompt, setPrompt] = useState("");
+  const [script, setScript] = useState("");
   const [enhancePrompt, setEnhancePrompt] = useState(true);
-  const [textOverlay, setTextOverlay] = useState(false);
-  const [textContent, setTextContent] = useState("");
   const [style, setStyle] = useState("realistic");
   const [niche, setNiche] = useState("");
   const [format, setFormat] = useState<"16:9" | "9:16">("16:9");
@@ -48,6 +53,7 @@ const GeneratePage = () => {
   const [modelChoice, setModelChoice] = useState("auto");
   const [variations, setVariations] = useState(1);
   const [language, setLanguage] = useState<LanguageId>("en");
+  const [analyzingScript, setAnalyzingScript] = useState(false);
 
   // State
   const [generating, setGenerating] = useState(false);
@@ -63,6 +69,35 @@ const GeneratePage = () => {
   const abortRef = useRef(false);
   const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
+  // Avatar state
+  const [useAvatar, setUseAvatar] = useState(false);
+  const [overrideFaceFile, setOverrideFaceFile] = useState<File | null>(null);
+  const [overrideFacePreview, setOverrideFacePreview] = useState<string | null>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+
+  // Fetch saved faces
+  const { data: savedFaces } = useQuery({
+    queryKey: ["faces", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase.from("faces").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!user,
+  });
+  const defaultFaceUrl = savedFaces?.[0]?.face_url || null;
+
+  const handleAvatarDrop = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOverrideFaceFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setOverrideFacePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const activeFaceUrl = overrideFacePreview || defaultFaceUrl;
+
   // Accept prefilled prompt from navigation state
   useEffect(() => {
     const state = location.state as { prefillPrompt?: string } | null;
@@ -73,12 +108,15 @@ const GeneratePage = () => {
     }
   }, [location.state]);
 
-  const creditCost = (quality === "fast" ? CREDIT_COSTS.FAST_GENERATE : CREDIT_COSTS.PRO_GENERATE) * variations;
+  const wordCount = script.trim().split(/\s+/).filter(Boolean).length;
+  const baseCost = (quality === "fast" ? CREDIT_COSTS.FAST_GENERATE : CREDIT_COSTS.PRO_GENERATE) * variations;
+  const analysisCost = inputMode === "script" ? CREDIT_COSTS.TITLE_GENERATOR : 0;
+  const creditCost = baseCost + analysisCost;
   const remaining = credits?.credits_remaining ?? 0;
 
-  // Progress simulation during generation
+  // Progress simulation during generation (paused during script analysis)
   useEffect(() => {
-    if (!generating) return;
+    if (!generating || analyzingScript) return;
     setProgress(0);
     const duration = quality === "fast" ? 8000 : 20000;
     const interval = setInterval(() => {
@@ -88,7 +126,7 @@ const GeneratePage = () => {
       });
     }, duration / 30);
     return () => clearInterval(interval);
-  }, [generating, quality]);
+  }, [generating, analyzingScript, quality]);
 
   // Rotate tips during generation
   useEffect(() => {
@@ -99,9 +137,11 @@ const GeneratePage = () => {
     return () => clearInterval(interval);
   }, [generating]);
 
-  const loadingMessage = LOADING_MESSAGES.find(
-    (m) => progress >= m.range[0] && progress < m.range[1]
-  )?.text ?? "Generating...";
+  const loadingMessage = analyzingScript
+    ? "Reading your script..."
+    : (LOADING_MESSAGES.find(
+        (m) => progress >= m.range[0] && progress < m.range[1]
+      )?.text ?? "Generating...");
 
   const handleNicheSelect = (nicheKey: string) => {
     setNiche(nicheKey);
@@ -112,10 +152,18 @@ const GeneratePage = () => {
   };
 
   const handleGenerate = useCallback(async () => {
-    if (!user || !prompt.trim()) {
+    if (!user) return;
+
+    if (inputMode === "prompt" && !prompt.trim()) {
       toast.error("Please enter a prompt");
       return;
     }
+
+    if (inputMode === "script" && wordCount < 20) {
+      toast.error("Please enter at least 20 words for the script");
+      return;
+    }
+
     if (!bypassCredits && remaining < creditCost) {
       setShowZeroCredits(true);
       return;
@@ -125,13 +173,32 @@ const GeneratePage = () => {
     setResults([]);
     abortRef.current = false;
 
+    let targetPrompt = prompt;
+
     try {
+      if (inputMode === "script") {
+        setAnalyzingScript(true);
+        const { data: analysisData, error: analysisError } = await supabase.functions.invoke("generate-titles", {
+          body: { script: script.trim() }
+        });
+
+        if (abortRef.current) return;
+
+        if (analysisError || !analysisData?.image_prompt) {
+          throw new Error(analysisError?.message || "Failed to analyze script");
+        }
+
+        targetPrompt = analysisData.image_prompt;
+        setAnalyzingScript(false);
+      }
+
+      const textVal = extractQuotedText(targetPrompt);
       const { data, error } = await supabase.functions.invoke("generate-thumbnail", {
         body: {
-          prompt: prompt.trim(),
+          prompt: targetPrompt.trim(),
           enhance_prompt: enhancePrompt,
-          text_overlay: textOverlay,
-          text_content: textContent,
+          text_overlay: !!textVal,
+          text_content: textVal,
           style,
           niche,
           format,
@@ -158,6 +225,50 @@ const GeneratePage = () => {
       setEnhancedPrompt(data.enhanced_prompt || "");
       setProgress(100);
       setActiveTab("preview"); // Switch to preview tab on mobile
+
+      // Face swap post-processing
+      if (useAvatar && activeFaceUrl && data.images?.length > 0) {
+        try {
+          let faceUrl = activeFaceUrl;
+          // If override file, upload it first
+          if (overrideFaceFile) {
+            const tempPath = `${user.id}/faces/temp_${crypto.randomUUID()}.png`;
+            const { error: upErr } = await supabase.storage.from('thumbnails').upload(tempPath, overrideFaceFile, { contentType: overrideFaceFile.type });
+            if (!upErr) {
+              const { data: urlData } = supabase.storage.from('thumbnails').getPublicUrl(tempPath);
+              faceUrl = urlData.publicUrl;
+            }
+          }
+
+          const editorBase = import.meta.env.VITE_SMART_EDITOR_API_BASE || "http://localhost:3001";
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData?.session?.access_token;
+
+          const swappedResults: GeneratedImage[] = [];
+          for (const img of data.images) {
+            try {
+              const swapResp = await fetch(`${editorBase}/face-swap`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                body: JSON.stringify({ face_url: faceUrl, target_url: img.image_url, swap_strength: 90 }),
+              });
+              if (swapResp.ok) {
+                const swapData = await swapResp.json();
+                const swappedUrl = swapData.image_url || (swapData.image_base64 ? `data:image/png;base64,${swapData.image_base64}` : img.image_url);
+                swappedResults.push({ ...img, image_url: swappedUrl, thumbnail_id: swapData.thumbnail_id || img.thumbnail_id });
+              } else {
+                swappedResults.push(img);
+              }
+            } catch {
+              swappedResults.push(img);
+            }
+          }
+          setResults(swappedResults);
+          toast.success("Avatar face-swapped!");
+        } catch {
+          toast.info("Face swap skipped — using original");
+        }
+      }
       if (credits?.plan_type === "free" || credits?.plan_type === "none") {
         const usedPollinations = (data.images || []).some((img: GeneratedImage) => img.provider === "pollinations");
         if (usedPollinations) setShowPollinationsUpsell(true);
@@ -173,8 +284,9 @@ const GeneratePage = () => {
       }
     } finally {
       setGenerating(false);
+      setAnalyzingScript(false);
     }
-  }, [user, prompt, enhancePrompt, textOverlay, textContent, style, niche, format, quality, variations, language, remaining, creditCost, queryClient, credits?.plan_type, modelChoice]);
+  }, [user, prompt, script, inputMode, wordCount, enhancePrompt, style, niche, format, quality, variations, language, remaining, creditCost, queryClient, credits?.plan_type, modelChoice, useAvatar, activeFaceUrl, overrideFaceFile]);
 
   // Cmd+Enter shortcut
   useEffect(() => {
@@ -191,6 +303,7 @@ const GeneratePage = () => {
   const handleCancel = () => {
     abortRef.current = true;
     setGenerating(false);
+    setAnalyzingScript(false);
     toast.info("Generation cancelled");
   };
 
@@ -249,65 +362,135 @@ const GeneratePage = () => {
 
       {/* LEFT — Controls */}
       <div className={`flex-1 lg:flex-[0.4] overflow-y-auto space-y-6 pb-24 lg:pb-0 scrollbar-hide ${activeTab === "preview" ? "hidden lg:block" : "block"}`}>
-        {/* Prompt */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <Label className="text-sm font-medium text-foreground">Prompt</Label>
-            <button
-              onClick={() => setShowPromptLibrary(true)}
-              className="flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              <BookOpen className="h-3 w-3" /> Prompt Library
-            </button>
-          </div>
-          <div className="relative">
-            <Textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="e.g. Shocked Indian man holding ₹1 lakh cash, bold text saying I MADE THIS IN 1 WEEK, dramatic red lighting"
-              className="min-h-[120px] bg-background border-border text-foreground placeholder:text-muted-foreground resize-none"
-            />
-            <span className="absolute bottom-2 right-3 text-[10px] text-muted-foreground">
-              {prompt.length} characters
+        {/* Prominent Two-Card Mode Selector */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <button
+            type="button"
+            onClick={() => setInputMode("prompt")}
+            className={`p-3.5 rounded-xl border text-left transition-all flex flex-col gap-1 relative overflow-hidden ${
+              inputMode === "prompt"
+                ? "border-primary bg-primary/10 ring-2 ring-primary/20 shadow-md"
+                : "border-border bg-card/60 hover:bg-card hover:border-muted-foreground/30 text-muted-foreground"
+            }`}
+          >
+            <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              ✍️ Write a Prompt
             </span>
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <Switch checked={enhancePrompt} onCheckedChange={setEnhancePrompt} id="enhance" />
-            <Label htmlFor="enhance" className="text-xs text-muted-foreground cursor-pointer">
-              ✨ AI will improve your prompt before generating
-            </Label>
-          </div>
+            <span className="text-[11px] text-muted-foreground leading-tight">
+              Describe your idea directly
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setInputMode("script")}
+            className={`p-3.5 rounded-xl border text-left transition-all flex flex-col gap-1 relative overflow-hidden ${
+              inputMode === "script"
+                ? "border-primary bg-primary/10 ring-2 ring-primary/20 shadow-md"
+                : "border-border bg-card/60 hover:bg-card hover:border-muted-foreground/30 text-muted-foreground"
+            }`}
+          >
+            <span className="absolute top-2 right-2 text-[9px] font-black bg-gradient-to-r from-amber-500 to-red-500 text-white px-1.5 py-0.5 rounded-full shadow-sm animate-pulse">
+              🔥 NEW
+            </span>
+            <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              📜 Paste Your Script
+            </span>
+            <span className="text-[11px] text-muted-foreground leading-tight">
+              Auto-find viral key moment
+            </span>
+          </button>
         </div>
 
-        {/* Text overlay */}
+        {/* Input area depends on selected inputMode */}
+        {inputMode === "prompt" ? (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-sm font-medium text-foreground">Prompt</Label>
+              <button
+                onClick={() => setShowPromptLibrary(true)}
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <BookOpen className="h-3 w-3" /> Prompt Library
+              </button>
+            </div>
+            <div className="relative">
+              <Textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="e.g. Shocked Indian man holding ₹1 lakh cash, bold text saying I MADE THIS IN 1 WEEK, dramatic red lighting"
+                className="min-h-[120px] bg-background border-border text-foreground placeholder:text-muted-foreground resize-none"
+              />
+              <span className="absolute bottom-2 right-3 text-[10px] text-muted-foreground">
+                {prompt.length} characters
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Switch checked={enhancePrompt} onCheckedChange={setEnhancePrompt} id="enhance" />
+              <Label htmlFor="enhance" className="text-xs text-muted-foreground cursor-pointer">
+                ✨ AI will improve your prompt before generating
+              </Label>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-sm font-medium text-foreground">Script / Transcript</Label>
+            </div>
+            <div className="relative">
+              <Textarea
+                value={script}
+                onChange={(e) => setScript(e.target.value)}
+                placeholder="Paste your full video script or transcript here..."
+                rows={9}
+                className="bg-background border-border text-foreground placeholder:text-muted-foreground resize-none w-full"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+              AI will read your script, find the most dramatic moment, and write the perfect prompt for you automatically.
+            </p>
+            <div className="flex justify-between items-center mt-2 text-[11px]">
+              <span className="text-muted-foreground font-medium">
+                {wordCount} {wordCount === 1 ? "word" : "words"} ({script.length} characters)
+              </span>
+              {wordCount < 20 && (
+                <span className="text-muted-foreground">
+                  Add a bit more detail for better results
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+
+
+        {/* Avatar / Face-Swap */}
         <div className="glass-card rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
             <Label className="text-sm font-medium text-foreground flex items-center gap-2">
-              <Type className="h-4 w-4" /> Include text in thumbnail
+              <UserCircle className="h-4 w-4" /> Use My Avatar
             </Label>
-            <Switch checked={textOverlay} onCheckedChange={setTextOverlay} />
+            <Switch checked={useAvatar} onCheckedChange={setUseAvatar} />
           </div>
-          {textOverlay && (
+          {useAvatar && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-              <Input
-                value={textContent}
-                onChange={(e) => setTextContent(e.target.value)}
-                placeholder="e.g. I MADE THIS IN 1 WEEK"
-                maxLength={30}
-                className="bg-background border-border text-foreground text-sm mb-2"
-              />
-              <div className="flex justify-between text-[10px]">
-                <span className="text-muted-foreground">
-                  {textContent.split(/\s+/).filter(Boolean).length > 4 && (
-                    <span className="text-secondary">⚠️ Shorter text performs better!</span>
-                  )}
-                </span>
-                <span className="text-muted-foreground">{textContent.length}/30</span>
+              <div className="flex items-center gap-3">
+                {activeFaceUrl ? (
+                  <img src={activeFaceUrl} alt="Avatar" className="w-14 h-14 rounded-full object-cover border-2 border-border" />
+                ) : (
+                  <div className="w-14 h-14 rounded-full border-2 border-dashed border-border flex items-center justify-center bg-muted">
+                    <UserCircle className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-1">
+                  <Button variant="outline" size="sm" onClick={() => avatarFileRef.current?.click()}>
+                    <Camera className="h-3.5 w-3.5 mr-1.5" /> Change
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground">Your face will be swapped onto the generated thumbnail</p>
+                </div>
               </div>
+              <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarDrop} />
             </motion.div>
-          )}
-          {!textOverlay && (
-            <p className="text-[10px] text-muted-foreground">Uses FLUX Pro — best for photorealistic faces</p>
           )}
         </div>
 
@@ -318,15 +501,18 @@ const GeneratePage = () => {
             size="xl"
             className="w-full shadow-2xl lg:shadow-none"
             onClick={handleGenerateClick}
-            disabled={generating || !prompt.trim()}
+            disabled={generating || (inputMode === "prompt" ? !prompt.trim() : wordCount < 20)}
           >
             {generating ? (
               <span className="flex items-center gap-2">
                 <span className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
-                Generating...
+                {analyzingScript ? "Reading your script..." : "Generating..."}
               </span>
             ) : (
-              <>Generate Thumbnail ({creditCost === 0 ? "Free" : `${creditCost} credits`})</>
+              <>
+                {inputMode === "prompt" ? "Generate Thumbnail" : "Analyze Script & Generate"}{" "}
+                ({creditCost === 0 ? "Free" : `${creditCost} credits`})
+              </>
             )}
           </Button>
           <p className="hidden lg:block text-[10px] text-center text-muted-foreground mt-2">
@@ -401,7 +587,10 @@ const GeneratePage = () => {
               </Button>
               <button 
                 className="flex items-center justify-center bg-gradient-to-br from-[#8B47FF] to-[#6366F1] text-white font-sans text-[13px] font-semibold px-[14px] py-[7px] rounded-lg border-none cursor-pointer transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(139,71,255,0.35)] active:translate-y-0 disabled:opacity-80 disabled:cursor-not-allowed"
-                onClick={() => navigate(`/dashboard/smart-editor?thumbnail_id=${results[activeImage].thumbnail_id}&image_url=${encodeURIComponent(results[activeImage].image_url)}`)}
+                onClick={() => {
+                  const textVal = extractQuotedText(prompt);
+                  navigate(`/dashboard/smart-editor?thumbnail_id=${results[activeImage].thumbnail_id}&image_url=${encodeURIComponent(results[activeImage].image_url)}${textVal ? `&text=${encodeURIComponent(textVal)}` : ''}`);
+                }}
               >
                 {['none'].includes(plan.toLowerCase()) ? (
                     <><Lock className="h-3.5 w-3.5 mr-1.5" /> Smart Edit</>

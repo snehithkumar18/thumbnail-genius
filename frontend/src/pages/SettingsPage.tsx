@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Gem, CreditCard, User, Zap, Crown, Check } from "lucide-react";
+import { Gem, CreditCard, User, Zap, Crown, Check, Upload, Camera } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile, useCredits } from "@/hooks/useSupabaseData";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { PLAN_LIMITS, TOPUP_PACKS, SUBSCRIPTION_PLANS, type PlanType } from "@/lib/credits";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { hapticFeedback } from "@/lib/utils";
 
 const SettingsPage = () => {
@@ -19,6 +20,44 @@ const SettingsPage = () => {
   const { plan, hasSubscription, subscriptionCredits, topupCredits, rolloverCredits, totalCredits } = usePlanAccess();
   const navigate = useNavigate();
   const [loading, setLoading] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const queryClientSettings = useQueryClient();
+
+  // Fetch saved faces
+  const { data: savedFaces } = useQuery({
+    queryKey: ["faces", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase.from("faces").select("*").eq("user_id", user.id);
+      return data || [];
+    },
+    enabled: !!user,
+  });
+  const currentFace = savedFaces?.[0] || null;
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    try {
+      const filePath = `faces/${user.id}/${crypto.randomUUID()}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from("thumbnails")
+        .upload(filePath, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("thumbnails").getPublicUrl(filePath);
+      const publicUrl = urlData.publicUrl;
+      const { error: dbError } = await supabase.from("faces").upsert(
+        { user_id: user.id, face_url: publicUrl, label: "My Face" },
+        { onConflict: "user_id" }
+      );
+      if (dbError) throw dbError;
+      queryClientSettings.invalidateQueries({ queryKey: ["faces"] });
+      toast.success("Avatar updated!");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      toast.error(message);
+    }
+  };
 
   const planLimits = PLAN_LIMITS[plan as PlanType] ?? PLAN_LIMITS.none;
   const currentPlanData = SUBSCRIPTION_PLANS.find(p => p.id === plan);
@@ -70,6 +109,50 @@ const SettingsPage = () => {
               </div>
             </div>
           </div>
+
+          {/* My Avatar */}
+          <div className="glass-card rounded-xl p-6">
+            <h3 className="font-heading font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Camera className="h-5 w-5 text-primary" /> My Avatar
+            </h3>
+            <div className="flex items-center gap-4">
+              {currentFace ? (
+                <img
+                  src={currentFace.face_url}
+                  alt="My avatar"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-border"
+                />
+              ) : (
+                <div
+                  className="w-24 h-24 rounded-full border-2 border-dashed border-border flex items-center justify-center bg-muted cursor-pointer hover:border-primary/40 transition-colors"
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  <Upload className="h-6 w-6 text-muted-foreground" />
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">
+                  {currentFace ? "Your saved face for face-swap" : "Upload a face photo for face-swap"}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  <Upload className="h-3.5 w-3.5 mr-1.5" />
+                  {currentFace ? "Change Avatar" : "Upload Avatar"}
+                </Button>
+              </div>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+            </div>
+          </div>
+
           <Button variant="destructive" onClick={signOut}>Sign Out</Button>
         </TabsContent>
 

@@ -252,8 +252,8 @@ const callPollinationsImage = async (req: PollinationsRequest): Promise<Provider
     throw new Error("Hugging Face token not configured. Please set HF_TOKEN environment variable.");
   }
 
-  // TEMPORARILY: Only use Stable Diffusion 3 (no fallback to FLUX) for testing quality
   const models = [
+    { id: "black-forest-labs/FLUX.1-schnell", name: "FLUX.1 Schnell (HF)" },
     { id: "stabilityai/stable-diffusion-3-medium-diffusers", name: "Stable Diffusion 3 (HF)" }
   ];
 
@@ -261,13 +261,27 @@ const callPollinationsImage = async (req: PollinationsRequest): Promise<Provider
   for (const model of models) {
     try {
       console.log(`[aiRouter] Calling Hugging Face Serverless model: ${model.id}...`);
+      let targetWidth = req.width;
+      let targetHeight = req.height;
+      if (targetWidth > 1024 || targetHeight > 1024) {
+        const scale = 1024 / Math.max(targetWidth, targetHeight);
+        targetWidth = Math.round((targetWidth * scale) / 16) * 16;
+        targetHeight = Math.round((targetHeight * scale) / 16) * 16;
+      }
+      
       const response = await fetch(`https://router.huggingface.co/hf-inference/models/${model.id}`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${hfToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ inputs: req.prompt }),
+        body: JSON.stringify({
+          inputs: req.prompt,
+          parameters: {
+            width: targetWidth,
+            height: targetHeight,
+          }
+        }),
       });
 
       if (response.ok) {

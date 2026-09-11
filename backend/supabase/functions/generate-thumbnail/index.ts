@@ -352,7 +352,7 @@ serve(async (req) => {
     const forceProOnly = normalizedModelChoice === "pro";
     const forceTextOnly = normalizedModelChoice === "text";
     const useIdeogram = hasTextOverlay || forceTextModel || forceTextOnly;
-    const allowPaidFallback = hasSubscriptionPlan && !forceFastOnly;
+    const allowPaidFallback = (hasSubscriptionPlan || bypassCredits) && !forceFastOnly;
 
     // Step 2: Generate images using Lovable AI image generation
     const results: Array<{

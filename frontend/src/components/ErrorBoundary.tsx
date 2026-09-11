@@ -22,6 +22,10 @@ export default class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("React ErrorBoundary caught an exception:", error, errorInfo);
+  }
+
   handleRetry = () => {
     this.setState({ hasError: false, error: null });
   };
@@ -36,11 +40,11 @@ export default class ErrorBoundary extends Component<Props, State> {
           <h3 className="text-lg font-heading font-semibold text-foreground mb-2">
             {this.props.fallbackTitle || "Something went wrong"}
           </h3>
-          <p className="text-sm text-muted-foreground mb-6 max-w-md">
-            An unexpected error occurred. No credits were charged.
+          <p className="text-sm text-muted-foreground mb-4 max-w-md">
+            {this.state.error?.message || "An unexpected error occurred. No credits were charged."}
           </p>
-          <Button onClick={this.handleRetry} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" /> Try Again
+          <Button onClick={this.handleRetry} variant="outline" className="gap-2">
+            <RefreshCw className="h-4 w-4" /> Try Again
           </Button>
         </div>
       );

@@ -31,6 +31,7 @@ const ReferralPage = lazy(() => import("./pages/ReferralPage"));
 const GalleryPage = lazy(() => import("./pages/GalleryPage"));
 const SharedThumbnailPage = lazy(() => import("./pages/SharedThumbnailPage"));
 const SmartEditorPage = lazy(() => import("./pages/SmartEditorPage"));
+const SmartEditorValidationPage = lazy(() => import("./pages/SmartEditorValidationPage"));
 const WaitlistPage = lazy(() => import("./pages/WaitlistPage"));
 
 import PWAInstallBanner from "./components/PWAInstallBanner";
@@ -54,6 +55,8 @@ const App = () => (
                 <Route path="/gallery" element={<GalleryPage />} />
                 <Route path="/t/:shareId" element={<SharedThumbnailPage />} />
                 <Route path="/vote/:shareId" element={<VotePage />} />
+                <Route path="/smart-editor" element={<SmartEditorPage />} />
+                <Route path="/smart-editor/validate" element={<SmartEditorValidationPage />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<SmartEditorPage />} />
                   <Route path="generate" element={<GeneratePage />} />
