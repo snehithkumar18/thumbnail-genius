@@ -88,10 +88,11 @@ serve(async (req) => {
       });
     }
 
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY");
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
 
     if (script) {
-      if (!GROQ_API_KEY) {
+      if (!GEMINI_API_KEY && !GROQ_API_KEY) {
         return new Response(JSON.stringify({
           image_prompt: "Shocked man looking at a screen, high detail, dramatic lighting, YouTube thumbnail composition, 16:9 aspect ratio, eye-catching, professional photography quality, cinematic color grading, high contrast, sharp focus on subject, bokeh background",
           fallback: true
@@ -185,30 +186,91 @@ who has NOT watched this video most desperately
 want to click. Not the most important moment.
 The most curiosity-inducing moment.`;
 
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          temperature: 0.7,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
-          ],
-        }),
-      });
+      let parsed: any = null;
 
-      if (!response.ok) {
-        throw new Error(`Groq API returned ${response.status}`);
+      // 1. Try Gemini API first with model fallback chain
+      if (GEMINI_API_KEY) {
+        const geminiModels = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.5-flash"];
+        for (const model of geminiModels) {
+          try {
+            console.log(`[generate-titles] Analyzing script with Gemini API (${model})...`);
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+            const response = await fetch(geminiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                systemInstruction: {
+                  parts: [{ text: systemPrompt }]
+                },
+                contents: [
+                  { role: "user", parts: [{ text: userMessage }] }
+                ],
+                generationConfig: {
+                  responseMimeType: "application/json",
+                  temperature: 0.7
+                }
+              })
+            });
+
+            if (response.ok) {
+              const aiData = await response.json();
+              const textContent = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+              if (textContent) {
+                parsed = JSON.parse(textContent);
+                console.log(`[generate-titles] Gemini API (${model}) script analysis successful!`);
+                break;
+              }
+            } else {
+              console.warn(`[generate-titles] Gemini API (${model}) returned status ${response.status}`);
+            }
+          } catch (gErr) {
+            console.warn(`[generate-titles] Gemini API (${model}) call failed:`, gErr);
+          }
+        }
       }
 
-      const aiData = await response.json();
-      const content = aiData.choices?.[0]?.message?.content || "";
-      const parsed = JSON.parse(content);
+      // 2. Fallback to Groq API if Gemini is unavailable or failed
+      if (!parsed && GROQ_API_KEY) {
+        try {
+          console.log("[generate-titles] Falling back to Groq API...");
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${GROQ_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              temperature: 0.7,
+              response_format: { type: "json_object" },
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userMessage },
+              ],
+            }),
+          });
+
+          if (response.ok) {
+            const aiData = await response.json();
+            const content = aiData.choices?.[0]?.message?.content || "";
+            if (content) {
+              parsed = JSON.parse(content);
+              console.log("[generate-titles] Groq API script analysis successful!");
+            }
+          }
+        } catch (qErr) {
+          console.warn("[generate-titles] Groq API call failed:", qErr);
+        }
+      }
+
+      if (!parsed) {
+        return new Response(JSON.stringify({
+          image_prompt: "Shocked man looking at a screen, high detail, dramatic lighting, YouTube thumbnail composition, 16:9 aspect ratio, eye-catching, professional photography quality, cinematic color grading, high contrast, sharp focus on subject, bokeh background",
+          fallback: true
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       let finalImagePrompt = parsed.image_prompt || "";
 
