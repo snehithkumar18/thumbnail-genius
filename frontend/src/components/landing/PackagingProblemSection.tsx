@@ -70,13 +70,18 @@ export const PackagingProblemSection: React.FC<PackagingProblemSectionProps> = (
 
               {/* Simulated Thumbnail Preview (Weak) */}
               <div className="relative rounded-xl overflow-hidden aspect-video bg-muted/40 mb-5 border border-border/50 flex flex-col items-center justify-center p-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center text-2xl mb-2 grayscale opacity-40">
-                  😐
+                <img
+                  src="/waitlist/before.png"
+                  alt="Low CTR Amateur Thumbnail"
+                  className="absolute inset-0 w-full h-full object-cover filter contrast-75 brightness-90 grayscale-[0.3]"
+                />
+                <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-4">
+                  <span className="text-3xl mb-1">😐</span>
+                  <p className="text-[11px] text-white/90 font-semibold drop-shadow max-w-[200px] leading-tight">
+                    Low contrast, dull facial expression, no curiosity gap
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground font-medium max-w-[200px]">
-                  Boring screenshot, low contrast, no curiosity gap, generic font
-                </p>
-                <div className="absolute bottom-2 right-2 bg-black/80 text-[10px] text-zinc-400 px-1.5 py-0.5 rounded">
+                <div className="absolute bottom-2 right-2 bg-black/80 text-[10px] text-zinc-300 px-1.5 py-0.5 rounded font-mono">
                   12:40
                 </div>
               </div>
@@ -132,28 +137,23 @@ export const PackagingProblemSection: React.FC<PackagingProblemSectionProps> = (
               {/* Simulated Thumbnail Preview (Viral High CTR) */}
               <div className="relative rounded-xl overflow-hidden aspect-video bg-[#0F0A1E] mb-5 border border-[#8B47FF]/30 flex items-center justify-center p-4 text-center shadow-md group-hover:border-[#8B47FF]/60 transition-all">
                 <img
-                  src="/hero-sample.jpg"
+                  src="/thumb-mrbeast-train.jpg"
                   alt="Viral AI Thumbnail"
-                  className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback to stylized vector graphic if local img missing
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-                {/* Fallback stylized badge overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3 text-left">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent flex flex-col justify-end p-3 text-left">
                   <span className="text-xs font-black tracking-tight text-yellow-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] uppercase">
-                    "I LOST EVERYTHING!"
+                    "CAN BRICK STOP TRAIN?!"
                   </span>
-                  <span className="text-[10px] text-zinc-300">High-contrast 3D expression + bold typography</span>
+                  <span className="text-[10px] text-zinc-200">High-contrast 3D expression + dramatic cinematic destruction</span>
                 </div>
-                <div className="absolute top-2 right-2 bg-[#8B47FF] text-[10px] text-white font-bold px-2 py-0.5 rounded shadow">
+                <div className="absolute top-2 right-2 bg-[#8B47FF] text-[10px] text-white font-bold px-2 py-0.5 rounded shadow-md shadow-[#8B47FF]/40">
                   +380% More Clicks
                 </div>
               </div>
 
               <h4 className="text-sm font-bold text-[#0F0A1E] mb-2 line-clamp-1">
-                "How I Lost $250,000 on Real Estate in 48 Hours"
+                "Will a 20-Foot Brick Wall Stop a Speeding Train?"
               </h4>
 
               <div className="space-y-2 text-xs text-[#524B66]">

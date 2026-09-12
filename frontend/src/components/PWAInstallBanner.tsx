@@ -70,13 +70,13 @@ export default function PWAInstallBanner() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.95 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="fixed bottom-6 right-6 left-6 md:left-auto md:w-[380px] z-[9999] bg-[#0b0314]/90 backdrop-blur-md border border-[#8B47FF]/30 rounded-2xl p-5 shadow-[0_8px_32px_rgba(139,71,255,0.25)] flex flex-col gap-4 text-white overflow-hidden"
+        className="fixed bottom-6 right-6 left-6 md:left-auto md:w-[380px] z-[9999] bg-white border border-[#EAE5F5] rounded-2xl p-5 shadow-[0_16px_48px_rgba(15,10,30,0.12)] flex flex-col gap-4 text-[#0F0A1E] overflow-hidden"
       >
         {/* Glow effect in background */}
-        <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#8B47FF]/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#8B47FF]/10 rounded-full blur-2xl pointer-events-none" />
         
         <div className="flex gap-3.5 items-start">
-          <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-tr from-[#8B47FF] to-[#B180FF] rounded-xl flex items-center justify-center shadow-lg shadow-[#8B47FF]/20">
+          <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-tr from-[#8B47FF] to-[#6366F1] rounded-xl flex items-center justify-center shadow-md shadow-[#8B47FF]/20">
             <svg viewBox="0 0 512 512" className="w-7 h-7 text-white fill-current">
               <path d="M190 160 C190 140, 205 130, 225 140 L345 230 C365 240, 365 260, 345 270 L225 360 C205 370, 190 360, 190 340 Z" />
               <path d="M370 120 C370 140 380 150 400 150 C380 150 370 160 370 180 C370 160 360 150 340 150 C360 150 370 140 370 120 Z" fill="#FFE97F" />
@@ -84,33 +84,34 @@ export default function PWAInstallBanner() {
           </div>
           
           <div className="flex-1 min-w-0 pr-4">
-            <h3 className="font-semibold text-sm leading-tight flex items-center gap-1">
-              Install ThumbAI <Sparkles className="w-3.5 h-3.5 text-[#FFE97F] fill-current" />
+            <h3 className="font-bold text-sm leading-tight flex items-center gap-1 text-[#0F0A1E]">
+              Install ThumbAI <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-current" />
             </h3>
-            <p className="text-xs text-zinc-300 mt-1 leading-normal">
+            <p className="text-xs text-[#524B66] mt-1 leading-normal">
               Install ThumbAI on your device for standalone fullscreen creation and faster access.
             </p>
           </div>
 
           <button 
             onClick={handleDismiss} 
-            className="flex-shrink-0 hover:bg-white/10 p-1.5 rounded-lg transition-colors text-zinc-400 hover:text-white"
+            className="flex-shrink-0 hover:bg-[#F0EDF8] p-1.5 rounded-lg transition-colors text-[#7B748E] hover:text-[#0F0A1E]"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleDismiss} 
-            variant="ghost" 
-            className="flex-1 text-xs text-zinc-300 hover:text-white hover:bg-white/5 border border-white/10 h-9 rounded-xl"
+        <div className="flex gap-2.5 items-center justify-end pt-1">
+          <button
+            onClick={handleDismiss}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-[#524B66] hover:bg-[#F0EDF8] transition-colors"
           >
             Maybe Later
-          </Button>
-          <Button 
+          </button>
+          
+          <Button
             onClick={handleInstallClick}
-            className="flex-1 text-xs bg-[#8B47FF] hover:bg-[#7236d6] text-white font-medium flex items-center justify-center gap-1.5 h-9 rounded-xl shadow-lg shadow-[#8B47FF]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            size="sm"
+            className="bg-[#8B47FF] hover:bg-[#7839EE] text-white font-bold rounded-xl text-xs px-4 py-2 flex items-center gap-1.5 shadow-md shadow-[#8B47FF]/25 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             Install App

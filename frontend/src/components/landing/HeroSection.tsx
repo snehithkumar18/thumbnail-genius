@@ -8,100 +8,100 @@ interface HeroSectionProps {
   visible?: boolean;
 }
 
-// Curated high-CTR showcase items for the dual-row marquee
+// Curated high-CTR showcase items with realistic world-famous creator thumbnails
 const ROW_1_THUMBNAILS = [
   {
-    title: "I Flattened a $250,000 Lamborghini With a Hydraulic Press!",
-    views: "8,200,000+ views",
-    ctr: "+41% CTR",
-    tag: "Viral",
-    bg: "from-red-950/80 to-zinc-950",
-    textHook: "PRESS VS LAMBO!",
+    title: "Will a 20-Foot Reinforced Brick Wall Stop a Speeding Train?",
+    views: "14,800,000+ views",
+    ctr: "+48% CTR",
+    tag: "MrBeast Challenge",
+    image: "/thumb-mrbeast-train.jpg",
+    textHook: "WILL IT STOP?!",
     category: "Extreme",
   },
   {
-    title: "How Samuel Onuha Made Millions in 18 Months",
-    views: "1,800,000+ views",
-    ctr: "+36% CTR",
-    tag: "Finance",
-    bg: "from-amber-950/80 to-zinc-950",
-    textHook: "$10M BLUEPRINT",
-    category: "Business",
-  },
-  {
-    title: "The Unfathomable Wealth of Dubai's $100B Megaproject",
-    views: "3,400,000+ views",
-    ctr: "+48% CTR",
-    tag: "Docu",
-    bg: "from-blue-950/80 to-zinc-950",
-    textHook: "BURIED SECRETS",
-    category: "Luxury",
-  },
-  {
-    title: "I Survived 100 Days Inside a 10,000° Subterranean Volcano",
-    views: "4,500,000+ views",
+    title: "I Flew to London for the Craziest Football Final in History!",
+    views: "9,200,000+ views",
     ctr: "+52% CTR",
-    tag: "Gaming",
-    bg: "from-orange-950/80 to-zinc-950",
-    textHook: "DAY 99 SECRET!",
+    tag: "IShowSpeed IRL",
+    image: "/thumb-ishowspeed.jpg",
+    textHook: "CRAZY FINAL!",
+    category: "Sports IRL",
+  },
+  {
+    title: "Impossible Neon Target Shot Over $10M Luxury Pool!",
+    views: "6,400,000+ views",
+    ctr: "+44% CTR",
+    tag: "Celine Dept",
+    image: "/thumb-celine-dept.jpg",
+    textHook: "SO CLOSE TO WINNING!",
     category: "Challenge",
   },
   {
-    title: "Level 1 to 100 Mind Paradox to Fall Asleep To",
-    views: "2,900,000+ views",
-    ctr: "+33% CTR",
-    tag: "Education",
-    bg: "from-purple-950/80 to-zinc-950",
-    textHook: "BRAIN BROKEN?",
-    category: "Science",
+    title: "Opening 10,000 Glowing Mystery Boxes in a Stadium!",
+    views: "11,500,000+ views",
+    ctr: "+46% CTR",
+    tag: "Indian Mega Mystery",
+    image: "/thumb-indian-mystery.jpg",
+    textHook: "10,000 BOXES!",
+    category: "Viral India",
+  },
+  {
+    title: "The Unfathomable Wealth of Dubai's $100B Megaproject",
+    views: "4,200,000+ views",
+    ctr: "+41% CTR",
+    tag: "Documentary",
+    image: "/trends/vlog.png",
+    textHook: "BURIED SECRETS",
+    category: "Luxury",
   },
 ];
 
 const ROW_2_THUMBNAILS = [
   {
-    title: "How History's Biggest Idiot Accidentally Made a Fortune",
-    views: "2,200,000+ views",
-    ctr: "+39% CTR",
-    tag: "Story",
-    bg: "from-emerald-950/80 to-zinc-950",
-    textHook: "DUMB LUCK?",
-    category: "History",
+    title: "Testing the World's First Real Holographic Quantum Smartphone!",
+    views: "5,800,000+ views",
+    ctr: "+45% CTR",
+    tag: "Indian Tech Guru",
+    image: "/thumb-indian-tech.jpg",
+    textHook: "HOLOGRAPHIC TECH!",
+    category: "Next-Gen Tech",
   },
   {
-    title: "The Race That Changed Formula 1 Forever",
+    title: "Winner of the Football Challenge Takes Home the Hypercar!",
+    views: "8,900,000+ views",
+    ctr: "+49% CTR",
+    tag: "Mega Challenge",
+    image: "/thumb-cr7-trophy.jpg",
+    textHook: "WINNER TAKES ALL!",
+    category: "Athletics",
+  },
+  {
+    title: "MrBeast Gives Away an Entire Island to the Last to Leave",
+    views: "22,400,000+ views",
+    ctr: "+58% CTR",
+    tag: "MrBeast Studio",
+    image: "/trends/mrbeast.png",
+    textHook: "LAST TO LEAVE!",
+    category: "Viral",
+  },
+  {
+    title: "How an Everyday Guy Built a $10M Software Empire in 18 Months",
+    views: "3,100,000+ views",
+    ctr: "+38% CTR",
+    tag: "Finance",
+    image: "/trends/finance.png",
+    textHook: "$10M BLUEPRINT",
+    category: "Business",
+  },
+  {
+    title: "Ultimate 90-Day Full Body Calisthenics Transformation",
     views: "4,700,000+ views",
     ctr: "+44% CTR",
-    tag: "Sports",
-    bg: "from-rose-950/80 to-zinc-950",
-    textHook: "LAST LAP!",
-    category: "Racing",
-  },
-  {
-    title: "Trump's New Tariff Plan Explained in 12 Minutes",
-    views: "1,500,000+ views",
-    ctr: "+31% CTR",
-    tag: "News",
-    bg: "from-cyan-950/80 to-zinc-950",
-    textHook: "WHO PAYS?",
-    category: "Economy",
-  },
-  {
-    title: "30 Days Locked in a Cold War Fallout Bunker",
-    views: "3,800,000+ views",
-    ctr: "+47% CTR",
-    tag: "Horror",
-    bg: "from-red-950/80 to-zinc-950",
-    textHook: "NOT ALONE?",
-    category: "Mystery",
-  },
-  {
-    title: "The Satisfying Downfall of Ashton Hall",
-    views: "3,400,000+ views",
-    ctr: "+35% CTR",
-    tag: "Drama",
-    bg: "from-violet-950/80 to-zinc-950",
-    textHook: "EXPOSED!",
-    category: "Culture",
+    tag: "Fitness",
+    image: "/trends/fitness.png",
+    textHook: "DAY 1 VS 90!",
+    category: "Workout",
   },
 ];
 
@@ -247,29 +247,42 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
 
 function ThumbnailMarqueeCard({ item }: { item: typeof ROW_1_THUMBNAILS[0] }) {
   return (
-    <div className="w-[300px] sm:w-[340px] shrink-0 rounded-2xl bg-white border border-[#EAE5F5] p-3.5 shadow-[0_8px_24px_rgba(15,10,30,0.06)] hover:border-[#8B47FF]/50 transition-all">
+    <div className="w-[300px] sm:w-[340px] shrink-0 rounded-2xl bg-white border border-[#EAE5F5] p-3.5 shadow-[0_8px_24px_rgba(15,10,30,0.06)] hover:border-[#8B47FF]/50 transition-all group/card">
       {/* Thumbnail Aspect Card */}
-      <div className={`relative aspect-video rounded-lg overflow-hidden bg-gradient-to-br ${item.bg} border border-border/40 mb-2.5 flex items-center justify-center p-3 shadow-inner`}>
+      <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-950 border border-border/40 mb-2.5 flex items-center justify-center shadow-inner">
+        {/* Real Thumbnail Image */}
+        <img
+          src={item.image}
+          alt={item.title}
+          className="absolute inset-0 w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
+          loading="lazy"
+        />
+
+        {/* Cinematic dark gradient vignette overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/30 flex items-end p-3" />
+
         {/* Text hook watermark */}
-        <span className="text-base sm:text-lg font-black text-yellow-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)] tracking-tight uppercase text-center">
+        <span className="relative z-10 text-sm sm:text-base font-black text-yellow-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] tracking-tight uppercase line-clamp-1">
           {item.textHook}
         </span>
+
         {/* Category tag */}
-        <span className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-[10px] font-bold text-white px-2 py-0.5 rounded">
+        <span className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-md text-[10px] font-bold text-white px-2 py-0.5 rounded border border-white/10">
           {item.category}
         </span>
+
         {/* CTR boost badge */}
-        <span className="absolute bottom-2 right-2 bg-primary text-[10px] font-extrabold text-white px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow">
+        <span className="absolute bottom-2 right-2 z-10 bg-[#8B47FF] text-[10px] font-extrabold text-white px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-md shadow-[#8B47FF]/30">
           <TrendingUp className="h-2.5 w-2.5" />
           {item.ctr}
         </span>
       </div>
 
-      <div className="flex items-center justify-between text-xs">
-        <p className="font-semibold text-foreground/90 truncate max-w-[200px]" title={item.title}>
+      <div className="flex items-center justify-between text-xs pt-0.5">
+        <p className="font-bold text-[#0F0A1E] truncate max-w-[200px]" title={item.title}>
           {item.title}
         </p>
-        <span className="text-[11px] font-mono text-primary font-bold shrink-0">
+        <span className="text-[11px] font-mono text-[#8B47FF] font-bold shrink-0">
           {item.views}
         </span>
       </div>

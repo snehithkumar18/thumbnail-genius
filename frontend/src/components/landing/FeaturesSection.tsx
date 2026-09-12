@@ -21,11 +21,12 @@ const PIKZELS_STYLE_FEATURES = [
       "Tailored style routing for Finance, Gaming, Tech, Drama & Tutorials",
     ],
     preview: {
-      tag: "Gemini 3.5 Flash",
+      tag: "Gemini 2.5 Pro Pipeline",
+      image: "/feature-script-to-thumb.jpg",
       inputSample: "Raw Video Script (2,150 words)...",
-      outputTitle: "Day 47 Volcano Base Destruction",
-      outputOverlay: "LOST $50,000 IN LAVA!",
-      score: "94/100 Virality",
+      outputTitle: "Auto-extracted Climax: T-Rex Rampage Escape",
+      outputOverlay: "T-REX RAMPAGE! (EPIC ESCAPE)",
+      score: "98/100 Virality",
     },
   },
   {
@@ -41,11 +42,12 @@ const PIKZELS_STYLE_FEATURES = [
       "Preserves original facial expressions (shock, disbelief, triumph)",
     ],
     preview: {
-      tag: "Persona Engine",
-      inputSample: "1 Profile Headshot",
-      outputTitle: "Integrated seamlessly into 4K YouTube scene",
-      outputOverlay: "100% Studio Quality",
-      score: "Natural HD",
+      tag: "Persona Vault Engine",
+      image: "/waitlist/faceswap-after.png",
+      inputSample: "1 Profile Reference Photo",
+      outputTitle: "Seamlessly placed into 4K YouTube scene with matching rim lighting",
+      outputOverlay: "AUTHENTIC EXPRESSION PRESERVED",
+      score: "100% Studio Consistency",
     },
   },
   {
@@ -61,11 +63,12 @@ const PIKZELS_STYLE_FEATURES = [
       "Eliminate design guesswork with validated viral formats",
     ],
     preview: {
-      tag: "YouTube URL Ingest",
-      inputSample: "youtube.com/watch?v=...",
-      outputTitle: "Reverse-Engineered Layout & Colors",
-      outputOverlay: "VIRAL REPLICA",
-      score: "Tested Format",
+      tag: "Viral Reverse-Engineer",
+      image: "/thumb-celine-dept.jpg",
+      inputSample: "youtube.com/watch?v=CelineDeptChallenge",
+      outputTitle: "Extracted Composition & Color Chemistry",
+      outputOverlay: "INSANE NEON TARGET CHALLENGE!",
+      score: "Tested Format (6.4M Views)",
     },
   },
   {
@@ -81,11 +84,12 @@ const PIKZELS_STYLE_FEATURES = [
       "Never publish a video with a blind spot again",
     ],
     preview: {
-      tag: "AI Heatmap & Audit",
-      inputSample: "Thumbnail Upload (PNG/JPG)",
-      outputTitle: "Fix applied: +4.2% Estimated CTR Lift",
-      outputOverlay: "VIRALITY: 92/100",
-      score: "Actionable Fixes",
+      tag: "AI Heatmap & Contrast Audit",
+      image: "/thumb-mrbeast-train.jpg",
+      inputSample: "Uploaded Thumbnail Draft",
+      outputTitle: "Attention Audit: Subject Contrast 96%, Mobile Eye-Tracking 98%",
+      outputOverlay: "VIRALITY SCORE: 98/100",
+      score: "Top 1% Packaging",
     },
   },
   {
@@ -101,11 +105,12 @@ const PIKZELS_STYLE_FEATURES = [
       "Designed specifically to complete the curiosity loop opened by the thumbnail",
     ],
     preview: {
-      tag: "CTR Title Engine",
-      inputSample: "Topic & Audience",
-      outputTitle: "Generated: 'How I Lost $250,000 in 48 Hours'",
-      outputOverlay: "HIGH CTR HOOK",
-      score: "88 CTR Score",
+      tag: "Curiosity Loop Title Engine",
+      image: "/thumb-indian-mystery.jpg",
+      inputSample: "Topic: Opening 10,000 mystery gift boxes",
+      outputTitle: "Hook: '10,000 Glowing Boxes Opened! (Hacker's Mega Challenge)'",
+      outputOverlay: "HIGH RETENTION 3-WORD HOOK",
+      score: "92 CTR Score",
     },
   },
 ];
@@ -218,16 +223,28 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({ onOpenAuth }) 
                   </div>
 
                   {/* Simulated Visual Window */}
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-purple-950/60 via-zinc-900 to-black border border-border/60 flex flex-col justify-end p-4 shadow-inner">
-                    <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-md text-[11px] font-mono text-zinc-300">
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-950 border border-border/60 flex flex-col justify-end p-4 shadow-inner group">
+                    {/* Real preview image */}
+                    {activeFeature.preview.image && (
+                      <img
+                        src={activeFeature.preview.image}
+                        alt={activeFeature.title}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    )}
+
+                    {/* Dark gradient overlay for text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/40 pointer-events-none" />
+
+                    <div className="absolute top-3 left-3 z-10 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-md text-[11px] font-mono text-zinc-200 border border-white/10">
                       Input: {activeFeature.preview.inputSample}
                     </div>
 
-                    <div className="space-y-1">
-                      <p className="text-base font-black text-yellow-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] uppercase">
+                    <div className="relative z-10 space-y-1">
+                      <p className="text-base sm:text-lg font-black text-yellow-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] uppercase">
                         "{activeFeature.preview.outputOverlay}"
                       </p>
-                      <p className="text-xs text-zinc-300 font-medium">
+                      <p className="text-xs text-zinc-200 font-semibold drop-shadow">
                         {activeFeature.preview.outputTitle}
                       </p>
                     </div>
