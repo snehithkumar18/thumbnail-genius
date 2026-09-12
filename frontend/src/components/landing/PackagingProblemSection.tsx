@@ -212,3 +212,5 @@ export const PackagingProblemSection: React.FC<PackagingProblemSectionProps> = (
     </section>
   );
 };
+
+export default PackagingProblemSection;
