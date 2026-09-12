@@ -153,6 +153,7 @@ RULES FOR THE IMAGE PROMPT:
 - Describe background as a specific real environment
   not just 'background' — city at night, modern office,
   empty warehouse, crowded street, etc
+- PROMPT LENGTH & QUALITY REQUIREMENT: Focus 100% on maximum visual quality, clarity, and depth. Do NOT restrict or artificially cap prompt length — make the prompt dynamically flexible. Expand with as much rich detail as needed to describe every subject, facial micro-expression, ambient lighting, atmospheric particles, camera angle, 3D text placement, font typography, and background environment.
 - Max 5 words for text overlay — make it punchy and
   incomplete so viewer NEEDS to watch to understand
 
@@ -175,7 +176,7 @@ no markdown, no explanation outside the JSON:
   "why_this_moment": "one sentence on why this gets clicks",
   "character_expression": "specific facial expression description",
   "dominant_color": "hex code of the dominant color",
-  "image_prompt": "complete detailed image generation prompt ready to send directly to an AI image generator — MUST INCLUDE explicit text rendering instructions with wording in quotes, font style, placement, colors, and 3D stroke outline — minimum 90 words",
+  "image_prompt": "complete hyper-detailed photorealistic image generation prompt of flexible length tailored precisely to the visual complexity of the script — MUST INCLUDE explicit text rendering instructions with wording in quotes, font style, placement, colors, and 3D stroke outline for maximum viral clickability",
   "text_overlay": "max 5 words, punchy, creates curiosity gap",
   "category": "finance/tech/gaming/story/tutorial/motivation/education/drama"
 }`;
