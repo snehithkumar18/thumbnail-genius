@@ -69,6 +69,12 @@ const GeneratePage = () => {
   const abortRef = useRef(false);
   const bypassCredits = (import.meta as any).env?.VITE_BYPASS_CREDITS === "true";
 
+  // Profile Face Modal State for Script Pipeline
+  const [showFaceUploadModal, setShowFaceUploadModal] = useState(false);
+  const [modalFaceFile, setModalFaceFile] = useState<File | null>(null);
+  const [modalFacePreview, setModalFacePreview] = useState<string | null>(null);
+  const [uploadingModalFace, setUploadingModalFace] = useState(false);
+
   // Avatar state
   const [useAvatar, setUseAvatar] = useState(false);
   const [overrideFaceFile, setOverrideFaceFile] = useState<File | null>(null);
@@ -162,6 +168,17 @@ const GeneratePage = () => {
     if (inputMode === "script" && wordCount < 20) {
       toast.error("Please enter at least 20 words for the script");
       return;
+    }
+
+    // Require profile face photo for Script-to-Thumbnail pipeline
+    if (inputMode === "script" && !activeFaceUrl && !modalFacePreview) {
+      setShowFaceUploadModal(true);
+      return;
+    }
+
+    // Automatically enable creator avatar face swap when profile face is present
+    if (inputMode === "script" && (activeFaceUrl || modalFacePreview)) {
+      setUseAvatar(true);
     }
 
     if (!bypassCredits && remaining < creditCost) {
@@ -725,6 +742,92 @@ const GeneratePage = () => {
           <div className="flex gap-2 justify-end">
             <Button variant="outline" onClick={() => setShowPollinationsUpsell(false)}>Not now</Button>
             <Button variant="hero" onClick={() => navigate("/pricing")}>Upgrade to Pro</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Profile Face Upload Modal for Script Pipeline */}
+      <Dialog open={showFaceUploadModal} onOpenChange={setShowFaceUploadModal}>
+        <DialogContent className="max-w-md bg-card border-border shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <UserCircle className="h-5 w-5 text-primary" />
+              Upload Creator Profile Photo
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
+              To generate personalized YouTube thumbnails from your video scripts, please add a clear photo of your face. We will automatically put your real face into every thumbnail!
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="border-2 border-dashed border-border hover:border-primary/50 rounded-xl p-4 text-center transition-all bg-muted/20 relative">
+              {modalFacePreview ? (
+                <div className="flex flex-col items-center gap-2">
+                  <img src={modalFacePreview} alt="Face Preview" className="h-24 w-24 rounded-full object-cover border-2 border-primary shadow-md" />
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => { setModalFaceFile(null); setModalFacePreview(null); }}>
+                    Remove Photo
+                  </Button>
+                </div>
+              ) : (
+                <label className="cursor-pointer flex flex-col items-center gap-2 py-4">
+                  <Camera className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-xs font-medium text-foreground">Click to upload clear face photo</span>
+                  <span className="text-[10px] text-muted-foreground">PNG, JPG or WEBP up to 10MB</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setModalFaceFile(file);
+                    const reader = new FileReader();
+                    reader.onload = () => setModalFacePreview(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }} />
+                </label>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground"
+                onClick={() => {
+                  setShowFaceUploadModal(false);
+                  setUseAvatar(false);
+                  setTimeout(() => handleGenerate(), 100);
+                }}
+              >
+                Skip & Use AI Face
+              </Button>
+
+              <Button
+                variant="hero"
+                size="sm"
+                disabled={!modalFaceFile || uploadingModalFace}
+                onClick={async () => {
+                  if (!user || !modalFaceFile) return;
+                  setUploadingModalFace(true);
+                  try {
+                    const fileName = `faces/${user.id}/${crypto.randomUUID()}.png`;
+                    const { error: upErr } = await supabase.storage.from("thumbnails").upload(fileName, modalFaceFile, { contentType: modalFaceFile.type });
+                    if (upErr) throw upErr;
+                    const { data: urlData } = supabase.storage.from("thumbnails").getPublicUrl(fileName);
+                    await supabase.from("faces").insert({ user_id: user.id, face_url: urlData.publicUrl, label: "My Profile Face" });
+                    queryClient.invalidateQueries({ queryKey: ["faces"] });
+                    setOverrideFacePreview(urlData.publicUrl);
+                    setUseAvatar(true);
+                    setShowFaceUploadModal(false);
+                    toast.success("Profile photo saved! Starting thumbnail pipeline...");
+                    setTimeout(() => handleGenerate(), 300);
+                  } catch (err: any) {
+                    toast.error("Failed to save profile photo: " + (err.message || "Unknown error"));
+                  } finally {
+                    setUploadingModalFace(false);
+                  }
+                }}
+              >
+                {uploadingModalFace ? "Saving Photo..." : "Save Photo & Generate"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
