@@ -243,7 +243,7 @@ function ScriptToThumbnailVisual() {
       {/* Resulting 4K Thumbnail */}
       <div className="relative aspect-video rounded-xl overflow-hidden border border-white/20 shadow-inner group">
         <img
-          src="/thumb-mrbeast-train.jpg"
+          src="/hero-thumb-train.jpg"
           alt="Script to Thumbnail Result"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
@@ -339,19 +339,19 @@ function RecreateCompetitorVisual() {
       {/* Reverse Engineered Thumbnail Display */}
       <div className="relative aspect-video rounded-xl overflow-hidden border border-white/20 shadow-inner group">
         <img
-          src="/thumb-ronaldo-mrbeast.jpg"
+          src="/feature-recreate-showcase.jpg"
           alt="Competitor Remake Showcase"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30 pointer-events-none" />
 
         <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-white border border-white/10">
-          45.0M Proven Views
+          Validated Viral Packaging
         </div>
 
         <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
           <span className="text-xs font-bold text-yellow-300 drop-shadow">
-            DUAL-STAR SPLIT COMPOSITION
+            CHALLENGE: CHAMPION VS STREAMER
           </span>
           <span className="bg-[#8B47FF] text-white text-[10px] font-bold px-2 py-0.5 rounded">
             Proven Viral Formula
@@ -398,7 +398,7 @@ function ThumblyScoreVisual() {
       {/* Heatmap Attention Simulation on Thumbnail */}
       <div className="relative aspect-video rounded-xl overflow-hidden border border-white/20 shadow-inner group">
         <img
-          src="/thumb-mrbeast-train.jpg"
+          src="/hero-thumb-train.jpg"
           alt="Heatmap Attention Audit"
           className="w-full h-full object-cover"
         />
@@ -465,13 +465,13 @@ function ClickOptimizedTitlesVisual() {
       {/* Packaging Hook Thumbnail */}
       <div className="relative aspect-[21/9] rounded-xl overflow-hidden border border-white/20 shadow-inner group">
         <img
-          src="/thumb-mrbeast-hotel.jpg"
+          src="/feature-titles-contrast.jpg"
           alt="Visual Hook for Title Generation"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
         <div className="absolute bottom-1.5 left-2.5 text-[11px] font-bold text-yellow-300">
-          Visual Hook: $1 Dirty Mattress vs $1,000,000 Luxury Bed
+          Visual Hook: $1 Camping Cot vs $1,000,000 Hotel Suite
         </div>
       </div>
 
@@ -483,7 +483,7 @@ function ClickOptimizedTitlesVisual() {
               Curiosity Gap Hook (Recommended)
             </span>
             <p className="font-semibold text-white truncate text-xs">
-              "I Slept In A $1 Dirty Mattress vs $1,000,000 Luxury Bed!"
+              "I Slept In A $1 Camping Cot vs $1,000,000 Luxury Suite!"
             </p>
           </div>
           <span className="bg-[#8B47FF] text-white text-[10px] font-extrabold px-2 py-1 rounded shrink-0 flex items-center gap-1">
@@ -498,7 +498,7 @@ function ClickOptimizedTitlesVisual() {
               High-Stakes Superlative Hook
             </span>
             <p className="font-semibold text-zinc-200 truncate text-xs">
-              "The Most Expensive Hotel Room In The World..."
+              "The Most Expensive Luxury Hotel Suite In The World..."
             </p>
           </div>
           <span className="bg-white/10 text-zinc-300 text-[10px] font-extrabold px-2 py-1 rounded shrink-0">
@@ -512,7 +512,7 @@ function ClickOptimizedTitlesVisual() {
               Proven YouTube Pattern
             </span>
             <p className="font-semibold text-zinc-200 truncate text-xs">
-              "$1 vs $1,000,000 Hotel Room!"
+              "$1 vs $1,000,000 Hotel Suite!"
             </p>
           </div>
           <span className="bg-white/10 text-zinc-300 text-[10px] font-extrabold px-2 py-1 rounded shrink-0">

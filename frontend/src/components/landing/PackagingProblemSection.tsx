@@ -137,7 +137,7 @@ export const PackagingProblemSection: React.FC<PackagingProblemSectionProps> = (
               {/* Simulated Thumbnail Preview (Viral High CTR) */}
               <div className="relative rounded-xl overflow-hidden aspect-video bg-[#0F0A1E] mb-5 border border-[#8B47FF]/30 flex items-center justify-center p-4 text-center shadow-md group-hover:border-[#8B47FF]/60 transition-all">
                 <img
-                  src="/thumb-mrbeast-train.jpg"
+                  src="/hero-thumb-train.jpg"
                   alt="Viral AI Thumbnail"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
