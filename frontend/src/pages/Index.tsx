@@ -1,12 +1,9 @@
-import { useState, useCallback, useEffect, lazy, Suspense } from "react";
-import IntroSequence from "@/components/landing/IntroSequence";
+import { useState, useCallback } from "react";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import HeroSection from "@/components/landing/HeroSection";
-import SocialProofTicker from "@/components/landing/SocialProofTicker";
+import PackagingProblemSection from "@/components/landing/PackagingProblemSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
-import HowItWorks from "@/components/landing/HowItWorks";
 import StatsCounter from "@/components/landing/StatsCounter";
-import ExampleGallery from "@/components/landing/ExampleGallery";
 import ComparisonTable from "@/components/landing/ComparisonTable";
 import PricingSection from "@/components/landing/PricingSection";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
@@ -19,55 +16,62 @@ import AuthModal from "@/components/AuthModal";
 import SEOHead from "@/components/SEOHead";
 
 const Index = () => {
-  const [introComplete, setIntroComplete] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "signup">("signup");
-
-  const handleIntroComplete = useCallback(() => {
-    setIntroComplete(true);
-  }, []);
 
   const openAuth = useCallback((tab: "login" | "signup" = "signup") => {
     setAuthTab(tab);
     setAuthOpen(true);
   }, []);
 
-  // Skip intro in dev for faster iteration (optional)
-  // useEffect(() => { setIntroComplete(true); }, []);
-
   return (
-    <div className="min-h-screen-d bg-background overflow-x-hidden">
+    <div className="min-h-screen bg-[#070310] text-foreground overflow-x-hidden selection:bg-[#8B47FF] selection:text-white">
       <SEOHead
-        title="Thumbly — AI YouTube Thumbnail Generator | Free"
-        description="Generate viral YouTube thumbnails in seconds with AI. Hindi, English & 8 languages. Free plan available. Trusted by 12,000+ creators."
-        url="https://Thumbly.app"
+        title="Thumbly — AI YouTube Packaging & Thumbnail Generator"
+        description="Stop losing 70% of potential viewers. Turn raw video scripts and reference styles into viral, high-CTR YouTube thumbnails with consistent creator face personas."
+        url="https://thumbly.app"
       />
-
-      {/* Intro sequence */}
-      {!introComplete && <IntroSequence onComplete={handleIntroComplete} />}
 
       {/* Scroll progress bar */}
       <ScrollProgress />
 
-      {/* Main content */}
-      <LandingNavbar onOpenAuth={openAuth} visible={introComplete} />
-      <HeroSection onOpenAuth={() => openAuth("signup")} visible={introComplete} />
-      <SocialProofTicker />
+      {/* Modern Fixed Navbar */}
+      <LandingNavbar onOpenAuth={openAuth} visible={true} />
+
+      {/* 1. Hero with dual-row infinite viral thumbnail marquee */}
+      <HeroSection onOpenAuth={() => openAuth("signup")} visible={true} />
+
+      {/* 2. The Packaging Problem (Amateur 2.4% vs Thumbly 11.8% CTR) */}
+      <PackagingProblemSection onOpenAuth={() => openAuth("signup")} />
+
+      {/* 3. 5 Core Capabilities showcase (Script-to-Thumbnail, Face Vault, Recreate, Score™, Titles) */}
       <FeaturesSection />
-      <HowItWorks />
+
+      {/* 4. Algorithm CTR & Impresssion Stats */}
       <StatsCounter />
-      <ExampleGallery />
+
+      {/* 5. Uncompromising Head-to-Head Comparison */}
       <ComparisonTable />
+
+      {/* 6. Transparent Creator Pricing */}
       <PricingSection onOpenAuth={() => openAuth("signup")} />
+
+      {/* 7. Verified Creator Testimonials & Marquee */}
       <TestimonialsSection />
+
+      {/* 8. Frequently Asked Questions */}
       <FAQSection />
+
+      {/* 9. Final High-Impact CTA */}
       <FinalCTA onOpenAuth={() => openAuth("signup")} />
+
+      {/* 10. Clean Obsidian Footer */}
       <LandingFooter />
 
-      {/* Back to top */}
+      {/* Back to top button */}
       <BackToTop />
 
-      {/* Auth modal */}
+      {/* Authentication Modal */}
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultTab={authTab} />
     </div>
   );

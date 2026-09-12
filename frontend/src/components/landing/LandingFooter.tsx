@@ -1,108 +1,109 @@
 import { motion } from "framer-motion";
+import { Sparkles, ArrowRight } from "lucide-react";
 
-const productLinks = ["Generate", "Recreate", "Face Swap", "Editor", "Shorts", "Pricing"];
-const companyLinks = ["About", "Blog", "Changelog", "Contact"];
-const legalLinks = ["Privacy", "Terms", "Refund Policy"];
-
-const socialIcons = [
-  { label: "𝕏", hoverColor: "#1DA1F2" },
-  { label: "📸", hoverColor: "#E1306C" },
-  { label: "▶️", hoverColor: "#FF0000" },
-  { label: "💬", hoverColor: "#5865F2" },
+const productLinks = [
+  "Script to Thumbnail",
+  "Recreate Competitor",
+  "Creator Persona Vault",
+  "Thumbnail Score™",
+  "High-CTR Titles",
+  "Pricing Plans",
 ];
 
-const floatingEmojis = ["🎨", "⚡", "📱", "🎯", "🔥"];
+const resourceLinks = [
+  "Thumbnail Design Guide",
+  "YouTube Packaging Blog",
+  "A/B Testing Best Practices",
+  "Creator Community",
+];
+
+const companyLinks = ["About Us", "Changelog", "Careers", "Contact Support"];
+const legalLinks = ["Privacy Policy", "Terms of Service", "Refund Policy"];
 
 const LandingFooter = () => {
   return (
-    <footer className="relative py-12 sm:py-16 overflow-hidden" style={{ background: "#0F0A1E", borderTop: "1px solid rgba(139,71,255,0.2)" }}>
-      {/* Floating emojis background */}
-      {floatingEmojis.map((emoji, i) => (
-        <div
-          key={i}
-          className="absolute text-4xl opacity-[0.04] animate-float-gentle select-none pointer-events-none"
-          style={{
-            left: `${15 + i * 20}%`,
-            top: `${10 + (i % 3) * 30}%`,
-            animationDelay: `${i * 0.7}s`,
-          }}
-        >
-          {emoji}
-        </div>
-      ))}
+    <footer className="relative py-16 bg-[#040108] border-t border-white/10 overflow-hidden text-white/70 text-sm">
+      {/* Glow orb */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-[#8B47FF]/50 to-transparent" />
 
       <div className="container mx-auto px-4 sm:px-6 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10 mb-14">
           {/* Brand */}
-          <div>
-            <div className="flex items-center gap-1 mb-4">
-              <span className="text-2xl font-display font-bold text-white">THUMB</span>
-              <span className="text-2xl font-display font-bold" style={{ color: "#C4A8FF" }}>AI</span>
-              <span className="text-lg">⚡</span>
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#8B47FF] to-[#00E5FF] flex items-center justify-center text-white font-black text-sm">
+                ⚡
+              </div>
+              <span className="text-xl font-display font-black tracking-tight text-white">
+                THUMB<span className="text-[#C4A8FF]">LY</span>
+              </span>
             </div>
-            <p className="text-sm mb-4" style={{ color: "rgba(255,255,255,0.5)" }}>
-              The AI thumbnail generator for serious creators
+            <p className="text-white/50 text-sm mb-6 max-w-sm leading-relaxed">
+              The AI YouTube packaging studio built for high-growth creators, media agencies, and viral video teams.
             </p>
-            <div className="flex gap-3">
-              {socialIcons.map((s) => (
-                <button
-                  key={s.label}
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-sm hover:scale-110 transition-transform"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(139,71,255,0.2)", color: "rgba(255,255,255,0.4)" }}
-                >
-                  {s.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#00E5FF] animate-pulse" />
+              <span className="text-xs text-white/60">Systems operational • AI models online</span>
             </div>
           </div>
 
           {/* Product */}
           <div>
-            <h4 className="font-heading font-semibold text-sm mb-4" style={{ color: "rgba(255,255,255,0.9)" }}>Product</h4>
-            <ul className="space-y-2">
+            <h4 className="text-white font-semibold text-sm mb-4 tracking-wide uppercase text-xs">Capabilities</h4>
+            <ul className="space-y-2.5">
               {productLinks.map((link) => (
                 <li key={link}>
-                  <button className="text-sm transition-colors hover:text-[#C4A8FF]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  <a href="#features" className="hover:text-white transition-colors duration-200">
                     {link}
-                  </button>
+                  </a>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Company */}
+          {/* Resources */}
           <div>
-            <h4 className="font-heading font-semibold text-sm mb-4" style={{ color: "rgba(255,255,255,0.9)" }}>Company</h4>
-            <ul className="space-y-2">
+            <h4 className="text-white font-semibold text-sm mb-4 tracking-wide uppercase text-xs">Resources</h4>
+            <ul className="space-y-2.5">
+              {resourceLinks.map((link) => (
+                <li key={link}>
+                  <a href="#examples" className="hover:text-white transition-colors duration-200">
+                    {link}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Legal / Company */}
+          <div>
+            <h4 className="text-white font-semibold text-sm mb-4 tracking-wide uppercase text-xs">Company & Legal</h4>
+            <ul className="space-y-2.5">
               {companyLinks.map((link) => (
                 <li key={link}>
-                  <button className="text-sm transition-colors hover:text-[#C4A8FF]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  <a href="#faq" className="hover:text-white transition-colors duration-200">
                     {link}
-                  </button>
+                  </a>
                 </li>
               ))}
-            </ul>
-          </div>
-
-          {/* Legal */}
-          <div>
-            <h4 className="font-heading font-semibold text-sm mb-4" style={{ color: "rgba(255,255,255,0.9)" }}>Legal</h4>
-            <ul className="space-y-2">
               {legalLinks.map((link) => (
                 <li key={link}>
-                  <button className="text-sm transition-colors hover:text-[#C4A8FF]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  <a href="#" className="text-white/40 hover:text-white/80 transition-colors duration-200">
                     {link}
-                  </button>
+                  </a>
                 </li>
               ))}
             </ul>
           </div>
         </div>
 
-        {/* Bottom */}
-        <div className="pt-6 flex flex-col md:flex-row items-center justify-between gap-4" style={{ borderTop: "1px solid rgba(139,71,255,0.15)" }}>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>Made with ❤️ in India 🇮🇳</p>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>© 2025 Thumbly. All rights reserved.</p>
+        {/* Bottom bar */}
+        <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/40">
+          <p>© {new Date().getFullYear()} Thumbly Technologies Inc. All rights reserved.</p>
+          <div className="flex items-center gap-6">
+            <span>Built for Creators Worldwide 🌍</span>
+            <span>Obsidian Edition</span>
+          </div>
         </div>
       </div>
     </footer>

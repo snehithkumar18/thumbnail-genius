@@ -32,26 +32,32 @@ const ComparisonTable = () => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.15 });
 
   return (
-    <section className="py-24" ref={ref} style={{ background: "#F8F7FF" }}>
-      <div className="container mx-auto px-4 max-w-4xl">
+    <section className="py-24 bg-[#070310] relative" ref={ref}>
+      <div className="container mx-auto px-4 max-w-4xl relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 60 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl md:text-6xl font-display font-bold">
-            Why <span className="gradient-text">Thumbly</span>?
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-[#8B47FF]/15 border border-[#8B47FF]/30 text-[#C4A8FF] mb-4">
+            ⚖️ UNCOMPROMISING COMPARISON
+          </span>
+          <h2 className="text-3xl sm:text-5xl font-display font-black text-white tracking-tight">
+            Why Top Channels Choose <span className="bg-gradient-to-r from-[#C4A8FF] via-[#8B47FF] to-[#00E5FF] bg-clip-text text-transparent">Thumbly</span>
           </h2>
+          <p className="text-white/60 text-sm sm:text-base mt-2">
+            The only platform combining script reasoning, face consistency, and viral packaging.
+          </p>
         </motion.div>
 
-        <div className="bg-card rounded-2xl overflow-hidden border border-border shadow-[0_4px_16px_rgba(15,10,30,0.06)]">
+        <div className="bg-[#0B0616] rounded-2xl overflow-hidden border border-white/10 shadow-[0_16px_48px_rgba(0,0,0,0.5)]">
           {/* Header */}
-          <div className="grid grid-cols-4 gap-4 p-5 border-b border-border text-sm font-heading font-semibold" style={{ background: "#F2F0FF" }}>
-            <div className="text-muted-foreground">Feature</div>
-            <div className="text-center text-primary-foreground rounded-lg py-1" style={{ background: "linear-gradient(135deg, #8B47FF, #6366F1)" }}>Thumbly</div>
-            <div className="text-center text-muted-foreground">Pikzels</div>
-            <div className="text-center text-muted-foreground">Canva AI</div>
+          <div className="grid grid-cols-4 gap-4 p-5 border-b border-white/10 text-sm font-heading font-semibold bg-[#0F0A1E]">
+            <div className="text-white/60">Packaging Feature</div>
+            <div className="text-center text-white rounded-lg py-1 bg-gradient-to-r from-[#8B47FF] to-[#6366F1] font-bold shadow-sm">Thumbly</div>
+            <div className="text-center text-white/50">Pikzels</div>
+            <div className="text-center text-white/50">Canva AI</div>
           </div>
 
           {rows.map((row, i) => (
