@@ -142,8 +142,14 @@ RULES FOR THE IMAGE PROMPT:
   BRIGHT/VIVID = energy, excitement, gaming
 - Always specify composition: close-up face filling 70%
   of frame, rule of thirds, central subject, split screen
+- TEXT OVERLAY REQUIREMENT: If text will boost CTR (almost always yes), you MUST explicitly embed hyper-detailed text rendering instructions directly in the image_prompt! Specify:
+  1. Exact Wording in quotes (e.g. text reading "NOT ALONE?")
+  2. Exact 2D Position (e.g. top-left corner, centered top, bottom right badge)
+  3. Exact Colors & Effects (e.g. electric bright neon yellow with thick 3D black outline, white stroke, and drop shadow)
+  4. Exact Font Style (e.g. ultra-bold heavy impact sans-serif font, viral MrBeast style typography)
+  If multiple text elements are needed (e.g. main title + badge/number), specify both!
 - If numbers are mentioned in the key moment, include
-  them visually in the scene description
+  them visually in the scene description or text
 - Describe background as a specific real environment
   not just 'background' — city at night, modern office,
   empty warehouse, crowded street, etc
@@ -169,7 +175,7 @@ no markdown, no explanation outside the JSON:
   "why_this_moment": "one sentence on why this gets clicks",
   "character_expression": "specific facial expression description",
   "dominant_color": "hex code of the dominant color",
-  "image_prompt": "complete detailed image generation prompt ready to send directly to an AI image generator — minimum 80 words",
+  "image_prompt": "complete detailed image generation prompt ready to send directly to an AI image generator — MUST INCLUDE explicit text rendering instructions with wording in quotes, font style, placement, colors, and 3D stroke outline — minimum 90 words",
   "text_overlay": "max 5 words, punchy, creates curiosity gap",
   "category": "finance/tech/gaming/story/tutorial/motivation/education/drama"
 }`;
@@ -265,7 +271,7 @@ The most curiosity-inducing moment.`;
 
       if (!parsed) {
         return new Response(JSON.stringify({
-          image_prompt: "Shocked man looking at a screen, high detail, dramatic lighting, YouTube thumbnail composition, 16:9 aspect ratio, eye-catching, professional photography quality, cinematic color grading, high contrast, sharp focus on subject, bokeh background",
+          image_prompt: "Shocked man looking at a screen, high detail, dramatic lighting, YouTube thumbnail composition, 16:9 aspect ratio, eye-catching, professional photography quality, cinematic color grading, high contrast, sharp focus on subject, bokeh background, with bold text reading 'SHOCKING SECRET!' in bright yellow letters",
           fallback: true
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -273,6 +279,11 @@ The most curiosity-inducing moment.`;
       }
 
       let finalImagePrompt = parsed.image_prompt || "";
+
+      // Ensure explicit text overlay instructions are included in the prompt
+      if (parsed.text_overlay && !finalImagePrompt.toLowerCase().includes(parsed.text_overlay.toLowerCase())) {
+        finalImagePrompt += `, featuring bold high-contrast graphic text reading "${parsed.text_overlay}" positioned prominently at top-left with electric bright neon yellow fill, thick 3D black stroke outline, drop shadow, and ultra-crisp heavy impact typography`;
+      }
 
       // Post-Processing Step 1: Quality suffix injection
       finalImagePrompt += ", YouTube thumbnail composition, 16:9 aspect ratio, eye-catching, professional photography quality, cinematic color grading, high contrast, sharp focus on subject, bokeh background";
