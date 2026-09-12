@@ -38,7 +38,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onOpenAuth, visibl
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-[#070310]/85 backdrop-blur-xl border-b border-border/60 shadow-lg shadow-black/20 py-3"
+          ? "bg-white/85 backdrop-blur-xl border-b border-[#E9E4F5] shadow-sm py-3"
           : "bg-transparent py-5"
       }`}
     >
@@ -48,13 +48,13 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onOpenAuth, visibl
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           className="flex items-center gap-2 cursor-pointer group"
         >
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-primary to-[#00E5FF] flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(139,71,255,0.4)] group-hover:scale-105 transition-transform">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#8B47FF] to-[#6366F1] flex items-center justify-center text-white font-bold shadow-[0_4px_16px_rgba(139,71,255,0.3)] group-hover:scale-105 transition-transform">
             <Sparkles className="h-5 w-5" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-foreground font-heading">
-            Thumb<span className="text-primary">ly</span>
+          <span className="text-xl font-bold tracking-tight text-[#0F0A1E] font-heading">
+            Thumb<span className="text-[#8B47FF]">ly</span>
           </span>
-          <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 ml-1">
+          <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-[#8B47FF]/10 text-[#8B47FF] border border-[#8B47FF]/20 ml-1">
             AI 2.0
           </span>
         </div>

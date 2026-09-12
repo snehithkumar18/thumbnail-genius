@@ -115,40 +115,40 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({ onOpenAuth }) 
   const activeFeature = PIKZELS_STYLE_FEATURES[activeTab];
 
   return (
-    <section id="features" className="py-20 lg:py-28 relative bg-[#070310] border-t border-border/40">
+    <section id="features" className="py-20 lg:py-28 relative bg-white border-t border-[#EAE5F5]">
       {/* Background radial glow */}
-      <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-[#8B47FF]/5 rounded-full blur-[140px] pointer-events-none" />
 
       <div className="container mx-auto px-4 sm:px-6 relative z-10 max-w-6xl">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-14">
-          <p className="text-xs font-bold uppercase tracking-[3px] text-primary mb-3">
+          <p className="text-xs font-bold uppercase tracking-[3px] text-[#8B47FF] mb-3">
             The Complete Packaging Toolkit
           </p>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-foreground tracking-tight mb-5">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0F0A1E] tracking-tight mb-5">
             You Fixed The Flops. <br className="hidden sm:inline" />
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-[#C4A8FF] to-[#00E5FF]">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#8B47FF] via-[#A855F7] to-[#00B4D8]">
               Now Create The Winners.
             </span>
           </h2>
-          <p className="text-base sm:text-lg text-muted-foreground">
+          <p className="text-base sm:text-lg text-[#524B66]">
             Everything you need to create, test & scale high-converting YouTube packaging effortlessly.
           </p>
         </div>
 
-        {/* Feature Navigation Tabs (Pikzels-Style Pill Bar) */}
-        <div className="flex items-center justify-start sm:justify-center overflow-x-auto no-scrollbar gap-2 p-1.5 rounded-2xl bg-card/60 border border-border/80 backdrop-blur-md mb-10 max-w-4xl mx-auto">
+        {/* Interactive Tabs Bar */}
+        <div className="flex items-center justify-start sm:justify-center gap-2 overflow-x-auto pb-4 mb-8 no-scrollbar">
           {PIKZELS_STYLE_FEATURES.map((feat, idx) => {
+            const isSelected = idx === activeTab;
             const Icon = feat.icon;
-            const isSelected = activeTab === idx;
             return (
               <button
                 key={feat.id}
                 onClick={() => setActiveTab(idx)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 select-none ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 select-none cursor-pointer ${
                   isSelected
-                    ? "bg-primary text-white shadow-[0_0_20px_rgba(139,71,255,0.4)]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                    ? "bg-[#8B47FF] text-white shadow-[0_4px_16px_rgba(139,71,255,0.35)]"
+                    : "text-[#524B66] hover:text-[#0F0A1E] hover:bg-[#F0EDF8] bg-white border border-[#EAE5F5]"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -159,7 +159,7 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({ onOpenAuth }) 
         </div>
 
         {/* Active Feature Showcase Box */}
-        <div className="rounded-3xl border border-border/80 bg-gradient-to-b from-card/80 to-card/40 backdrop-blur-md p-6 sm:p-10 shadow-2xl overflow-hidden relative">
+        <div className="rounded-3xl border border-[#EAE5F5] bg-[#FAF9FD] p-6 sm:p-10 shadow-xl overflow-hidden relative">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeFeature.id}

@@ -25,7 +25,7 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#070310] text-foreground overflow-x-hidden selection:bg-[#8B47FF] selection:text-white">
+    <div className="min-h-screen bg-[#FFFFFF] text-[#0F0A1E] overflow-x-hidden selection:bg-[#8B47FF] selection:text-white">
       <SEOHead
         title="Thumbly — AI YouTube Packaging & Thumbnail Generator"
         description="Stop losing 70% of potential viewers. Turn raw video scripts and reference styles into viral, high-CTR YouTube thumbnails with consistent creator face personas."

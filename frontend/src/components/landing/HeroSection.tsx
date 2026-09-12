@@ -107,17 +107,17 @@ const ROW_2_THUMBNAILS = [
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
   return (
-    <section className="relative min-h-[92vh] flex flex-col justify-between pt-28 pb-16 overflow-hidden bg-[#070310]">
-      {/* Dynamic ambient violet background glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[550px] bg-[radial-gradient(ellipse_at_center,rgba(139,71,255,0.18),transparent_70%)] pointer-events-none" />
-      <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-[#00E5FF]/10 rounded-full blur-[120px] pointer-events-none" />
+    <section className="relative min-h-[92vh] flex flex-col justify-between pt-28 pb-16 overflow-hidden bg-white">
+      {/* Dynamic ambient violet background glow on white */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[550px] bg-[radial-gradient(ellipse_at_center,rgba(139,71,255,0.08),transparent_70%)] pointer-events-none" />
+      <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-[#8B47FF]/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-[#00E5FF]/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Grid line texture */}
       <div 
-        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
         style={{
-          backgroundImage: "linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)",
+          backgroundImage: "linear-gradient(rgba(15, 10, 30, 0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 10, 30, 0.2) 1px, transparent 1px)",
           backgroundSize: "40px 40px"
         }}
       />
@@ -220,8 +220,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
       {/* DUAL-ROW CONTINUOUS SLIDING SHOWCASE MARQUEE (Pikzels-Style) */}
       <div className="w-full relative mt-4 space-y-4 pointer-events-none select-none">
         {/* Gradient edge fades */}
-        <div className="absolute top-0 bottom-0 left-0 w-24 sm:w-40 bg-gradient-to-r from-[#070310] to-transparent z-10 pointer-events-none" />
-        <div className="absolute top-0 bottom-0 right-0 w-24 sm:w-40 bg-gradient-to-l from-[#070310] to-transparent z-10 pointer-events-none" />
+        <div className="absolute top-0 bottom-0 left-0 w-24 sm:w-40 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+        <div className="absolute top-0 bottom-0 right-0 w-24 sm:w-40 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
 
         {/* Row 1 - Slide Left */}
         <div className="flex overflow-hidden group">
@@ -247,7 +247,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
 
 function ThumbnailMarqueeCard({ item }: { item: typeof ROW_1_THUMBNAILS[0] }) {
   return (
-    <div className="w-[300px] sm:w-[340px] shrink-0 rounded-xl bg-card/80 border border-border/70 p-3 shadow-md hover:border-primary/50 transition-all">
+    <div className="w-[300px] sm:w-[340px] shrink-0 rounded-2xl bg-white border border-[#EAE5F5] p-3.5 shadow-[0_8px_24px_rgba(15,10,30,0.06)] hover:border-[#8B47FF]/50 transition-all">
       {/* Thumbnail Aspect Card */}
       <div className={`relative aspect-video rounded-lg overflow-hidden bg-gradient-to-br ${item.bg} border border-border/40 mb-2.5 flex items-center justify-center p-3 shadow-inner`}>
         {/* Text hook watermark */}

@@ -43,19 +43,19 @@ const FAQItem = ({ faq, index }: { faq: typeof faqs[0]; index: number }) => {
       <div
         className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
           open
-            ? "border-[#8B47FF]/50 bg-[#0F0A1E]"
-            : "border-white/10 bg-[#0B0616] hover:border-white/20"
+            ? "border-[#8B47FF]/50 bg-[#FAF9FD] shadow-md"
+            : "border-[#EAE5F5] bg-white hover:border-[#8B47FF]/30"
         }`}
       >
         <button
           onClick={() => setOpen(!open)}
           className="w-full flex items-center justify-between p-6 text-left cursor-pointer"
         >
-          <span className="text-white font-semibold text-base sm:text-lg pr-4">{faq.q}</span>
+          <span className="text-[#0F0A1E] font-bold text-base sm:text-lg pr-4">{faq.q}</span>
           <motion.div
             animate={{ rotate: open ? 45 : 0 }}
             transition={{ duration: 0.2 }}
-            className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center shrink-0 text-[#C4A8FF]"
+            className="w-8 h-8 rounded-full bg-[#8B47FF]/10 flex items-center justify-center shrink-0 text-[#8B47FF]"
           >
             <Plus className="h-4 w-4" />
           </motion.div>
@@ -69,7 +69,7 @@ const FAQItem = ({ faq, index }: { faq: typeof faqs[0]; index: number }) => {
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
-              <p className="px-6 pb-6 text-white/70 text-sm sm:text-base leading-relaxed">
+              <p className="px-6 pb-6 text-[#524B66] text-sm sm:text-base leading-relaxed">
                 {faq.a}
               </p>
             </motion.div>
@@ -84,7 +84,7 @@ const FAQSection = () => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 });
 
   return (
-    <section className="py-24 bg-[#070310] relative overflow-hidden" ref={ref}>
+    <section className="py-24 bg-[#FAFAFE] relative overflow-hidden border-t border-[#EAE5F5]" ref={ref}>
       <div className="container mx-auto px-4 sm:px-6 max-w-4xl relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -92,13 +92,13 @@ const FAQSection = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-[#8B47FF]/15 border border-[#8B47FF]/30 text-[#C4A8FF] mb-4">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-[#8B47FF]/10 border border-[#8B47FF]/20 text-[#8B47FF] mb-4">
             ❓ GOT QUESTIONS?
           </span>
-          <h2 className="text-3xl sm:text-5xl font-display font-black text-white tracking-tight">
-            Frequently Asked <span className="bg-gradient-to-r from-[#C4A8FF] via-[#8B47FF] to-[#00E5FF] bg-clip-text text-transparent">Questions</span>
+          <h2 className="text-3xl sm:text-5xl font-display font-extrabold text-[#0F0A1E] tracking-tight">
+            Frequently Asked <span className="bg-gradient-to-r from-[#8B47FF] via-[#A855F7] to-[#00B4D8] bg-clip-text text-transparent">Questions</span>
           </h2>
-          <p className="text-white/60 text-sm sm:text-base mt-3">
+          <p className="text-[#524B66] text-sm sm:text-base mt-3">
             Everything you need to know about viral packaging, script generation, and creator plans.
           </p>
         </motion.div>

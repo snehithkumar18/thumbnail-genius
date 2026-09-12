@@ -32,7 +32,7 @@ const ComparisonTable = () => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.15 });
 
   return (
-    <section className="py-24 bg-[#070310] relative" ref={ref}>
+    <section className="py-24 bg-[#FAFAFE] relative border-t border-[#EAE5F5]" ref={ref}>
       <div className="container mx-auto px-4 max-w-4xl relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -40,38 +40,38 @@ const ComparisonTable = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-[#8B47FF]/15 border border-[#8B47FF]/30 text-[#C4A8FF] mb-4">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-[#8B47FF]/10 border border-[#8B47FF]/20 text-[#8B47FF] mb-4">
             ⚖️ UNCOMPROMISING COMPARISON
           </span>
-          <h2 className="text-3xl sm:text-5xl font-display font-black text-white tracking-tight">
-            Why Top Channels Choose <span className="bg-gradient-to-r from-[#C4A8FF] via-[#8B47FF] to-[#00E5FF] bg-clip-text text-transparent">Thumbly</span>
+          <h2 className="text-3xl sm:text-5xl font-display font-extrabold text-[#0F0A1E] tracking-tight">
+            Why Top Channels Choose <span className="bg-gradient-to-r from-[#8B47FF] via-[#A855F7] to-[#00B4D8] bg-clip-text text-transparent">Thumbly</span>
           </h2>
-          <p className="text-white/60 text-sm sm:text-base mt-2">
+          <p className="text-[#524B66] text-sm sm:text-base mt-2">
             The only platform combining script reasoning, face consistency, and viral packaging.
           </p>
         </motion.div>
 
-        <div className="bg-[#0B0616] rounded-2xl overflow-hidden border border-white/10 shadow-[0_16px_48px_rgba(0,0,0,0.5)]">
+        <div className="bg-white rounded-2xl overflow-hidden border border-[#EAE5F5] shadow-[0_16px_40px_rgba(15,10,30,0.06)]">
           {/* Header */}
-          <div className="grid grid-cols-4 gap-4 p-5 border-b border-white/10 text-sm font-heading font-semibold bg-[#0F0A1E]">
-            <div className="text-white/60">Packaging Feature</div>
+          <div className="grid grid-cols-4 gap-4 p-5 border-b border-[#EAE5F5] text-sm font-heading font-semibold bg-[#FAF9FD]">
+            <div className="text-[#524B66]">Packaging Feature</div>
             <div className="text-center text-white rounded-lg py-1 bg-gradient-to-r from-[#8B47FF] to-[#6366F1] font-bold shadow-sm">Thumbly</div>
-            <div className="text-center text-white/50">Pikzels</div>
-            <div className="text-center text-white/50">Canva AI</div>
+            <div className="text-center text-[#524B66]">Pikzels</div>
+            <div className="text-center text-[#524B66]">Canva AI</div>
           </div>
 
           {rows.map((row, i) => (
             <motion.div
               key={row.feature}
-              initial={{ opacity: 0, x: -30 }}
+              initial={{ opacity: 0, x: -20 }}
               animate={inView ? { opacity: 1, x: 0 } : {}}
-              transition={{ delay: 0.3 + i * 0.08, duration: 0.4 }}
-              className={`grid grid-cols-4 gap-4 p-5 border-b border-border/50 last:border-0 text-sm ${
-                row.feature === "Price" ? "bg-[#FAF7FF] border-l-[3px] border-l-primary" : ""
+              transition={{ delay: i * 0.05 }}
+              className={`grid grid-cols-4 gap-4 p-4 items-center text-sm border-b border-[#EAE5F5] last:border-0 ${
+                i % 2 === 0 ? "bg-white" : "bg-[#FAF9FD]"
               }`}
             >
-              <div className="text-foreground font-medium">{row.feature}</div>
-              <div className="text-center">
+              <div className="font-medium text-[#0F0A1E] text-xs sm:text-sm">{row.feature}</div>
+              <div className="text-center bg-[#8B47FF]/5 py-1.5 rounded-lg border border-[#8B47FF]/20">
                 <Cell value={row.thumb} highlight />
               </div>
               <div className="text-center">

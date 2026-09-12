@@ -49,10 +49,10 @@ const FinalCTA = ({ onOpenAuth }: FinalCTAProps) => {
   return (
     <section
       ref={ref}
-      className="min-h-[70vh] flex items-center justify-center relative overflow-hidden bg-[#070310] border-t border-white/10"
+      className="min-h-[70vh] flex items-center justify-center relative overflow-hidden bg-white border-t border-[#EAE5F5]"
     >
       {/* Glowing orbs */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(139,71,255,0.18),rgba(0,229,255,0.06)_50%,transparent_70%)] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(139,71,255,0.08),rgba(0,180,216,0.04)_50%,transparent_70%)] pointer-events-none" />
 
       <div className="container mx-auto px-4 relative z-10 text-center py-20">
         <motion.div
@@ -60,18 +60,18 @@ const FinalCTA = ({ onOpenAuth }: FinalCTAProps) => {
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-[#8B47FF]/15 border border-[#8B47FF]/30 text-[#C4A8FF] mb-6">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-[#8B47FF]/10 border border-[#8B47FF]/20 text-[#8B47FF] mb-6">
             ⚡ GET STARTED IN SECONDS
           </span>
 
-          <h2 className="text-5xl sm:text-7xl lg:text-9xl font-display font-black text-white leading-none tracking-tight mb-2">
+          <h2 className="text-5xl sm:text-7xl lg:text-9xl font-display font-black text-[#0F0A1E] leading-none tracking-tight mb-2">
             READY TO GO
           </h2>
-          <h2 className="text-5xl sm:text-7xl lg:text-9xl font-display font-black bg-gradient-to-r from-[#C4A8FF] via-[#8B47FF] to-[#00E5FF] bg-clip-text text-transparent leading-none tracking-tight mb-8">
+          <h2 className="text-5xl sm:text-7xl lg:text-9xl font-display font-black bg-gradient-to-r from-[#8B47FF] via-[#A855F7] to-[#00B4D8] bg-clip-text text-transparent leading-none tracking-tight mb-8">
             VIRAL?
           </h2>
 
-          <p className="text-base sm:text-xl text-white/60 mb-10 max-w-lg mx-auto leading-relaxed">
+          <p className="text-base sm:text-xl text-[#524B66] mb-10 max-w-lg mx-auto leading-relaxed">
             Stop losing 70% of potential viewers before they even click. Fix your YouTube packaging today.
           </p>
 
@@ -79,13 +79,13 @@ const FinalCTA = ({ onOpenAuth }: FinalCTAProps) => {
             onClick={handleClick}
             whileHover={{ y: -3, scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            className="relative text-white font-bold px-12 py-5 rounded-full text-lg sm:text-xl transition-all duration-300 shadow-[0_0_50px_rgba(139,71,255,0.4)] hover:shadow-[0_0_80px_rgba(139,71,255,0.6)] cursor-pointer"
-            style={{ background: "linear-gradient(135deg, #8B47FF 0%, #6366F1 50%, #00E5FF 100%)" }}
+            className="relative text-white font-bold px-12 py-5 rounded-full text-lg sm:text-xl transition-all duration-300 shadow-[0_12px_40px_rgba(139,71,255,0.35)] hover:shadow-[0_16px_50px_rgba(139,71,255,0.5)] cursor-pointer"
+            style={{ background: "linear-gradient(135deg, #8B47FF 0%, #6366F1 50%, #4F46E5 100%)" }}
           >
             Start Creating Free →
           </motion.button>
 
-          <p className="text-xs sm:text-sm text-white/40 mt-6 font-medium">
+          <p className="text-xs sm:text-sm text-[#7B748E] mt-6 font-medium">
             30 free generation credits included • No credit card required • Top-ups never expire
           </p>
         </motion.div>
