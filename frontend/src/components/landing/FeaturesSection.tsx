@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React from "react";
+import { motion } from "framer-motion";
 import { 
   Sparkles, FileText, UserCircle2, Repeat, Target, Type, ArrowRight, 
   CheckCircle2, Zap, Eye, Check, ShieldCheck, Flame, Layers, Scan
@@ -79,19 +79,17 @@ const PIKZELS_STYLE_FEATURES = [
 ];
 
 export const FeaturesSection: React.FC<FeaturesSectionProps> = ({ onOpenAuth }) => {
-  const [activeTab, setActiveTab] = useState(0);
-  const activeFeature = PIKZELS_STYLE_FEATURES[activeTab];
-
   return (
     <section id="features" className="py-20 lg:py-28 relative bg-white border-t border-[#EAE5F5]">
       {/* Background radial glow */}
-      <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-[#8B47FF]/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/4 right-10 w-[600px] h-[600px] bg-[#8B47FF]/5 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute top-2/3 left-10 w-[600px] h-[600px] bg-[#00E5FF]/5 rounded-full blur-[150px] pointer-events-none" />
 
       <div className="container mx-auto px-4 sm:px-6 relative z-10 max-w-6xl">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-14">
+        <div className="text-center max-w-3xl mx-auto mb-16 lg:mb-20">
           <p className="text-xs font-bold uppercase tracking-[3px] text-[#8B47FF] mb-3">
-            The Complete Packaging Toolkit
+            Core Capabilities
           </p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0F0A1E] tracking-tight mb-5">
             You Fixed The Flops. <br className="hidden sm:inline" />
@@ -100,85 +98,71 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({ onOpenAuth }) 
             </span>
           </h2>
           <p className="text-base sm:text-lg text-[#524B66]">
-            Everything you need to create, test & scale high-converting YouTube packaging effortlessly.
+            5 proprietary AI packaging tools engineered specifically to turn video concepts into high-CTR YouTube thumbnails.
           </p>
         </div>
 
-        {/* Interactive Tabs Bar */}
-        <div className="flex items-center justify-start sm:justify-center gap-2 overflow-x-auto pb-4 mb-8 no-scrollbar">
+        {/* All Core Capabilities Displayed One By One */}
+        <div className="space-y-16 lg:space-y-24">
           {PIKZELS_STYLE_FEATURES.map((feat, idx) => {
-            const isSelected = idx === activeTab;
+            const isReversed = idx % 2 === 1;
             const Icon = feat.icon;
+
             return (
-              <button
+              <div
                 key={feat.id}
-                onClick={() => setActiveTab(idx)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 select-none cursor-pointer ${
-                  isSelected
-                    ? "bg-[#8B47FF] text-white shadow-[0_4px_16px_rgba(139,71,255,0.35)]"
-                    : "text-[#524B66] hover:text-[#0F0A1E] hover:bg-[#F0EDF8] bg-white border border-[#EAE5F5]"
-                }`}
+                className="rounded-3xl border border-[#EAE5F5] bg-[#FAF9FD] p-6 sm:p-10 lg:p-12 shadow-xl shadow-black/[0.03] overflow-hidden relative group hover:border-[#8B47FF]/40 hover:shadow-2xl hover:shadow-[#8B47FF]/5 transition-all duration-300"
               >
-                <Icon className="h-4 w-4" />
-                <span>{feat.title}</span>
-              </button>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+                  {/* Left/Right Column: Feature Details */}
+                  <div className={`lg:col-span-6 space-y-6 ${isReversed ? "lg:order-2" : "lg:order-1"}`}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono font-black text-[#8B47FF] bg-[#8B47FF]/10 px-2.5 py-1 rounded-md">
+                        CAPABILITY 0{idx + 1}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white border border-[#EAE5F5] text-[#524B66] shadow-sm">
+                        <Icon className="h-3.5 w-3.5" style={{ color: feat.accent }} />
+                        {feat.badge}
+                      </span>
+                    </div>
+
+                    <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F0A1E] tracking-tight leading-tight">
+                      {feat.title}
+                    </h3>
+
+                    <p className="text-base sm:text-lg text-[#524B66] leading-relaxed">
+                      {feat.subtitle}
+                    </p>
+
+                    <div className="space-y-3 pt-1">
+                      {feat.highlights.map((h, i) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <CheckCircle2 className="h-4 w-4 text-[#8B47FF] shrink-0 mt-1" />
+                          <span className="text-sm sm:text-base text-[#0F0A1E] font-medium leading-normal">{h}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="pt-3 flex items-center gap-4">
+                      <Button
+                        variant="hero"
+                        onClick={onOpenAuth}
+                        className="rounded-full px-7 py-6 font-bold gap-2 text-sm shadow-[0_4px_20px_rgba(139,71,255,0.25)] hover:shadow-[0_6px_28px_rgba(139,71,255,0.4)] transition-all cursor-pointer"
+                      >
+                        Try {feat.title} Free
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Visual Explainer Column */}
+                  <div className={`lg:col-span-6 ${isReversed ? "lg:order-1" : "lg:order-2"}`}>
+                    <FeatureVisualCard featureId={feat.id} />
+                  </div>
+                </div>
+              </div>
             );
           })}
-        </div>
-
-        {/* Active Feature Showcase Box */}
-        <div className="rounded-3xl border border-[#EAE5F5] bg-[#FAF9FD] p-6 sm:p-10 shadow-xl overflow-hidden relative">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeFeature.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.3 }}
-              className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center"
-            >
-              {/* Left Column: Feature Details */}
-              <div className="lg:col-span-6 space-y-6">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#8B47FF]/10 border border-[#8B47FF]/20 text-[#8B47FF]">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {activeFeature.badge}
-                </span>
-
-                <h3 className="text-2xl sm:text-3xl font-extrabold text-[#0F0A1E] tracking-tight">
-                  {activeFeature.title}
-                </h3>
-
-                <p className="text-base text-[#524B66] leading-relaxed">
-                  {activeFeature.subtitle}
-                </p>
-
-                <div className="space-y-3 pt-2">
-                  {activeFeature.highlights.map((h, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <CheckCircle2 className="h-4 w-4 text-[#8B47FF] shrink-0 mt-1" />
-                      <span className="text-sm text-[#0F0A1E] font-medium leading-normal">{h}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-4 flex items-center gap-4">
-                  <Button
-                    variant="hero"
-                    onClick={onOpenAuth}
-                    className="rounded-full px-6 font-semibold gap-2 shadow-[0_0_25px_rgba(139,71,255,0.35)]"
-                  >
-                    Try {activeFeature.title} Free
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Right Column: Dedicated Visual Feature Explainer Card */}
-              <div className="lg:col-span-6">
-                <FeatureVisualCard featureId={activeFeature.id} />
-              </div>
-            </motion.div>
-          </AnimatePresence>
         </div>
       </div>
     </section>

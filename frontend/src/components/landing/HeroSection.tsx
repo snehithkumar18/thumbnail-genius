@@ -108,7 +108,7 @@ const ROW_2_THUMBNAILS = [
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
   const [scriptText, setScriptText] = useState("");
   return (
-    <section className="relative min-h-[92vh] flex flex-col justify-between pt-28 pb-16 overflow-hidden bg-white">
+    <section className="relative flex flex-col items-center pt-28 pb-16 overflow-hidden bg-white">
       {/* Dynamic ambient violet background glow on white */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[550px] bg-[radial-gradient(ellipse_at_center,rgba(139,71,255,0.08),transparent_70%)] pointer-events-none" />
       <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-[#8B47FF]/5 rounded-full blur-[120px] pointer-events-none" />

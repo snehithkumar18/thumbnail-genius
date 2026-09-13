@@ -4,7 +4,6 @@ import HeroSection from "@/components/landing/HeroSection";
 import PackagingProblemSection from "@/components/landing/PackagingProblemSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import StatsCounter from "@/components/landing/StatsCounter";
-import ComparisonTable from "@/components/landing/ComparisonTable";
 import PricingSection from "@/components/landing/PricingSection";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
 import FAQSection from "@/components/landing/FAQSection";
@@ -45,15 +44,12 @@ const Index = () => {
       <PackagingProblemSection onOpenAuth={() => openAuth("signup")} />
 
       {/* 3. 5 Core Capabilities showcase (Script-to-Thumbnail, Face Vault, Recreate, Score™, Titles) */}
-      <FeaturesSection />
+      <FeaturesSection onOpenAuth={() => openAuth("signup")} />
 
       {/* 4. Algorithm CTR & Impresssion Stats */}
       <StatsCounter />
 
-      {/* 5. Uncompromising Head-to-Head Comparison */}
-      <ComparisonTable />
-
-      {/* 6. Transparent Creator Pricing */}
+      {/* 5. Transparent Creator Pricing */}
       <PricingSection onOpenAuth={() => openAuth("signup")} />
 
       {/* 7. Verified Creator Testimonials & Marquee */}
