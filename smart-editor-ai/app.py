@@ -165,6 +165,10 @@ SAM_CHECKPOINT_URL = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_
 SAM_CHECKPOINT_PATH = Path(__file__).parent / "weights" / "sam_vit_b_01ec64.pth"
 
 def resolve_yolo_model_path() -> str:
+    if os.path.exists("yolov8n-seg.pt"):
+        return "yolov8n-seg.pt"
+    if os.path.exists("yolov8s-seg.pt"):
+        return "yolov8s-seg.pt"
     if os.path.exists("yolov8s.pt"):
         return "yolov8s.pt"
     return "yolov8n.pt"
@@ -349,7 +353,8 @@ def yolo_detect(img: Image.Image, conf: float = YOLO_CONF):
     for r in results:
         if getattr(r, 'boxes', None) is None or len(r.boxes) == 0:
             continue
-        for box in r.boxes:
+        has_masks = getattr(r, 'masks', None) is not None
+        for idx, box in enumerate(r.boxes):
             cls = int(box.cls[0])
             label = r.names.get(cls, "object")
             confv = float(box.conf[0])
@@ -363,11 +368,16 @@ def yolo_detect(img: Image.Image, conf: float = YOLO_CONF):
                 continue
             if label.lower() not in allowed_labels:
                 continue
-            items.append({
+            item = {
                 "label": label,
                 "bbox": [x1, y1, x2 - x1, y2 - y1],
                 "confidence": confv,
-            })
+            }
+            if has_masks and idx < len(r.masks.data):
+                m_np = r.masks.data[idx].cpu().numpy()
+                m_resized = cv2.resize((m_np * 255).astype(np.uint8), (img.width, img.height))
+                item["mask_data"] = m_resized
+            items.append(item)
     logger.info(f"YOLO detected {len(items)} objects: {[i['label'] for i in items]}")
     return items
 
@@ -669,6 +679,17 @@ def build_layers(img: Image.Image, scale: float):
         encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
         return f"data:image/png;base64,{encoded}"
 
+    def mask_from_array(mask_arr):
+        if mask_arr is None:
+            return None
+        if mask_arr.shape != (orig_h, orig_w):
+            mask_arr = cv2.resize(mask_arr.astype(np.uint8), (orig_w, orig_h), interpolation=cv2.INTER_NEAREST)
+        mask = Image.fromarray(mask_arr.astype(np.uint8), mode="L")
+        buffer = io.BytesIO()
+        mask.save(buffer, format="PNG")
+        encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        return f"data:image/png;base64,{encoded}"
+
     def scale_bbox_to_original(bbox):
         x, y, bw, bh = bbox
         return [
@@ -770,12 +791,17 @@ def build_layers(img: Image.Image, scale: float):
     for idx, obj in enumerate(objects[:YOLO_MAX_OBJECTS]):
         norm_bbox = normalize_bbox_float(obj["bbox"])
         layer_type = "person" if obj["label"] == "person" else "object"
+        layer_mask = (
+            mask_from_array(obj.get("mask_data"))
+            if obj.get("mask_data") is not None
+            else mask_from_bbox_original(scale_bbox_to_original(obj["bbox"]))
+        )
         layers.append({
             "id": f"layer_obj_{idx + 1}",
             "type": layer_type,
             "label": obj["label"].capitalize(),
             "bbox": norm_bbox,
-            "mask": mask_from_bbox_original(scale_bbox_to_original(obj["bbox"])),
+            "mask": layer_mask,
             "confidence": obj["confidence"],
         })
 
@@ -1269,6 +1295,195 @@ def _enhance_replacement_quality(rep_img: Image.Image, target_w: int = 0, target
         return rep_img
 
 
+def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> ReplaceResponse:
+    """Precise person cutout and silhouetted inpainting:
+    1. Cuts out ONLY the selected person using instance segmentation (YOLO-seg / contour).
+    2. Zeroes out all other people and all text banners from the mask.
+    3. Removes and inpaints ONLY the person's silhouette (not the bounding box rectangle).
+    4. Cuts out the replacement image with rembg, and composites it seamlessly.
+    """
+    from rembg import remove as rembg_remove
+    width, height = orig_img.size
+    img_np = np.array(orig_img)
+    img_bgr = img_np[:, :, ::-1]
+
+    # Parse requested bbox
+    if req.bbox and len(req.bbox) == 4:
+        bx, by, bw, bh = [float(v) for v in req.bbox]
+        if bx <= 1.0 and by <= 1.0 and bw <= 1.0 and bh <= 1.0:
+            bx, by, bw, bh = bx * width, by * height, bw * width, bh * height
+        bx, by, bw, bh = int(round(bx)), int(round(by)), int(round(bw)), int(round(bh))
+    else:
+        bx, by, bw, bh = 0, 0, width, height
+
+    req_xyxy = [bx, by, bx + bw, by + bh]
+    req_cx = bx + bw / 2.0
+    req_cy = by + bh / 2.0
+
+    def calc_iou(b1, b2):
+        xA = max(b1[0], b2[0])
+        yA = max(b1[1], b2[1])
+        xB = min(b1[2], b2[2])
+        yB = min(b1[3], b2[3])
+        inter = max(0, xB - xA) * max(0, yB - yA)
+        a1 = (b1[2] - b1[0]) * (b1[3] - b1[1])
+        a2 = (b2[2] - b2[0]) * (b2[3] - b2[1])
+        return inter / float(a1 + a2 - inter + 1e-6)
+
+    # 1. Run YOLO-seg on original image to isolate the target person and all other objects
+    target_mask = None
+    other_people_mask = np.zeros((height, width), dtype=np.uint8)
+
+    if yolo_model:
+        try:
+            res = yolo_model.predict(img_np, verbose=False, conf=0.15, iou=0.5)[0]
+            if res.masks is not None:
+                all_person_candidates = []
+                for idx, (box, mdata) in enumerate(zip(res.boxes, res.masks.data)):
+                    cls = int(box.cls[0])
+                    label = res.names.get(cls, "")
+                    m_np = mdata.cpu().numpy()
+                    m_resized = cv2.resize((m_np * 255).astype(np.uint8), (width, height))
+
+                    if label == "person":
+                        xyxy = box.xyxy[0].tolist()
+                        iou = calc_iou(req_xyxy, xyxy)
+                        dist = np.hypot((xyxy[0] + xyxy[2]) / 2.0 - req_cx, (xyxy[1] + xyxy[3]) / 2.0 - req_cy)
+                        score = iou * 2.0 + (1.0 / (1.0 + dist / max(1.0, float(bw))))
+                        all_person_candidates.append((idx, xyxy, m_resized, score))
+                    else:
+                        other_people_mask = cv2.bitwise_or(other_people_mask, m_resized)
+
+                if all_person_candidates:
+                    all_person_candidates.sort(key=lambda x: x[3], reverse=True)
+                    best_match = all_person_candidates[0]
+                    target_mask = best_match[2]
+                    logger.info(f"YOLO-seg matched person index {best_match[0]} with score {best_match[3]:.3f}")
+
+                    for cand in all_person_candidates[1:]:
+                        other_people_mask = cv2.bitwise_or(other_people_mask, cand[2])
+        except Exception as yolo_err:
+            logger.warning(f"YOLO segmentation failed in replace: {yolo_err}")
+
+    # 2. Extract text regions via OCR to protect all text banners and titles
+    text_mask = np.zeros((height, width), dtype=np.uint8)
+    try:
+        detected_texts = ocr_detect(orig_img)
+        for t in detected_texts:
+            tb = t["bbox"]
+            tx1 = max(0, int(tb[0]))
+            ty1 = max(0, int(tb[1]))
+            tx2 = min(width, int(tb[0] + tb[2]))
+            ty2 = min(height, int(tb[1] + tb[3]))
+            text_mask[ty1:ty2, tx1:tx2] = 255
+        logger.info(f"Built protection mask for {len(detected_texts)} detected text elements.")
+    except Exception as ocr_err:
+        logger.warning(f"OCR text protection failed: {ocr_err}")
+
+    # Fallback if YOLO-seg didn't find person:
+    if target_mask is None:
+        try:
+            person_crop = orig_img.crop((bx, by, bx + bw, by + bh))
+            crop_cutout = rembg_remove(person_crop)
+            crop_alpha = np.array(crop_cutout.split()[-1])
+            target_mask = np.zeros((height, width), dtype=np.uint8)
+            target_mask[by:by + bh, bx:bx + bw] = (crop_alpha > 20).astype(np.uint8) * 255
+            logger.info("Using rembg crop fallback for person silhouette.")
+        except Exception as fb_err:
+            logger.warning(f"Fallback person silhouette failed: {fb_err}")
+            target_mask = np.zeros((height, width), dtype=np.uint8)
+            target_mask[by:by + bh, bx:bx + bw] = 255
+
+    # 3. Clean target mask: strictly remove any neighboring people and any text
+    clean_target_mask = cv2.bitwise_and(target_mask, cv2.bitwise_not(other_people_mask))
+    clean_target_mask = cv2.bitwise_and(clean_target_mask, cv2.bitwise_not(text_mask))
+
+    # 4. Dilate silhouette by 2-3 pixels to swallow edge anti-aliasing, BUT keep protection intact!
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    dilated_target = cv2.dilate(clean_target_mask, kernel, iterations=1)
+    inpaint_mask = cv2.bitwise_and(dilated_target, cv2.bitwise_not(other_people_mask | text_mask))
+
+    # Inpaint ONLY the person silhouette — other parts remain 100% untouched!
+    inpainted_bgr = cv2.inpaint(img_bgr, inpaint_mask, inpaintRadius=4, flags=cv2.INPAINT_TELEA)
+    clean_bg = Image.fromarray(inpainted_bgr[:, :, ::-1]).convert("RGBA")
+    logger.info("Inpainting of person silhouette complete — all other thumbnail elements 100% untouched.")
+
+    # 5. Process replacement image
+    rep_img = download_image(req.replacement_image_url).convert("RGBA")
+    logger.info("Extracting subject from uploaded replacement image...")
+    rep_cutout = rembg_remove(rep_img)
+    crop_box = rep_cutout.split()[-1].getbbox()
+    if crop_box:
+        rep_cutout = rep_cutout.crop(crop_box)
+    rep_cutout = _enhance_replacement_quality(rep_cutout)
+
+    # 6. Sizing & Positioning
+    if req.overlay_x is not None and req.overlay_y is not None and req.overlay_w is not None and req.overlay_h is not None:
+        ox = float(req.overlay_x)
+        oy = float(req.overlay_y)
+        ow = float(req.overlay_w)
+        oh = float(req.overlay_h)
+        if ow <= 2.0 and oh <= 2.0:
+            ox, oy, ow, oh = ox * width, oy * height, ow * width, oh * height
+        target_h = max(1, int(oh))
+        target_w = max(1, int(target_h * (rep_cutout.width / max(1, rep_cutout.height))))
+        pos_x = int(ox)
+        pos_y = int(oy)
+    else:
+        # Auto-position over old person silhouette
+        pts = cv2.findNonZero(clean_target_mask)
+        if pts is not None:
+            tx, ty, tw, th = cv2.boundingRect(pts)
+        else:
+            tx, ty, tw, th = bx, by, bw, bh
+
+        aspect = rep_cutout.width / max(1, rep_cutout.height)
+        target_h = max(th, int(0.92 * height))
+        target_w = int(target_h * aspect)
+
+        # Anchor to right edge if old person was on right edge
+        if tx + tw >= width - 35:
+            pos_x = width - target_w
+        elif tx <= 35:
+            pos_x = 0
+        else:
+            pos_x = tx + tw // 2 - target_w // 2
+
+        if ty + th >= height - 35:
+            pos_y = height - target_h
+        else:
+            pos_y = ty + th - target_h
+        if pos_y < 0:
+            pos_y = 0
+
+    rep_resized = rep_cutout.resize((target_w, target_h), Image.Resampling.LANCZOS)
+
+    # 7. Soft Edge Feathering & Studio Drop Shadow
+    alpha = rep_resized.split()[-1].filter(ImageFilter.GaussianBlur(radius=1.2))
+    rep_resized.putalpha(alpha)
+
+    shadow_mask = alpha.filter(ImageFilter.GaussianBlur(radius=8))
+    shadow_arr = (np.array(shadow_mask) * 0.30).astype(np.uint8)
+    shadow_img = Image.new("RGBA", rep_resized.size, (0, 0, 0, 0))
+    shadow_img.putalpha(Image.fromarray(shadow_arr))
+    clean_bg.paste(shadow_img, (pos_x + 3, pos_y + 3), shadow_img)
+
+    clean_bg.paste(rep_resized, (pos_x, pos_y), rep_resized)
+
+    result_final = clean_bg.convert("RGB")
+    buf = io.BytesIO()
+    result_final.save(buf, format="PNG")
+    buf.seek(0)
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    logger.info(f"Direct person replace completed successfully: size={result_final.size}, base64 len={len(b64)}")
+    return ReplaceResponse(
+        image_base64=b64,
+        width=width,
+        height=height,
+    )
+
+
 @app.post("/replace", response_model=ReplaceResponse)
 def replace(req: ReplaceRequest):
     logger.info(f"Replace request: image_url={req.image_url[:120]}..., mask_url={req.mask_url[:120]}..., prompt={req.prompt}, edit_type={req.edit_type}")
@@ -1341,201 +1556,7 @@ def replace(req: ReplaceRequest):
         # with background removal, proper aspect-ratio fitting, and real replacement
         if req.replacement_image_url:
             logger.info(f"Direct replacement image URL provided: {req.replacement_image_url[:120]}")
-            rep_img = download_image(req.replacement_image_url).convert("RGBA")
-
-            # --- Step 1: Remove background from uploaded image using rembg ---
-            try:
-                from rembg import remove as rembg_remove
-                logger.info("Removing background from uploaded image with rembg...")
-                rep_img = rembg_remove(rep_img)
-                logger.info(f"Background removed. Result mode={rep_img.mode}, size={rep_img.size}")
-            except Exception as rembg_err:
-                logger.warning(f"rembg background removal failed: {rembg_err}. Proceeding without bg removal.")
-
-            # Enhance person cutout quality (brightness, saturation pop, contrast, and high-def sharpening)
-            rep_img = _enhance_replacement_quality(rep_img)
-
-            # --- Step 2: Get mask bounding box ---
-            if req.bbox and len(req.bbox) == 4:
-                bx, by, bw, bh = [float(v) for v in req.bbox]
-                if bx <= 1.0 and by <= 1.0 and bw <= 1.0 and bh <= 1.0:
-                    bx, by, bw, bh = bx * width, by * height, bw * width, bh * height
-                bbox_x1, bbox_y1, bbox_w, bbox_h = int(round(bx)), int(round(by)), int(round(bw)), int(round(bh))
-                bbox_x2, bbox_y2 = bbox_x1 + bbox_w, bbox_y1 + bbox_h
-            else:
-                bbox = mask_img.getbbox()
-                if bbox is None:
-                    bbox = (0, 0, width, height)
-
-                bbox_x1, bbox_y1, bbox_x2, bbox_y2 = bbox
-                bbox_w = bbox_x2 - bbox_x1
-                bbox_h = bbox_y2 - bbox_y1
-
-            if bbox_w <= 0 or bbox_h <= 0:
-                bbox_w, bbox_h = width, height
-                bbox = (0, 0, width, height)
-                bbox_x1, bbox_y1 = 0, 0
-
-            # --- Step 3: PRECISE PERSON ERASE & SILHOUETTE CENTROID DETECTION ---
-            old_person_center_x = bbox_x1 + bbox_w // 2
-            old_person_bottom_y = bbox_y1 + bbox_h
-            old_person_h = bbox_h
-
-            try:
-                from rembg import remove as rembg_remove
-                # Crop ONLY the person region so rembg extracts the person without text banners
-                person_crop = orig_img.crop((bbox_x1, bbox_y1, bbox_x1 + bbox_w, bbox_y1 + bbox_h))
-                logger.info(f"Extracting precise old person silhouette from crop ({person_crop.size})...")
-                crop_cutout = rembg_remove(person_crop)
-                crop_alpha_img = crop_cutout.split()[-1]
-                crop_alpha = np.array(crop_alpha_img)
-
-                crop_bbox = crop_alpha_img.getbbox()
-                if crop_bbox:
-                    cx1, cy1, cx2, cy2 = crop_bbox
-                    old_person_center_x = bbox_x1 + (cx1 + cx2) // 2
-                    old_person_bottom_y = bbox_y1 + cy2
-                    old_person_h = cy2 - cy1
-                    logger.info(f"Old person exact centroid detected: center_x={old_person_center_x}, bottom_y={old_person_bottom_y}, height={old_person_h}")
-
-                # Construct full-size person silhouette mask
-                full_mask_np = np.zeros((height, width), dtype=np.uint8)
-                person_silhouette = (crop_alpha > 15).astype(np.uint8) * 255
-                full_mask_np[bbox_y1:bbox_y1 + bbox_h, bbox_x1:bbox_x1 + bbox_w] = person_silhouette
-
-                # Dilate silhouette by 9px to capture hair/edge shadows
-                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (19, 19))
-                dilated_mask_np = cv2.dilate(full_mask_np, kernel, iterations=1)
-
-                # Protection Mask Construction: Protect text banners, graphic cards, and icons from being erased/smeared
-                protection_mask = np.zeros((height, width), dtype=np.uint8)
-                try:
-                    all_detected = detect_elements_internal(orig_img)
-                    p_box = [bbox_x1, bbox_y1, bbox_w, bbox_h]
-                    for layer_item in all_detected:
-                        ltype = layer_item.get("type", "")
-                        label = layer_item.get("label", "")
-                        lbbox = layer_item.get("bbox", [])
-                        if ltype in ["text", "object"] or label == "Icon":
-                            if len(lbbox) == 4:
-                                lx, ly, lw, lh = lbbox
-                                if lx <= 1.0 and ly <= 1.0 and lw <= 1.0 and lh <= 1.0:
-                                    lx, ly, lw, lh = int(lx * width), int(ly * height), int(lw * width), int(lh * height)
-                                else:
-                                    lx, ly, lw, lh = int(lx), int(ly), int(lw), int(lh)
-
-                                o_box = [lx, ly, lw, lh]
-                                if bbox_ioa(o_box, p_box) < 0.8:
-                                    lx1 = max(0, lx - 2)
-                                    ly1 = max(0, ly - 2)
-                                    lx2 = min(width, lx + lw + 2)
-                                    ly2 = min(height, ly + lh + 2)
-                                    protection_mask[ly1:ly2, lx1:lx2] = 255
-                except Exception as p_err:
-                    logger.warning(f"Could not build protection mask: {p_err}")
-
-                clean_inpaint_mask = cv2.bitwise_and(dilated_mask_np, cv2.bitwise_not(protection_mask))
-
-                img_bgr = np.array(orig_img)[:, :, ::-1]
-                erased_bgr = cv2.inpaint(img_bgr, clean_inpaint_mask, inpaintRadius=11, flags=cv2.INPAINT_NS)
-                erased_img = Image.fromarray(erased_bgr[:, :, ::-1])
-                logger.info("Precise person silhouette inpaint with protection mask succeeded — text banners 100% untouched.")
-            except Exception as erase_err:
-                logger.warning(f"Precise person silhouette erase failed ({erase_err}). Falling back to standard erase...")
-                erased_img = _cv2_inpaint_erase(orig_img, mask_img)
-
-            result_img = erased_img.convert("RGBA")
-
-            # --- Step 4: Resize and Position replacement image ---
-            rep_w, rep_h = rep_img.size
-            rep_aspect = rep_w / max(1, rep_h)
-
-            if req.overlay_x is not None and req.overlay_y is not None and req.overlay_w is not None and req.overlay_h is not None:
-                ox = float(req.overlay_x)
-                oy = float(req.overlay_y)
-                ow = float(req.overlay_w)
-                oh = float(req.overlay_h)
-                # If coordinates are normalized fractions (e.g. <= 2.0), scale by thumbnail dimensions
-                if ow <= 2.0 and oh <= 2.0:
-                    ox = ox * width
-                    oy = oy * height
-                    ow = ow * width
-                    oh = oh * height
-
-                target_h = max(1, int(oh))
-                target_w = max(1, int(target_h * rep_aspect))
-                new_w = target_w
-                new_h = target_h
-                rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                offset_x = int(ox)
-                offset_y = int(oy)
-                logger.info(f"Using manual position overlay: offset_x={offset_x}, offset_y={offset_y}, size={new_w}x{new_h} (aspect={rep_aspect:.2f})")
-            else:
-                # Fit replacement height to old person height or at least ~85% of thumbnail height
-                target_h = max(old_person_h, int(0.85 * height))
-                target_w = max(1, int(target_h * rep_aspect))
-                new_w = target_w
-                new_h = target_h
-                rep_resized = rep_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-
-                # EXACT CENTERING OVER OLD PERSON SILHOUETTE
-                offset_x = old_person_center_x - (new_w // 2)
-                offset_y = old_person_bottom_y - new_h
-
-                if old_person_bottom_y >= height - 25:
-                    offset_y = height - new_h
-                if offset_x < 0:
-                    offset_x = 0
-                logger.info(f"Resized & centered replacement: {rep_img.size} -> {rep_resized.size}, offset_x={offset_x}, offset_y={offset_y} (centered at x={old_person_center_x})")
-
-            # --- Step 5: MrBeast Studio Lighting & Color Matching ---
-            # Extract ambient background lighting from target placement region
-            bg_crop = orig_img.crop((
-                max(0, offset_x),
-                max(0, offset_y),
-                min(width, offset_x + new_w),
-                min(height, offset_y + new_h)
-            ))
-
-            # Natural True-to-Life Color Preservation (0% yellow color tint shift from background)
-            # Retain subject's clean studio skin tone without ambient background color transfer
-            logger.info("Preserving 100% natural, true-to-life subject colors (0% background color shift).")
-
-            # --- Step 6: Soft Edge Feathering & Studio Drop Shadow ---
-            if rep_resized.mode == "RGBA":
-                from PIL import ImageFilter
-                alpha = rep_resized.split()[-1]
-                feathered_alpha = alpha.filter(ImageFilter.GaussianBlur(radius=1.5))
-                rep_resized.putalpha(feathered_alpha)
-
-                # Create realistic studio ambient drop shadow behind subject for 3D depth
-                shadow_mask = alpha.filter(ImageFilter.GaussianBlur(radius=8))
-                shadow_arr = (np.array(shadow_mask) * 0.35).astype(np.uint8) # 35% shadow intensity
-                shadow_img = Image.new("RGBA", rep_resized.size, (0, 0, 0, 0))
-                shadow_img.putalpha(Image.fromarray(shadow_arr))
-                # Paste shadow with subtle 3px offset
-                result_img.paste(shadow_img, (offset_x + 3, offset_y + 4), shadow_img)
-
-            # --- Step 7: Paste the subject onto clean background ---
-            if rep_resized.mode != "RGBA":
-                rep_resized = rep_resized.convert("RGBA")
-
-            result_img.paste(rep_resized, (offset_x, offset_y), rep_resized)
-
-            # Convert to RGB final
-            result_final = result_img.convert("RGB")
-
-            buf = io.BytesIO()
-            result_final.save(buf, format="PNG")
-            buf.seek(0)
-            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-
-            logger.info(f"Direct replace complete: output {result_final.size[0]}x{result_final.size[1]}, base64 length={len(b64)}")
-            return ReplaceResponse(
-                image_base64=b64,
-                width=width,
-                height=height,
-            )
+            return replace_person_cutout(orig_img, req)
 
         # Convert mask to RGBA layer (white region = area to inpaint, with alpha) using NumPy for speed
         mask_arr = np.array(mask_img)
