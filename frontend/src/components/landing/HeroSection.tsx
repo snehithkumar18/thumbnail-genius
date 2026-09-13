@@ -123,7 +123,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
         }}
       />
 
-      <div className="container mx-auto px-4 sm:px-6 relative z-10 text-center max-w-5xl">
+      <div className="container mx-auto px-4 sm:px-6 relative z-30 text-center max-w-5xl">
         {/* Trustpilot / User Proof Badge */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -164,29 +164,26 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
           Stop guessing what gets clicks. Turn raw video scripts, prompts, or competitor links into click-optimized YouTube thumbnails & titles in seconds.
         </motion.p>
 
-        {/* Interactive Topic / Script Prompt Input Card (Pikzels-Style) */}
+        {/* Interactive Topic / Script Prompt Input Card (Pikzels Floating Style) */}
         <motion.div
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.25 }}
-          className="max-w-2xl mx-auto w-full mb-6"
+          className="max-w-4xl mx-auto w-full relative z-30 mb-2"
         >
-          <div className="relative rounded-2xl p-[1px] bg-gradient-to-b from-[#8B47FF]/40 via-[#8B47FF]/10 to-transparent shadow-[0_12px_40px_rgba(139,71,255,0.12)]">
-            <div className="relative rounded-[15px] bg-[#0F081D] p-3 sm:p-4 text-left border border-white/10 shadow-inner">
+          {/* Outer Card with border glow */}
+          <div className="relative rounded-3xl p-[1px] bg-gradient-to-b from-white/30 via-white/10 to-transparent shadow-[0_25px_60px_rgba(15,10,30,0.25)]">
+            <div className="relative rounded-[23px] bg-[#14151F] p-6 sm:p-8 text-left border border-white/15 shadow-2xl min-h-[180px] sm:min-h-[210px] flex flex-col justify-between">
               <textarea
                 value={scriptText}
                 onChange={(e) => setScriptText(e.target.value)}
                 placeholder="The mysterious disappearance of flight MH370..."
-                rows={3}
-                className="w-full bg-transparent text-sm sm:text-base text-zinc-100 placeholder:text-zinc-500 font-normal resize-none focus:outline-none leading-relaxed selection:bg-[#00E5FF] selection:text-black"
+                rows={4}
+                className="w-full bg-transparent text-base sm:text-lg text-zinc-100 placeholder:text-zinc-500 font-normal resize-none focus:outline-none leading-relaxed selection:bg-[#00E5FF] selection:text-black tracking-normal pb-6"
               />
 
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/10">
-                <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
-                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Gemini 2.5 Pro Ready</span>
-                </div>
-
+              {/* Centered Floating Pill Action Button at Bottom Edge */}
+              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 z-40">
                 <Button
                   size="default"
                   onClick={() => {
@@ -195,7 +192,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
                     }
                     onOpenAuth();
                   }}
-                  className="w-full sm:w-auto h-10 px-6 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-[#00E5FF] to-[#00B4D8] hover:from-[#00E5FF]/90 hover:to-[#00B4D8]/90 text-black shadow-[0_0_20px_rgba(0,229,255,0.4)] hover:shadow-[0_0_30px_rgba(0,229,255,0.6)] hover:scale-[1.02] transition-all gap-1.5 cursor-pointer"
+                  className="h-12 sm:h-13 px-8 sm:px-10 rounded-full font-extrabold text-xs sm:text-sm bg-gradient-to-r from-[#00E5FF] via-[#2CE8BD] to-[#00E5FF] hover:brightness-110 text-black shadow-[0_0_35px_rgba(0,229,255,0.65)] hover:shadow-[0_0_50px_rgba(0,229,255,0.9)] hover:scale-[1.03] transition-all gap-2 cursor-pointer border border-white/40 whitespace-nowrap"
                 >
                   <Sparkles className="h-4 w-4 fill-black text-black" />
                   Generate My First Thumbnail
@@ -205,57 +202,39 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
           </div>
         </motion.div>
 
-        {/* Watch Demo & Quick Action Link */}
+        {/* Watch Demo Link (Positioned directly below the floating button with z-40) */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.35 }}
-          className="flex items-center justify-center gap-3 mb-8"
+          className="flex items-center justify-center gap-3 mt-10 mb-0 relative z-40"
         >
           <button
             onClick={() => {
               const el = document.getElementById("features");
               el?.scrollIntoView({ behavior: "smooth" });
             }}
-            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#524B66] hover:text-[#8B47FF] transition-colors cursor-pointer group"
+            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-zinc-700 hover:text-[#8B47FF] transition-colors cursor-pointer group px-3.5 py-1.5 rounded-full bg-white/95 backdrop-blur-md border border-border shadow-md"
           >
-            <span className="w-7 h-7 rounded-full bg-[#8B47FF]/10 text-[#8B47FF] flex items-center justify-center group-hover:bg-[#8B47FF] group-hover:text-white transition-all shadow-sm">
+            <span className="w-6 h-6 rounded-full bg-zinc-900 text-white flex items-center justify-center group-hover:bg-[#00E5FF] group-hover:text-black transition-all shadow-sm">
               <Play className="h-3 w-3 fill-current ml-0.5" />
             </span>
-            <span>Watch Demo <span className="text-muted-foreground/70 font-mono text-xs">91 sec</span></span>
+            <span className="font-semibold text-foreground">Watch Demo <span className="text-muted-foreground font-mono text-xs ml-1">91 sec</span></span>
           </button>
-        </motion.div>
-
-        {/* Feature Micro-Pills */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="flex flex-wrap items-center justify-center gap-5 text-xs text-muted-foreground font-medium mb-12"
-        >
-          <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="h-4 w-4 text-primary" />
-            <span>Script-to-Thumbnail Intelligence</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="h-4 w-4 text-primary" />
-            <span>Persona Face Swap</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="h-4 w-4 text-primary" />
-            <span>Free Tier Available</span>
-          </div>
         </motion.div>
       </div>
 
-      {/* DUAL-ROW CONTINUOUS SLIDING SHOWCASE MARQUEE (Pikzels-Style) */}
-      <div className="w-full relative mt-4 space-y-4 pointer-events-none select-none">
-        {/* Gradient edge fades */}
-        <div className="absolute top-0 bottom-0 left-0 w-24 sm:w-40 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-        <div className="absolute top-0 bottom-0 right-0 w-24 sm:w-40 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+      {/* DUAL-ROW CONTINUOUS SLIDING SHOWCASE MARQUEE (Positioned so Row 1 is partially behind and slightly below the prompt box) */}
+      <div className="w-full relative -mt-44 sm:-mt-48 pt-2 space-y-4 pointer-events-none select-none z-10">
+        {/* Soft radial vignette so cards fade gracefully at edges */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-transparent to-white pointer-events-none z-10" />
+
+        {/* Gradient edge horizontal fades */}
+        <div className="absolute top-0 bottom-0 left-0 w-24 sm:w-48 bg-gradient-to-r from-white via-white/80 to-transparent z-20 pointer-events-none" />
+        <div className="absolute top-0 bottom-0 right-0 w-24 sm:w-48 bg-gradient-to-l from-white via-white/80 to-transparent z-20 pointer-events-none" />
 
         {/* Row 1 - Slide Left */}
-        <div className="flex overflow-hidden group">
+        <div className="flex overflow-hidden group opacity-85">
           <div className="flex gap-4 animate-marquee whitespace-nowrap py-1">
             {[...ROW_1_THUMBNAILS, ...ROW_1_THUMBNAILS].map((item, idx) => (
               <ThumbnailMarqueeCard key={idx} item={item} />
@@ -264,7 +243,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
         </div>
 
         {/* Row 2 - Slide Right */}
-        <div className="flex overflow-hidden group">
+        <div className="flex overflow-hidden group opacity-90">
           <div className="flex gap-4 animate-marquee-reverse whitespace-nowrap py-1">
             {[...ROW_2_THUMBNAILS, ...ROW_2_THUMBNAILS].map((item, idx) => (
               <ThumbnailMarqueeCard key={idx} item={item} />
