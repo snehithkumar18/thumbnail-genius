@@ -11,38 +11,16 @@ import {
   FileText,
   Sparkles,
   Flame,
-  ArrowRight,
   TrendingUp,
   X,
   FileUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-
-const CATEGORIES = [
-  "Tech & AI",
-  "Finance & Investing",
-  "Gaming",
-  "Motivation & Self-Help",
-  "Story & True Crime",
-  "Fitness & Health",
-  "Food & Cooking",
-  "Travel & Adventure",
-  "Education & Science",
-  "Comedy & Entertainment",
-  "Business & Career",
-];
-
-const AUDIENCES = ["General", "Indians", "Youth 18-25", "Business Owners", "Students", "Global"];
-const LANGUAGES = ["English", "Hindi", "Hinglish", "Tamil", "Telugu", "Spanish", "Portuguese"];
-const TONES = ["Shocking", "Curious", "Urgent", "Controversial", "Inspiring", "Educational", "Funny"];
 
 const STRATEGY_COLORS: Record<string, string> = {
   curiosity_gap: "bg-red-500/20 text-red-400 border-red-500/30",
@@ -92,10 +70,6 @@ const TitleGeneratorPage = () => {
   const [inputMode, setInputMode] = useState<"script" | "topic">("script");
   const [script, setScript] = useState("");
   const [topic, setTopic] = useState("");
-  const [category, setCategory] = useState("Tech & AI");
-  const [audience, setAudience] = useState("General");
-  const [language, setLanguage] = useState("English");
-  const [tone, setTone] = useState("Shocking");
   const [isGenerating, setIsGenerating] = useState(false);
   const [genStep, setGenStep] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -121,7 +95,6 @@ const TitleGeneratorPage = () => {
     reader.onload = (event) => {
       const text = event.target?.result as string;
       if (text) {
-        // Clean text if contains carriage returns
         const clean = text.replace(/\r\n/g, "\n");
         setScript(clean);
         toast.success(`Loaded "${file.name}" (${clean.split(/\s+/).filter(Boolean).length} words)`);
@@ -155,10 +128,6 @@ const TitleGeneratorPage = () => {
           mode: "titles",
           script: inputMode === "script" ? script.trim() : undefined,
           topic: inputMode === "topic" ? topic.trim() : undefined,
-          category,
-          audience,
-          language,
-          tone,
         },
       });
 
@@ -202,7 +171,7 @@ const TitleGeneratorPage = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-16">
+    <div className="max-w-4xl mx-auto space-y-8 pb-16">
       {/* Header */}
       <div>
         <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -219,11 +188,11 @@ const TitleGeneratorPage = () => {
           </Badge>
         </div>
         <p className="text-muted-foreground text-sm sm:text-base">
-          Upload or paste your video script. AI scans every sentence, extracts the peak viral curiosity moment, and crafts short, high-CTR YouTube titles.
+          Upload or paste your video script. AI automatically analyzes what the video is about, extracts the peak viral curiosity moment, and crafts short, high-CTR YouTube titles.
         </p>
       </div>
 
-      {/* Main Input Box */}
+      {/* Main Input Box (Clean, focused, no extra dropdowns) */}
       <div className="bg-card border border-border/70 rounded-2xl p-5 sm:p-7 shadow-xl space-y-6">
         {/* Mode Selector Tabs */}
         <div className="grid grid-cols-2 gap-3 p-1.5 bg-muted/40 rounded-xl border border-border/50">
@@ -237,9 +206,9 @@ const TitleGeneratorPage = () => {
             }`}
           >
             <FileText className="h-4 w-4" />
-            <span>📜 Upload or Paste Script</span>
+            <span>📜 Video Script / Transcript</span>
             <span className="hidden sm:inline-block text-[10px] font-black uppercase tracking-wider bg-amber-400 text-black px-1.5 py-0.5 rounded-full ml-1">
-              PRO
+              VIRAL
             </span>
           </button>
 
@@ -253,7 +222,7 @@ const TitleGeneratorPage = () => {
             }`}
           >
             <Type className="h-4 w-4" />
-            <span>✍️ Quick Topic / Idea</span>
+            <span>✍️ Quick Topic / Prompt</span>
           </button>
         </div>
 
@@ -319,7 +288,7 @@ const TitleGeneratorPage = () => {
                 <label className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1.5">
                   Full Video Script or Transcript
                   <span className="text-[11px] text-muted-foreground font-normal">
-                    (AI will pick the #1 viral climax)
+                    (AI will scan every line and extract the peak viral hook)
                   </span>
                 </label>
                 <div className="flex items-center gap-2">
@@ -332,8 +301,8 @@ const TitleGeneratorPage = () => {
               <Textarea
                 value={script}
                 onChange={(e) => setScript(e.target.value)}
-                placeholder="Paste your video script, transcript, or bullet-point draft here... The AI reads every sentence to locate the most shocking curiosity moment!"
-                rows={9}
+                placeholder="Paste your full video script, transcript, or bullet-point draft here... AI will analyze the content automatically and generate the most clickable titles."
+                rows={10}
                 className="bg-muted/20 border-border/80 text-foreground placeholder:text-muted-foreground/60 resize-y leading-relaxed font-sans text-sm"
               />
             </div>
@@ -341,7 +310,7 @@ const TitleGeneratorPage = () => {
             {/* Quick Sample Scripts */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                <Sparkles className="h-3 w-3 text-amber-400" /> Try a sample script:
+                <Sparkles className="h-3 w-3 text-amber-400" /> Try sample script:
               </span>
               {SAMPLE_SCRIPTS.map((sample, idx) => (
                 <button
@@ -362,84 +331,17 @@ const TitleGeneratorPage = () => {
         ) : (
           <div className="space-y-3">
             <label className="text-xs sm:text-sm font-semibold text-foreground block">
-              What is your video idea or topic?
+              What is your video prompt or idea?
             </label>
             <Textarea
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. I invested $10,000 in 5 AI stocks for 6 months and here are the shocking results..."
-              rows={4}
-              className="bg-muted/20 border-border/80 text-foreground placeholder:text-muted-foreground/60 text-sm"
+              placeholder="e.g. I tested 5 AI side hustles for 30 days and lost $1,400 before finding a weird thumbnail automation that made $8,230..."
+              rows={6}
+              className="bg-muted/20 border-border/80 text-foreground placeholder:text-muted-foreground/60 text-sm leading-relaxed"
             />
           </div>
         )}
-
-        {/* Options Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-border/50">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Niche / Category</label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="bg-muted/30 border-border/80 text-xs h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c} className="text-xs">
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Target Audience</label>
-            <Select value={audience} onValueChange={setAudience}>
-              <SelectTrigger className="bg-muted/30 border-border/80 text-xs h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AUDIENCES.map((a) => (
-                  <SelectItem key={a} value={a} className="text-xs">
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Language</label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger className="bg-muted/30 border-border/80 text-xs h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LANGUAGES.map((l) => (
-                  <SelectItem key={l} value={l} className="text-xs">
-                    {l}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Emotional Hook / Tone</label>
-            <Select value={tone} onValueChange={setTone}>
-              <SelectTrigger className="bg-muted/30 border-border/80 text-xs h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TONES.map((t) => (
-                  <SelectItem key={t} value={t} className="text-xs">
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
         {/* Generate Button */}
         <Button
@@ -452,7 +354,7 @@ const TitleGeneratorPage = () => {
               <RefreshCw className="h-4 w-4 animate-spin" />
               <span>
                 {genStep === 1
-                  ? "Analyzing script line-by-line..."
+                  ? "Analyzing content automatically..."
                   : genStep === 2
                   ? "Extracting #1 viral climax & curiosity magnet..."
                   : "Engineering 90%+ CTR YouTube titles..."}
@@ -463,7 +365,7 @@ const TitleGeneratorPage = () => {
               <Flame className="h-5 w-5 text-amber-300" />
               <span>
                 {inputMode === "script"
-                  ? "Extract Viral Point & Generate 90%+ CTR Titles"
+                  ? "Analyze Script & Generate 90%+ CTR Titles"
                   : "Generate 90%+ CTR Titles — Free"}
               </span>
             </div>
@@ -475,7 +377,7 @@ const TitleGeneratorPage = () => {
       <AnimatePresence>
         {titles.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            {/* Viral Point Extraction Banner (If available from script analysis) */}
+            {/* Viral Point Extraction Banner */}
             {viralAnalysis?.viral_point && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.98 }}

@@ -370,20 +370,10 @@ OUTPUT FORMAT (JSON ONLY, NO MARKDOWN, NO PREAMBLE):
 ---
 ${script}
 ---
-Category: ${category || "General"}
-Target Audience: ${audience || "General"}
-Language: ${language || "English"}
-Tone: ${tone || "Shocking"}
-
-Analyze the script, extract the #1 viral climax, and generate 6 short titles (3-8 words, under 50 chars) with emojis and predicted CTR above 90.`
-      : `Video Topic / Idea:
+Autonomous Task: Analyze the entire script to understand what the video is about. Automatically identify the niche, language, target audience, and the #1 viral climax/hook. Then generate 6 short titles (strictly 3-8 words, under 50 chars) with emojis and predicted CTR above 90.`
+      : `Video Topic / Idea / Prompt:
 "${topic}"
-Category: ${category || "General"}
-Target Audience: ${audience || "General"}
-Language: ${language || "English"}
-Tone: ${tone || "Shocking"}
-
-Generate 6 short, ultra-clickable titles (3-8 words, under 50 chars) with emojis and predicted CTR above 90.`;
+Autonomous Task: Understand what this video is about. Automatically determine the best viral angle and emotional climax. Generate 6 short, ultra-clickable titles (strictly 3-8 words, under 50 chars) with emojis and predicted CTR above 90.`;
 
     let titleData: any = null;
 
