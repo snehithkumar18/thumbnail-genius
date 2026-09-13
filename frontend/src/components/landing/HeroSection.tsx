@@ -146,22 +146,24 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-foreground leading-[1.08] mb-6"
+          className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-[#0F0A1E] leading-[1.08] mb-4 sm:mb-5"
         >
-          From Ignored to Viral With{" "}
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-[#C4A8FF] to-[#00E5FF]">
-            Data-Backed AI Thumbnails
-          </span>
+          The{" "}
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-[#9B51E0] to-[#00D2FF]">
+            Cheat Code
+          </span>{" "}
+          <br className="hidden sm:inline" />
+          to Millions of Views
         </motion.h1>
 
-        {/* Subtitle */}
+        {/* Short & Punchy Caption Below */}
         <motion.p
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed font-normal"
+          className="text-base sm:text-lg md:text-xl text-[#524B66] max-w-2xl mx-auto mb-8 sm:mb-10 font-medium"
         >
-          Stop guessing what gets clicks. Turn raw video scripts, prompts, or competitor links into click-optimized YouTube thumbnails & titles in seconds.
+          From Script to Viral YouTube Thumbnails in Seconds
         </motion.p>
 
         {/* Interactive Topic / Script Prompt Input Card (Pikzels Floating Style) */}
