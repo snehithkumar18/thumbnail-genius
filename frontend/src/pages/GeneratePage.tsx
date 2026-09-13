@@ -104,13 +104,22 @@ const GeneratePage = () => {
 
   const activeFaceUrl = overrideFacePreview || defaultFaceUrl;
 
-  // Accept prefilled prompt from navigation state
+  // Accept prefilled prompt from navigation state or localStorage draft
   useEffect(() => {
     const state = location.state as { prefillPrompt?: string } | null;
+    const storedDraft = localStorage.getItem("thumbly_draft_prompt");
     if (state?.prefillPrompt) {
       setPrompt(state.prefillPrompt);
-      // Clear state so it doesn't persist on re-render
       window.history.replaceState({}, document.title);
+    } else if (storedDraft) {
+      // Check if it's long (script) or short (prompt)
+      if (storedDraft.length > 100 || storedDraft.includes("\n")) {
+        setInputMode("script");
+        setScript(storedDraft);
+      } else {
+        setPrompt(storedDraft);
+      }
+      localStorage.removeItem("thumbly_draft_prompt");
     }
   }, [location.state]);
 

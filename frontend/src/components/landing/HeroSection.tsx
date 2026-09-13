@@ -106,6 +106,7 @@ const ROW_2_THUMBNAILS = [
 ];
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
+  const [scriptText, setScriptText] = useState("");
   return (
     <section className="relative min-h-[92vh] flex flex-col justify-between pt-28 pb-16 overflow-hidden bg-white">
       {/* Dynamic ambient violet background glow on white */}
@@ -163,36 +164,66 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenAuth }) => {
           Stop guessing what gets clicks. Turn raw video scripts, prompts, or competitor links into click-optimized YouTube thumbnails & titles in seconds.
         </motion.p>
 
-        {/* CTA Buttons */}
+        {/* Interactive Topic / Script Prompt Input Card (Pikzels-Style) */}
         <motion.div
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
+          transition={{ duration: 0.6, delay: 0.25 }}
+          className="max-w-2xl mx-auto w-full mb-6"
         >
-          <Button
-            size="lg"
-            variant="hero"
-            onClick={onOpenAuth}
-            className="w-full sm:w-auto h-12 sm:h-14 px-8 rounded-full text-base font-bold shadow-[0_0_35px_rgba(139,71,255,0.45)] hover:shadow-[0_0_50px_rgba(139,71,255,0.65)] hover:scale-[1.02] transition-all gap-2"
-          >
-            <Sparkles className="h-4 w-4" />
-            Start Creating Free — No Card Needed
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          <div className="relative rounded-2xl p-[1px] bg-gradient-to-b from-[#8B47FF]/40 via-[#8B47FF]/10 to-transparent shadow-[0_12px_40px_rgba(139,71,255,0.12)]">
+            <div className="relative rounded-[15px] bg-[#0F081D] p-3 sm:p-4 text-left border border-white/10 shadow-inner">
+              <textarea
+                value={scriptText}
+                onChange={(e) => setScriptText(e.target.value)}
+                placeholder="The mysterious disappearance of flight MH370..."
+                rows={3}
+                className="w-full bg-transparent text-sm sm:text-base text-zinc-100 placeholder:text-zinc-500 font-normal resize-none focus:outline-none leading-relaxed selection:bg-[#00E5FF] selection:text-black"
+              />
 
-          <Button
-            size="lg"
-            variant="outline"
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/10">
+                <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Gemini 2.5 Pro Ready</span>
+                </div>
+
+                <Button
+                  size="default"
+                  onClick={() => {
+                    if (scriptText.trim()) {
+                      localStorage.setItem("thumbly_draft_prompt", scriptText.trim());
+                    }
+                    onOpenAuth();
+                  }}
+                  className="w-full sm:w-auto h-10 px-6 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-[#00E5FF] to-[#00B4D8] hover:from-[#00E5FF]/90 hover:to-[#00B4D8]/90 text-black shadow-[0_0_20px_rgba(0,229,255,0.4)] hover:shadow-[0_0_30px_rgba(0,229,255,0.6)] hover:scale-[1.02] transition-all gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="h-4 w-4 fill-black text-black" />
+                  Generate My First Thumbnail
+                </Button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Watch Demo & Quick Action Link */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.35 }}
+          className="flex items-center justify-center gap-3 mb-8"
+        >
+          <button
             onClick={() => {
               const el = document.getElementById("features");
               el?.scrollIntoView({ behavior: "smooth" });
             }}
-            className="w-full sm:w-auto h-12 sm:h-14 px-7 rounded-full text-base font-semibold border-border hover:bg-muted/40 hover:border-primary/40 gap-2"
+            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#524B66] hover:text-[#8B47FF] transition-colors cursor-pointer group"
           >
-            <Play className="h-4 w-4 fill-primary text-primary" />
-            See How It Works
-          </Button>
+            <span className="w-7 h-7 rounded-full bg-[#8B47FF]/10 text-[#8B47FF] flex items-center justify-center group-hover:bg-[#8B47FF] group-hover:text-white transition-all shadow-sm">
+              <Play className="h-3 w-3 fill-current ml-0.5" />
+            </span>
+            <span>Watch Demo <span className="text-muted-foreground/70 font-mono text-xs">91 sec</span></span>
+          </button>
         </motion.div>
 
         {/* Feature Micro-Pills */}
