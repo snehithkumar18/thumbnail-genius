@@ -13,6 +13,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// =========================================================================
+// PIPELINE TOGGLE: Temporarily route generation directly to fal.ai GPT Image model
+// Set to false to revert back to Gemini / HuggingFace pipeline anytime without deleting anything.
+// =========================================================================
+const USE_FAL_GPT_IMAGE_PIPELINE = true;
+
 const CREDIT_COSTS: Record<string, number> = {
   fast: 0,
   pro: 0,
@@ -398,6 +404,38 @@ serve(async (req) => {
           imageUrl = cached.image_url;
           modelUsed = cached.model_used;
           provider = cached.provider;
+        } else if (USE_FAL_GPT_IMAGE_PIPELINE) {
+          console.log("[generate-thumbnail] Routing to fal.ai GPT Image 2 model pipeline...");
+          if (!falApiKey) {
+            throw new Error("FAL_KEY is not configured in Supabase secrets. Please set your FAL_KEY to test the GPT model.");
+          }
+
+          const openaiApiKey = Deno.env.get("OPENAI_API_KEY") || undefined;
+          const gptInput: Record<string, unknown> = {
+            prompt: imagePrompt,
+            aspect_ratio: format === "9:16" ? "9:16" : "16:9",
+            quality: quality === "pro" ? "high" : "medium",
+          };
+
+          if (openaiApiKey) {
+            gptInput.openai_api_key = openaiApiKey;
+            console.log("[generate-thumbnail] Using OpenAI API Key for BYOK mode on fal.ai");
+          }
+
+          const falData = await runFalJob(
+            "fal-ai/gpt-image-2",
+            gptInput,
+            falApiKey,
+          );
+
+          const url = extractFalImageUrl(falData);
+          if (!url) {
+            throw new Error(`fal.ai GPT Image model returned no image: ${JSON.stringify(falData).slice(0, 200)}`);
+          }
+
+          imageUrl = url;
+          modelUsed = "GPT Image 2 (fal.ai)";
+          provider = "fal";
         } else {
           const result = await runImageProviders(supabaseAdmin, {
             gemini: forceProOnly
