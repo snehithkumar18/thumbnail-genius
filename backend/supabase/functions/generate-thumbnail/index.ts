@@ -17,7 +17,7 @@ const corsHeaders = {
 // PIPELINE TOGGLE: Temporarily route generation directly to fal.ai GPT Image model
 // Set to false to revert back to Gemini / HuggingFace pipeline anytime without deleting anything.
 // =========================================================================
-const USE_FAL_GPT_IMAGE_PIPELINE = true;
+const USE_FAL_GPT_IMAGE_PIPELINE = false;
 
 const CREDIT_COSTS: Record<string, number> = {
   fast: 0,
