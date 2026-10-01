@@ -6,7 +6,7 @@ import { X, Gift, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface AuthModalProps {
@@ -21,7 +21,6 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeField, setActiveField] = useState<"name" | "email" | "password" | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -37,27 +36,9 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
       } else {
         emailRef.current?.focus();
       }
-    }, 0);
+    }, 50);
     return () => window.clearTimeout(timer);
   }, [open, tab]);
-
-  const handleFocus = (field: "name" | "email" | "password") => {
-    setActiveField(field);
-  };
-
-  const handleBlur = (field: "name" | "email" | "password", next: EventTarget | null) => {
-    if (!open) return;
-    const nextElement = next as HTMLElement | null;
-    if (nextElement && contentRef.current?.contains(nextElement)) return;
-
-    requestAnimationFrame(() => {
-      if (!open) return;
-      if (document.activeElement !== document.body) return;
-      if (field === "name") nameRef.current?.focus();
-      if (field === "email") emailRef.current?.focus();
-      if (field === "password") passwordRef.current?.focus();
-    });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,7 +94,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
 
   if (!open) return null;
 
-  const AuthContent = () => (
+  const renderAuthContent = () => (
     <div className="p-1" ref={contentRef}>
       <div className="flex items-center gap-2 mb-6">
         <Zap className="h-5 w-5 text-primary fill-primary" />
@@ -124,6 +105,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
         {(["signup", "login"] as const).map((t) => (
           <button
             key={t}
+            type="button"
             onClick={() => setTab(t)}
             className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${
               tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
@@ -147,8 +129,6 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
             placeholder="Full name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onFocus={() => handleFocus("name")}
-            onBlur={(e) => handleBlur("name", e.relatedTarget)}
             ref={nameRef}
             required
             className="bg-background border-border text-foreground placeholder:text-muted-foreground h-12"
@@ -159,8 +139,6 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          onFocus={() => handleFocus("email")}
-          onBlur={(e) => handleBlur("email", e.relatedTarget)}
           ref={emailRef}
           required
           className="bg-background border-border text-foreground placeholder:text-muted-foreground h-12"
@@ -170,8 +148,6 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          onFocus={() => handleFocus("password")}
-          onBlur={(e) => handleBlur("password", e.relatedTarget)}
           ref={passwordRef}
           required
           minLength={6}
@@ -215,7 +191,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
       <Drawer open={open} onOpenChange={(val) => !val && onClose()}>
         <DrawerContent className="p-6 pb-12 focus-visible:outline-none">
           <DrawerTitle className="sr-only">Authentication</DrawerTitle>
-          <AuthContent />
+          {renderAuthContent()}
         </DrawerContent>
       </Drawer>
     );
@@ -241,7 +217,7 @@ const AuthModal = ({ open, onClose, defaultTab = "signup" }: AuthModalProps) => 
           <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none">
             <X className="h-5 w-5" />
           </button>
-          <AuthContent />
+          {renderAuthContent()}
         </motion.div>
       </motion.div>
     </AnimatePresence>

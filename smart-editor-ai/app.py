@@ -1297,10 +1297,10 @@ def _enhance_replacement_quality(rep_img: Image.Image, target_w: int = 0, target
 
 def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> ReplaceResponse:
     """Precise person cutout and silhouetted inpainting:
-    1. Cuts out ONLY the selected person using instance segmentation (YOLO-seg / contour).
+    1. Cuts out ONLY the selected person using instance segmentation (SAM / Rembg / YOLO / GrabCut).
     2. Zeroes out all other people and all text banners from the mask.
-    3. Removes and inpaints ONLY the person's silhouette (not the bounding box rectangle).
-    4. Cuts out the replacement image with rembg, and composites it seamlessly.
+    3. Removes and inpaints ONLY the person's silhouette (never the bounding box rectangle).
+    4. Cuts out the replacement image with rembg, and composites it seamlessly in the exact position.
     """
     from rembg import remove as rembg_remove
     width, height = orig_img.size
@@ -1316,6 +1316,11 @@ def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> Replace
     else:
         bx, by, bw, bh = 0, 0, width, height
 
+    bx = max(0, min(width - 1, bx))
+    by = max(0, min(height - 1, by))
+    bw = max(1, min(width - bx, bw))
+    bh = max(1, min(height - by, bh))
+
     req_xyxy = [bx, by, bx + bw, by + bh]
     req_cx = bx + bw / 2.0
     req_cy = by + bh / 2.0
@@ -1330,11 +1335,36 @@ def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> Replace
         a2 = (b2[2] - b2[0]) * (b2[3] - b2[1])
         return inter / float(a1 + a2 - inter + 1e-6)
 
-    # 1. Run YOLO-seg on original image to isolate the target person and all other objects
     target_mask = None
     other_people_mask = np.zeros((height, width), dtype=np.uint8)
 
-    if yolo_model:
+    # STEP 1: Try SAM predictor on requested bbox first for pixel-perfect silhouette
+    if sam_predictor is not None and bw > 10 and bh > 10:
+        try:
+            logger.info(f"Extracting person silhouette using SAM for bbox: [{bx}, {by}, {bw}, {bh}]...")
+            sam_m = sam_segment_from_bbox(orig_img, [bx, by, bw, bh])
+            if sam_m is not None and np.count_nonzero(sam_m) > 100:
+                target_mask = (sam_m.astype(np.uint8) * 255)
+                logger.info("SAM segmentation successfully extracted clean person silhouette mask.")
+        except Exception as sam_err:
+            logger.warning(f"SAM silhouette extraction failed: {sam_err}")
+
+    # STEP 2: Try rembg cutout on crop if SAM wasn't available or returned empty mask
+    if target_mask is None or np.count_nonzero(target_mask) < 50:
+        try:
+            logger.info(f"Extracting person silhouette using rembg on crop [{bx}, {by}, {bw}, {bh}]...")
+            person_crop = orig_img.crop((bx, by, bx + bw, by + bh))
+            crop_cutout = rembg_remove(person_crop)
+            crop_alpha = np.array(crop_cutout.split()[-1])
+            if np.count_nonzero(crop_alpha > 20) > 50:
+                target_mask = np.zeros((height, width), dtype=np.uint8)
+                target_mask[by:by + bh, bx:bx + bw] = (crop_alpha > 20).astype(np.uint8) * 255
+                logger.info("rembg crop cutout successfully extracted person silhouette mask.")
+        except Exception as rembg_err:
+            logger.warning(f"rembg crop cutout failed: {rembg_err}")
+
+    # STEP 3: Try YOLO segmentation if available
+    if (target_mask is None or np.count_nonzero(target_mask) < 50) and yolo_model:
         try:
             res = yolo_model.predict(img_np, verbose=False, conf=0.15, iou=0.5)[0]
             if res.masks is not None:
@@ -1365,7 +1395,27 @@ def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> Replace
         except Exception as yolo_err:
             logger.warning(f"YOLO segmentation failed in replace: {yolo_err}")
 
-    # 2. Extract text regions via OCR to protect all text banners and titles
+    # STEP 4: OpenCV GrabCut / Ellipse fallback (NEVER set full rectangle to preserve background)
+    if target_mask is None or np.count_nonzero(target_mask) < 50:
+        logger.info(f"Using OpenCV GrabCut foreground silhouette extraction for crop [{bx}, {by}, {bw}, {bh}]...")
+        target_mask = np.zeros((height, width), dtype=np.uint8)
+        try:
+            crop_bgr = img_bgr[by:by + bh, bx:bx + bw]
+            if crop_bgr.shape[0] > 10 and crop_bgr.shape[1] > 10:
+                mask_gc = np.zeros(crop_bgr.shape[:2], np.uint8)
+                bgdModel = np.zeros((1, 65), np.float64)
+                fgdModel = np.zeros((1, 65), np.float64)
+                rect_gc = (2, 2, max(1, crop_bgr.shape[1] - 4), max(1, crop_bgr.shape[0] - 4))
+                cv2.grabCut(crop_bgr, mask_gc, rect_gc, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+                mask_fg = np.where((mask_gc == 2) | (mask_gc == 0), 0, 1).astype('uint8')
+                target_mask[by:by + bh, bx:bx + bw] = mask_fg * 255
+        except Exception as gc_err:
+            logger.warning(f"GrabCut silhouette extraction failed: {gc_err}")
+            center = (bx + bw // 2, by + bh // 2)
+            axes = (max(1, int(bw * 0.4)), max(1, int(bh * 0.45)))
+            cv2.ellipse(target_mask, center, axes, 0, 0, 360, 255, -1)
+
+    # Extract text regions via OCR to protect all text banners and titles
     text_mask = np.zeros((height, width), dtype=np.uint8)
     try:
         detected_texts = ocr_detect(orig_img)
@@ -1380,35 +1430,21 @@ def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> Replace
     except Exception as ocr_err:
         logger.warning(f"OCR text protection failed: {ocr_err}")
 
-    # Fallback if YOLO-seg didn't find person:
-    if target_mask is None:
-        try:
-            person_crop = orig_img.crop((bx, by, bx + bw, by + bh))
-            crop_cutout = rembg_remove(person_crop)
-            crop_alpha = np.array(crop_cutout.split()[-1])
-            target_mask = np.zeros((height, width), dtype=np.uint8)
-            target_mask[by:by + bh, bx:bx + bw] = (crop_alpha > 20).astype(np.uint8) * 255
-            logger.info("Using rembg crop fallback for person silhouette.")
-        except Exception as fb_err:
-            logger.warning(f"Fallback person silhouette failed: {fb_err}")
-            target_mask = np.zeros((height, width), dtype=np.uint8)
-            target_mask[by:by + bh, bx:bx + bw] = 255
-
-    # 3. Clean target mask: strictly remove any neighboring people and any text
+    # Clean target mask: strictly remove any neighboring people and any text
     clean_target_mask = cv2.bitwise_and(target_mask, cv2.bitwise_not(other_people_mask))
     clean_target_mask = cv2.bitwise_and(clean_target_mask, cv2.bitwise_not(text_mask))
 
-    # 4. Dilate silhouette by 2-3 pixels to swallow edge anti-aliasing, BUT keep protection intact!
+    # Dilate silhouette by 2-3 pixels to catch edge anti-aliasing around hair/body
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     dilated_target = cv2.dilate(clean_target_mask, kernel, iterations=1)
     inpaint_mask = cv2.bitwise_and(dilated_target, cv2.bitwise_not(other_people_mask | text_mask))
 
-    # Inpaint ONLY the person silhouette — other parts remain 100% untouched!
+    # Inpaint ONLY the person silhouette — background and surrounding elements remain 100% untouched!
     inpainted_bgr = cv2.inpaint(img_bgr, inpaint_mask, inpaintRadius=4, flags=cv2.INPAINT_TELEA)
     clean_bg = Image.fromarray(inpainted_bgr[:, :, ::-1]).convert("RGBA")
-    logger.info("Inpainting of person silhouette complete — all other thumbnail elements 100% untouched.")
+    logger.info("Inpainting of person silhouette complete — background 100% untouched.")
 
-    # 5. Process replacement image
+    # Process replacement image
     rep_img = download_image(req.replacement_image_url).convert("RGBA")
     logger.info("Extracting subject from uploaded replacement image...")
     rep_cutout = rembg_remove(rep_img)
@@ -1417,7 +1453,7 @@ def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> Replace
         rep_cutout = rep_cutout.crop(crop_box)
     rep_cutout = _enhance_replacement_quality(rep_cutout)
 
-    # 6. Sizing & Positioning
+    # Sizing & Positioning in the EXACT bounding box
     if req.overlay_x is not None and req.overlay_y is not None and req.overlay_w is not None and req.overlay_h is not None:
         ox = float(req.overlay_x)
         oy = float(req.overlay_y)
@@ -1430,7 +1466,7 @@ def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> Replace
         pos_x = int(ox)
         pos_y = int(oy)
     else:
-        # Auto-position over old person silhouette
+        # Match exact position & height of original person silhouette / bounding box
         pts = cv2.findNonZero(clean_target_mask)
         if pts is not None:
             tx, ty, tw, th = cv2.boundingRect(pts)
@@ -1438,27 +1474,19 @@ def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> Replace
             tx, ty, tw, th = bx, by, bw, bh
 
         aspect = rep_cutout.width / max(1, rep_cutout.height)
-        target_h = max(th, int(0.92 * height))
-        target_w = int(target_h * aspect)
+        target_h = max(10, th)
+        target_w = max(10, int(target_h * aspect))
 
-        # Anchor to right edge if old person was on right edge
-        if tx + tw >= width - 35:
-            pos_x = width - target_w
-        elif tx <= 35:
-            pos_x = 0
-        else:
-            pos_x = tx + tw // 2 - target_w // 2
+        # Position centered over old person bounding box and bottom-aligned
+        pos_x = int(tx + (tw - target_w) / 2.0)
+        pos_y = int(ty + th - target_h)
 
-        if ty + th >= height - 35:
-            pos_y = height - target_h
-        else:
-            pos_y = ty + th - target_h
-        if pos_y < 0:
-            pos_y = 0
+        pos_x = max(0, min(width - target_w, pos_x))
+        pos_y = max(0, min(height - target_h, pos_y))
 
     rep_resized = rep_cutout.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
-    # 7. Soft Edge Feathering & Studio Drop Shadow
+    # Soft Edge Feathering & Studio Drop Shadow
     alpha = rep_resized.split()[-1].filter(ImageFilter.GaussianBlur(radius=1.2))
     rep_resized.putalpha(alpha)
 
@@ -1476,7 +1504,7 @@ def replace_person_cutout(orig_img: Image.Image, req: ReplaceRequest) -> Replace
     buf.seek(0)
     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
-    logger.info(f"Direct person replace completed successfully: size={result_final.size}, base64 len={len(b64)}")
+    logger.info(f"Direct person replace completed successfully: size={result_final.size}, pos=({pos_x}, {pos_y}), target=({target_w}x{target_h})")
     return ReplaceResponse(
         image_base64=b64,
         width=width,
@@ -1535,22 +1563,37 @@ def replace(req: ReplaceRequest):
         if mask_img.size != orig_img.size:
             mask_img = mask_img.resize(orig_img.size, Image.Resampling.LANCZOS)
 
-        # Refine the mask using SAM if it's a person/object layer and SAM is available
+        # Refine the mask using SAM, Rembg, or GrabCut if it's a person/object layer
         is_person_or_object = req.edit_type in ["replace_person", "replace_object"] or req.replacement_image_url is not None
-        if is_person_or_object and sam_predictor is not None:
+        if is_person_or_object:
             bbox = mask_img.getbbox()
             if bbox is not None:
                 bbox_x1, bbox_y1, bbox_x2, bbox_y2 = bbox
                 bbox_w = bbox_x2 - bbox_x1
                 bbox_h = bbox_y2 - bbox_y1
                 if bbox_w > 0 and bbox_h > 0:
-                    logger.info(f"Refining mask using SAM predictor for bbox: {bbox_x1}, {bbox_y1}, {bbox_w}, {bbox_h}...")
-                    sam_mask = sam_segment_from_bbox(orig_img, [bbox_x1, bbox_y1, bbox_w, bbox_h])
-                    if sam_mask is not None:
-                        mask_img = Image.fromarray((sam_mask.astype(np.uint8) * 255), mode="L")
-                        logger.info("SAM refinement succeeded, using contour mask instead of rectangular mask.")
-                    else:
-                        logger.warning("SAM refinement returned None, falling back to original mask.")
+                    refined_mask = None
+                    if sam_predictor is not None:
+                        sam_mask = sam_segment_from_bbox(orig_img, [bbox_x1, bbox_y1, bbox_w, bbox_h])
+                        if sam_mask is not None and np.count_nonzero(sam_mask) > 50:
+                            refined_mask = Image.fromarray((sam_mask.astype(np.uint8) * 255), mode="L")
+                            logger.info("SAM refinement succeeded, using contour mask instead of rectangular mask.")
+
+                    if refined_mask is None:
+                        try:
+                            crop = orig_img.crop((bbox_x1, bbox_y1, bbox_x2, bbox_y2))
+                            cutout = rembg_remove(crop)
+                            alpha = np.array(cutout.split()[-1])
+                            if np.count_nonzero(alpha > 20) > 50:
+                                m_arr = np.zeros((height, width), dtype=np.uint8)
+                                m_arr[bbox_y1:bbox_y2, bbox_x1:bbox_x2] = (alpha > 20).astype(np.uint8) * 255
+                                refined_mask = Image.fromarray(m_arr, mode="L")
+                                logger.info("rembg refinement succeeded, using contour mask instead of rectangular mask.")
+                        except Exception:
+                            pass
+
+                    if refined_mask is not None:
+                        mask_img = refined_mask
 
         # If replacement_image_url is provided, perform direct image compositing
         # with background removal, proper aspect-ratio fitting, and real replacement

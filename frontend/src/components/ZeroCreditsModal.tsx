@@ -16,7 +16,7 @@ const ZeroCreditsModal = ({ open, onClose }: ZeroCreditsModalProps) => {
 
   if (!open) return null;
 
-  const ModalContent = () => (
+  const renderModalContent = () => (
     <div className="text-center p-1">
       <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-4">
         <Gem className="h-8 w-8 text-destructive" />
@@ -60,7 +60,7 @@ const ZeroCreditsModal = ({ open, onClose }: ZeroCreditsModalProps) => {
       <Drawer open={open} onOpenChange={(val) => !val && onClose()}>
         <DrawerContent className="p-6 pb-12 focus-visible:outline-none">
           <DrawerTitle className="sr-only">Insufficient Credits</DrawerTitle>
-          <ModalContent />
+          {renderModalContent()}
         </DrawerContent>
       </Drawer>
     );
@@ -85,7 +85,7 @@ const ZeroCreditsModal = ({ open, onClose }: ZeroCreditsModalProps) => {
           <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none">
             <X className="h-5 w-5" />
           </button>
-          <ModalContent />
+          {renderModalContent()}
         </motion.div>
       </motion.div>
     </AnimatePresence>

@@ -43,6 +43,7 @@ type ProviderOptions = {
 // Only gemini-2.5-flash-image supports image generation on the free tier.
 // Verified via ListModels diagnostic on 2026-05-09.
 const GEMINI_MODELS = [
+  "gemini-3.1-flash-image-preview",
   "gemini-2.5-flash-image",
 ];
 const CACHE_TTL_HOURS = 12;

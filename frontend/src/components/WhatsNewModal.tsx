@@ -33,7 +33,7 @@ interface Props {
 export default function WhatsNewModal({ open, onClose }: Props) {
   const isMobile = useIsMobile();
 
-  const Content = () => (
+  const renderContent = () => (
     <div className="space-y-6 mt-2">
       {CHANGELOG.map((release) => (
         <div key={release.version}>
@@ -71,7 +71,7 @@ export default function WhatsNewModal({ open, onClose }: Props) {
             <DrawerTitle className="text-foreground text-left">🆕 What's New</DrawerTitle>
           </DrawerHeader>
           <ScrollArea className="flex-1 -mx-2 px-2 pb-12">
-            <Content />
+            {renderContent()}
           </ScrollArea>
         </DrawerContent>
       </Drawer>
@@ -85,7 +85,7 @@ export default function WhatsNewModal({ open, onClose }: Props) {
           <DialogTitle className="text-foreground">🆕 What's New</DialogTitle>
           <DialogDescription className="sr-only">Recent updates and changes.</DialogDescription>
         </DialogHeader>
-        <Content />
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );

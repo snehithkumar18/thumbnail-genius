@@ -18,7 +18,7 @@ interface Props {
 export default function KeyboardShortcutsModal({ open, onClose }: Props) {
   const isMobile = useIsMobile();
 
-  const Content = () => (
+  const renderContent = () => (
     <div className="space-y-4 mt-2">
       <p className="text-xs text-muted-foreground mb-4 block tab:hidden">
         Note: Keyboard shortcuts are available when using a physical keyboard.
@@ -48,7 +48,7 @@ export default function KeyboardShortcutsModal({ open, onClose }: Props) {
           <DrawerHeader className="px-0">
             <DrawerTitle className="text-foreground text-left">⌨️ Keyboard Shortcuts</DrawerTitle>
           </DrawerHeader>
-          <Content />
+          {renderContent()}
         </DrawerContent>
       </Drawer>
     );
@@ -61,7 +61,7 @@ export default function KeyboardShortcutsModal({ open, onClose }: Props) {
           <DialogTitle className="text-foreground">⌨️ Keyboard Shortcuts</DialogTitle>
           <DialogDescription className="sr-only">List of available keyboard shortcuts.</DialogDescription>
         </DialogHeader>
-        <Content />
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );

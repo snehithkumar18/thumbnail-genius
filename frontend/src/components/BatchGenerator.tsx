@@ -167,7 +167,7 @@ const BatchGenerator = ({ visible, onClose, basePrompt, quality, format }: Batch
   const doneCount = doneJobs.length;
   const totalJobs = jobs.length;
 
-  const SidebarContent = () => (
+  const renderSidebarContent = () => (
     <>
       {!isMobile && (
         <div className="flex items-center justify-between p-4 border-b border-border">
@@ -358,7 +358,7 @@ const BatchGenerator = ({ visible, onClose, basePrompt, quality, format }: Batch
             </div>
           </DrawerHeader>
           <ScrollArea className="flex-1">
-            <SidebarContent />
+            {renderSidebarContent()}
           </ScrollArea>
         </DrawerContent>
         <UpgradeModal
@@ -390,7 +390,7 @@ const BatchGenerator = ({ visible, onClose, basePrompt, quality, format }: Batch
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="fixed right-0 top-0 bottom-0 w-[480px] max-w-full bg-card border-l border-border z-50 flex flex-col"
             >
-              <SidebarContent />
+              {renderSidebarContent()}
             </motion.div>
           </>
         )}
