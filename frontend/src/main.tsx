@@ -24,7 +24,6 @@ if ('serviceWorker' in navigator) {
         registration.unregister().then((success) => {
           if (success) {
             console.log('Development mode: Unregistered stale service worker successfully');
-            window.location.reload();
           }
         });
       }
