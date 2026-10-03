@@ -32,14 +32,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Serve cached index.html for navigation/HTML requests so client-side SPA routing works offline
+  // Use Network-First strategy for navigation requests so deployed updates load instantly
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match('/index.html').then((cachedResponse) => {
-        return cachedResponse || fetch(event.request);
-      }).catch(() => {
-        return caches.match('/index.html');
-      })
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', responseClone));
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match('/index.html');
+        })
     );
     return;
   }

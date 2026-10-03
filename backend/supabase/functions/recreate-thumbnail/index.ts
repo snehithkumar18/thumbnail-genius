@@ -6,6 +6,7 @@ import {
   setCache,
   runImageProviders,
   loadImagePartFromUrl,
+  isPaidUser,
 } from "./aiRouter.ts";
 
 const corsHeaders = {
@@ -296,53 +297,85 @@ serve(async (req) => {
     let provider = cached?.provider || "cache";
 
     if (!generatedImageUrl) {
-      const imagePart = await loadImagePartFromUrl(originalThumbUrl);
-      // If a person reference photo is provided, load it as a second image for Gemini
-      const geminiImages = [imagePart];
-      if (person_reference_url) {
+      const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+      const userIsPaid = isPaidUser(credits?.plan_type);
+
+      if (userIsPaid && openaiApiKey && falApiKey) {
         try {
-          const personPart = await loadImagePartFromUrl(person_reference_url);
-          geminiImages.push(personPart);
-        } catch (e) {
-          console.error("Failed to load person reference image:", e);
-        }
-      }
-      const result = await runImageProviders(supabaseAdmin, {
-        gemini: {
-          prompt: finalPrompt,
-          aspectRatio: "16:9",
-          imageSize: "1K",
-          images: geminiImages,
-        },
-        pollinations: {
-          prompt: finalPrompt,
-          width: 1280,
-          height: 720,
-          model: "kontext",
-          imageUrl: originalThumbUrl,
-        },
-        allowPaidFallback,
-        paidFallback: async () => {
-          if (!falApiKey) throw new Error("FAL_KEY not configured");
+          console.log("[recreate-thumbnail] Paid user detected, routing to fal-ai/gpt-image-2.5-flare...");
           const falData = await runFalJob(
-            "fal-ai/flux-pro/kontext",
+            "fal-ai/gpt-image-2.5-flare",
             {
               prompt: finalPrompt,
               image_url: originalThumbUrl,
-              strength: Math.max(0.1, Math.min(1, similarity_strength / 100)),
+              image_size: "landscape_16_9",
+              quality: "medium",
+              num_images: 1,
+              openai_api_key: openaiApiKey,
             },
             falApiKey,
           );
 
           const url = extractFalImageUrl(falData);
-          if (!url) throw new Error("No image returned from FLUX Kontext");
-          return { imageUrl: url, provider: "fal", modelUsed: "FLUX.1 Kontext Pro" };
-        },
-      });
+          if (url) {
+            generatedImageUrl = url;
+            modelUsed = "gpt-image-2.5-flare";
+            provider = "fal-openai";
+          }
+        } catch (err) {
+          console.error("[recreate-thumbnail] Paid model gpt-image-2.5-flare failed, falling back to free pipeline:", err);
+        }
+      }
 
-      generatedImageUrl = result.imageUrl;
-      modelUsed = result.modelUsed;
-      provider = result.provider;
+      if (!generatedImageUrl) {
+        const imagePart = await loadImagePartFromUrl(originalThumbUrl);
+        // If a person reference photo is provided, load it as a second image for Gemini
+        const geminiImages = [imagePart];
+        if (person_reference_url) {
+          try {
+            const personPart = await loadImagePartFromUrl(person_reference_url);
+            geminiImages.push(personPart);
+          } catch (e) {
+            console.error("Failed to load person reference image:", e);
+          }
+        }
+        const result = await runImageProviders(supabaseAdmin, {
+          gemini: {
+            prompt: finalPrompt,
+            aspectRatio: "16:9",
+            imageSize: "1K",
+            images: geminiImages,
+          },
+          pollinations: {
+            prompt: finalPrompt,
+            width: 1280,
+            height: 720,
+            model: "kontext",
+            imageUrl: originalThumbUrl,
+          },
+          allowPaidFallback,
+          paidFallback: async () => {
+            if (!falApiKey) throw new Error("FAL_KEY not configured");
+            const falData = await runFalJob(
+              "fal-ai/flux-pro/kontext",
+              {
+                prompt: finalPrompt,
+                image_url: originalThumbUrl,
+                strength: Math.max(0.1, Math.min(1, similarity_strength / 100)),
+              },
+              falApiKey,
+            );
+
+            const url = extractFalImageUrl(falData);
+            if (!url) throw new Error("No image returned from FLUX Kontext");
+            return { imageUrl: url, provider: "fal", modelUsed: "FLUX.1 Kontext Pro" };
+          },
+        });
+
+        generatedImageUrl = result.imageUrl;
+        modelUsed = result.modelUsed;
+        provider = result.provider;
+      }
     }
 
     if (!generatedImageUrl) throw new Error("No image returned from provider");

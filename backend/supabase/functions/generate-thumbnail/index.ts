@@ -5,6 +5,7 @@ import {
   getCache,
   setCache,
   runImageProviders,
+  isPaidUser,
 } from "./aiRouter.ts";
 
 const corsHeaders = {
@@ -404,131 +405,129 @@ serve(async (req) => {
           imageUrl = cached.image_url;
           modelUsed = cached.model_used;
           provider = cached.provider;
-        } else if (USE_FAL_GPT_IMAGE_PIPELINE) {
-          console.log("[generate-thumbnail] Routing to fal.ai GPT Image 2 model pipeline...");
-          if (!falApiKey) {
-            throw new Error("FAL_KEY is not configured in Supabase secrets. Please set your FAL_KEY to test the GPT model.");
-          }
-
-          const openaiApiKey = Deno.env.get("OPENAI_API_KEY") || undefined;
-          const gptInput: Record<string, unknown> = {
-            prompt: imagePrompt,
-            aspect_ratio: format === "9:16" ? "9:16" : "16:9",
-            quality: quality === "pro" ? "high" : "medium",
-          };
-
-          if (openaiApiKey) {
-            gptInput.openai_api_key = openaiApiKey;
-            console.log("[generate-thumbnail] Using OpenAI API Key for BYOK mode on fal.ai");
-          }
-
-          const falData = await runFalJob(
-            "fal-ai/gpt-image-2",
-            gptInput,
-            falApiKey,
-          );
-
-          const url = extractFalImageUrl(falData);
-          if (!url) {
-            throw new Error(`fal.ai GPT Image model returned no image: ${JSON.stringify(falData).slice(0, 200)}`);
-          }
-
-          imageUrl = url;
-          modelUsed = "GPT Image 2 (fal.ai)";
-          provider = "fal";
         } else {
-          const result = await runImageProviders(supabaseAdmin, {
-            gemini: forceProOnly
-              ? undefined
-              : {
-                  prompt: imagePrompt,
-                  aspectRatio: format === "9:16" ? "9:16" : "16:9",
-                  imageSize: "1K",
-                },
-            pollinations: forceProOnly
-              ? undefined
-              : {
-                  prompt: imagePrompt,
-                  width,
-                  height,
-                  model: "flux",
-                },
-            allowPaidFallback,
-            paidFallback: async () => {
-              if (!allowPaidFallback) {
-                throw new Error("Paid fallback disabled");
-              }
-              if (!falApiKey && !togetherApiKey) {
-                throw new Error("Paid providers not configured");
-              }
+          const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+          const userIsPaid = isPaidUser(credits?.plan_type);
 
-              if (useIdeogram) {
-                if (!falApiKey) throw new Error("FAL_KEY not configured");
-                const falData = await runFalJob(
-                  "fal-ai/ideogram/v3",
-                  {
+          if (userIsPaid && openaiApiKey && falApiKey) {
+            try {
+              console.log("[generate-thumbnail] Paid user detected, routing to fal-ai/gpt-image-2.5-flare via fal.ai...");
+              const falData = await runFalJob(
+                "fal-ai/gpt-image-2.5-flare",
+                {
+                  prompt: imagePrompt,
+                  image_size: format === "9:16" ? "portrait_9_16" : "landscape_16_9",
+                  quality: "medium",
+                  num_images: 1,
+                  openai_api_key: openaiApiKey,
+                },
+                falApiKey,
+              );
+              const url = extractFalImageUrl(falData);
+              if (url) {
+                imageUrl = url;
+                modelUsed = "gpt-image-2.5-flare";
+                provider = "fal-openai";
+              }
+            } catch (err) {
+              console.error("[generate-thumbnail] Paid model gpt-image-2.5-flare failed, falling back to free pipeline:", err);
+            }
+          }
+
+          if (!imageUrl) {
+            const result = await runImageProviders(supabaseAdmin, {
+              gemini: forceProOnly
+                ? undefined
+                : {
                     prompt: imagePrompt,
-                    aspect_ratio: format === "9:16" ? "ASPECT_9_16" : "ASPECT_16_9",
-                    style_type: "REALISTIC",
-                    magic_prompt_option: "OFF",
+                    aspectRatio: format === "9:16" ? "9:16" : "16:9",
+                    imageSize: "1K",
                   },
-                  falApiKey,
-                );
-                const url = extractFalImageUrl(falData);
-                if (!url) throw new Error("No image returned from Ideogram");
-                return { imageUrl: url, provider: "fal", modelUsed: "Ideogram 3.0" };
-              }
-
-              if (quality === "pro" && hasSubscriptionPlan) {
-                if (!falApiKey) throw new Error("FAL_KEY not configured");
-                const falData = await runFalJob(
-                  "fal-ai/flux-2-pro",
-                  {
+              pollinations: forceProOnly
+                ? undefined
+                : {
                     prompt: imagePrompt,
-                    image_size: format === "9:16" ? "portrait_9_16" : "landscape_16_9",
-                    output_format: "png",
+                    width,
+                    height,
+                    model: "flux",
                   },
-                  falApiKey,
-                );
-                const url = extractFalImageUrl(falData);
-                if (!url) throw new Error("No image returned from FLUX.2 Pro");
-                return { imageUrl: url, provider: "fal", modelUsed: "FLUX.2 Pro" };
-              }
+              allowPaidFallback,
+              paidFallback: async () => {
+                if (!allowPaidFallback) {
+                  throw new Error("Paid fallback disabled");
+                }
+                if (!falApiKey && !togetherApiKey) {
+                  throw new Error("Paid providers not configured");
+                }
 
-              if (!togetherApiKey) {
-                throw new Error("TOGETHER_API_KEY not configured");
-              }
-              const togetherResp = await fetch("https://api.together.xyz/v1/images/generations", {
-                method: "POST",
-                headers: {
-                  "Authorization": `Bearer ${togetherApiKey}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  model: "black-forest-labs/FLUX.1-schnell",
-                  prompt: imagePrompt,
-                  width,
-                  height,
-                  steps: 4,
-                }),
-              });
+                if (useIdeogram) {
+                  if (!falApiKey) throw new Error("FAL_KEY not configured");
+                  const falData = await runFalJob(
+                    "fal-ai/ideogram/v3",
+                    {
+                      prompt: imagePrompt,
+                      aspect_ratio: format === "9:16" ? "ASPECT_9_16" : "ASPECT_16_9",
+                      style_type: "REALISTIC",
+                      magic_prompt_option: "OFF",
+                    },
+                    falApiKey,
+                  );
+                  const url = extractFalImageUrl(falData);
+                  if (!url) throw new Error("No image returned from Ideogram");
+                  return { imageUrl: url, provider: "fal", modelUsed: "Ideogram 3.0" };
+                }
 
-              if (!togetherResp.ok) {
-                const errText = await togetherResp.text();
-                throw new Error(`Together AI failed (${togetherResp.status}): ${errText}`);
-              }
+                if (quality === "pro" && hasSubscriptionPlan) {
+                  if (!falApiKey) throw new Error("FAL_KEY not configured");
+                  const falData = await runFalJob(
+                    "fal-ai/flux-2-pro",
+                    {
+                      prompt: imagePrompt,
+                      image_size: format === "9:16" ? "portrait_9_16" : "landscape_16_9",
+                      output_format: "png",
+                    },
+                    falApiKey,
+                  );
+                  const url = extractFalImageUrl(falData);
+                  if (!url) throw new Error("No image returned from FLUX.2 Pro");
+                  return { imageUrl: url, provider: "fal", modelUsed: "FLUX.2 Pro" };
+                }
 
-              const togetherData = await togetherResp.json();
-              const first = togetherData?.data?.[0];
-              const url = first?.url || (first?.b64_json ? `data:image/png;base64,${first.b64_json}` : null);
-              if (!url) throw new Error("Together AI returned no image");
-              return { imageUrl: url, provider: "together", modelUsed: "FLUX.1 Schnell" };
-            },
-          });
+                if (!togetherApiKey) {
+                  throw new Error("TOGETHER_API_KEY not configured");
+                }
+                const togetherResp = await fetch("https://api.together.xyz/v1/images/generations", {
+                  method: "POST",
+                  headers: {
+                    "Authorization": `Bearer ${togetherApiKey}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    model: "black-forest-labs/FLUX.1-schnell",
+                    prompt: imagePrompt,
+                    width,
+                    height,
+                    steps: 4,
+                  }),
+                });
 
-          imageUrl = result.imageUrl;
-          modelUsed = result.modelUsed;
-          provider = result.provider;
+                if (!togetherResp.ok) {
+                  const errText = await togetherResp.text();
+                  throw new Error(`Together AI failed (${togetherResp.status}): ${errText}`);
+                }
+
+                const togetherData = await togetherResp.json();
+                const first = togetherData?.data?.[0];
+                const url = first?.url || (first?.b64_json ? `data:image/png;base64,${first.b64_json}` : null);
+                if (!url) throw new Error("Together AI returned no image");
+                return { imageUrl: url, provider: "together", modelUsed: "FLUX.1 Schnell" };
+              },
+            });
+
+            imageUrl = result.imageUrl;
+            modelUsed = result.modelUsed;
+            provider = result.provider;
+          }
         }
 
         if (!imageUrl) throw new Error("No image returned from provider");

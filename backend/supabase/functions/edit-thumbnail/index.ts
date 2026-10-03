@@ -6,6 +6,7 @@ import {
   setCache,
   runImageProviders,
   loadImagePartFromUrl,
+  isPaidUser,
 } from "./aiRouter.ts";
 
 const corsHeaders = {
@@ -243,43 +244,94 @@ serve(async (req) => {
     let provider = cached?.provider || "cache";
 
     if (!editedImageUrl) {
-      const imagePart = await loadImagePartFromUrl(current_image_url);
-      const result = await runImageProviders(supabaseAdmin, {
-        gemini: {
-          prompt: enhancedInstruction,
-          aspectRatio: "16:9",
-          imageSize: "1K",
-          images: [imagePart],
-        },
-        pollinations: {
-          prompt: enhancedInstruction,
-          width: 1280,
-          height: 720,
-          model: "kontext",
-          imageUrl: current_image_url,
-        },
-        allowPaidFallback,
-        paidFallback: async () => {
-          if (!falApiKey) throw new Error("FAL_KEY not configured");
-          const falData = await runFalJob(
-            "fal-ai/flux-pro/kontext",
-            {
-              prompt: enhancedInstruction,
-              image_url: current_image_url,
-              strength: 0.7,
-            },
-            falApiKey,
-          );
+      const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+      const userIsPaid = isPaidUser(credits?.plan_type);
 
-          const url = extractFalImageUrl(falData);
-          if (!url) throw new Error("No image returned from FLUX Kontext");
-          return { imageUrl: url, provider: "fal", modelUsed: "FLUX.1 Kontext Pro" };
-        },
-      });
+      if (userIsPaid && openaiApiKey) {
+        try {
+          console.log("[edit-thumbnail] Paid user detected, routing to gpt-image-2.5-sunburst via OpenAI API...");
+          const formData = new FormData();
+          formData.append("model", "gpt-image-2.5-sunburst");
+          formData.append("prompt", enhancedInstruction || edit_instruction);
+          formData.append("quality", "medium");
+          formData.append("n", "1");
 
-      editedImageUrl = result.imageUrl;
-      modelUsed = result.modelUsed;
-      provider = result.provider;
+          const sourceResp = await fetch(current_image_url);
+          if (sourceResp.ok) {
+            const sourceBlob = await sourceResp.blob();
+            formData.append("image[]", sourceBlob, "source.png");
+
+            const openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${openaiApiKey}`,
+              },
+              body: formData,
+            });
+
+            if (openaiResp.ok) {
+              const openaiData = await openaiResp.json();
+              const base64Image = openaiData?.data?.[0]?.b64_json;
+              const imageUrlFromRes = openaiData?.data?.[0]?.url;
+
+              if (imageUrlFromRes) {
+                editedImageUrl = imageUrlFromRes;
+                modelUsed = "gpt-image-2.5-sunburst";
+                provider = "openai";
+              } else if (base64Image) {
+                editedImageUrl = `data:image/png;base64,${base64Image}`;
+                modelUsed = "gpt-image-2.5-sunburst";
+                provider = "openai";
+              }
+            } else {
+              const errTxt = await openaiResp.text();
+              console.error("[edit-thumbnail] OpenAI edit API failed:", openaiResp.status, errTxt);
+            }
+          }
+        } catch (err) {
+          console.error("[edit-thumbnail] Paid model gpt-image-2.5-sunburst failed, falling back to free pipeline:", err);
+        }
+      }
+
+      if (!editedImageUrl) {
+        const imagePart = await loadImagePartFromUrl(current_image_url);
+        const result = await runImageProviders(supabaseAdmin, {
+          gemini: {
+            prompt: enhancedInstruction,
+            aspectRatio: "16:9",
+            imageSize: "1K",
+            images: [imagePart],
+          },
+          pollinations: {
+            prompt: enhancedInstruction,
+            width: 1280,
+            height: 720,
+            model: "kontext",
+            imageUrl: current_image_url,
+          },
+          allowPaidFallback,
+          paidFallback: async () => {
+            if (!falApiKey) throw new Error("FAL_KEY not configured");
+            const falData = await runFalJob(
+              "fal-ai/flux-pro/kontext",
+              {
+                prompt: enhancedInstruction,
+                image_url: current_image_url,
+                strength: 0.7,
+              },
+              falApiKey,
+            );
+
+            const url = extractFalImageUrl(falData);
+            if (!url) throw new Error("No image returned from FLUX Kontext");
+            return { imageUrl: url, provider: "fal", modelUsed: "FLUX.1 Kontext Pro" };
+          },
+        });
+
+        editedImageUrl = result.imageUrl;
+        modelUsed = result.modelUsed;
+        provider = result.provider;
+      }
     }
 
     if (!editedImageUrl) throw new Error("No image returned from provider");

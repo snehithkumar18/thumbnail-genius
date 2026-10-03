@@ -6,6 +6,7 @@ import {
   setCache,
   runImageProviders,
   loadImagePartFromUrl,
+  isPaidUser,
 } from "./aiRouter.ts";
 
 const corsHeaders = {
@@ -117,81 +118,140 @@ serve(async (req) => {
     let provider = cached?.provider || "cache";
 
     if (!resultImageUrl) {
-      const baseImage = await loadImagePartFromUrl(current_image_url);
-      const images = replacement_image_url
-        ? [baseImage, await loadImagePartFromUrl(replacement_image_url)]
-        : [baseImage];
+      const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+      const userIsPaid = isPaidUser(creditsData?.plan_type);
 
-      const pollinationsPrompt = replacement_image_url
-        ? `${instruction} Reference image: ${replacement_image_url}`
-        : instruction;
+      if (userIsPaid && openaiApiKey) {
+        try {
+          console.log("[smart-editor-replace] Paid user detected, routing to gpt-image-2.5-sunburst via OpenAI API...");
+          const formData = new FormData();
+          formData.append("model", "gpt-image-2.5-sunburst");
+          formData.append("prompt", instruction || "Edit image");
+          formData.append("quality", "medium");
+          formData.append("n", "1");
 
-      const result = await runImageProviders(supabaseAdmin, {
-        gemini: {
-          prompt: instruction,
-          aspectRatio: "16:9",
-          imageSize: "1K",
-          images,
-        },
-        pollinations: {
-          prompt: pollinationsPrompt,
-          width: 1280,
-          height: 720,
-          model: "kontext",
-          imageUrl: current_image_url,
-        },
-        allowPaidFallback,
-        paidFallback: async () => {
-          if (!falApiKey) throw new Error("FAL_KEY not configured");
+          const sourceResp = await fetch(current_image_url);
+          if (sourceResp.ok) {
+            const sourceBlob = await sourceResp.blob();
+            formData.append("image[]", sourceBlob, "source.png");
 
-          let modelPath = "";
-          let falInput: Record<string, unknown> = {};
-
-          if (edit_type === "replace_text") {
-            modelPath = "fal-ai/flux-pro/kontext";
-            falInput = { prompt: instruction, image_url: current_image_url, strength: 0.85 };
-          } else if (edit_type === "replace_background") {
-            modelPath = "fal-ai/flux-pro/kontext";
-            falInput = { prompt: instruction, image_url: current_image_url, strength: 0.9 };
-          } else if (edit_type === "replace_person") {
             if (replacement_image_url) {
-              modelPath = "fal-ai/hy-wu";
-              falInput = { image_url: current_image_url, reference_image_url: replacement_image_url, task: "face_swap" };
+              const replacementResp = await fetch(replacement_image_url);
+              if (replacementResp.ok) {
+                const replacementBlob = await replacementResp.blob();
+                formData.append("image[]", replacementBlob, "reference.png");
+              }
+            }
+
+            const openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${openaiApiKey}`,
+              },
+              body: formData,
+            });
+
+            if (openaiResp.ok) {
+              const openaiData = await openaiResp.json();
+              const base64Image = openaiData?.data?.[0]?.b64_json;
+              const imageUrlFromRes = openaiData?.data?.[0]?.url;
+
+              if (imageUrlFromRes) {
+                resultImageUrl = imageUrlFromRes;
+                modelUsed = "gpt-image-2.5-sunburst";
+                provider = "openai";
+              } else if (base64Image) {
+                resultImageUrl = `data:image/png;base64,${base64Image}`;
+                modelUsed = "gpt-image-2.5-sunburst";
+                provider = "openai";
+              }
             } else {
+              const errTxt = await openaiResp.text();
+              console.error("[smart-editor-replace] OpenAI edit API failed:", openaiResp.status, errTxt);
+            }
+          }
+        } catch (err) {
+          console.error("[smart-editor-replace] Paid model gpt-image-2.5-sunburst failed, falling back to free pipeline:", err);
+        }
+      }
+
+      if (!resultImageUrl) {
+        const baseImage = await loadImagePartFromUrl(current_image_url);
+        const images = replacement_image_url
+          ? [baseImage, await loadImagePartFromUrl(replacement_image_url)]
+          : [baseImage];
+
+        const pollinationsPrompt = replacement_image_url
+          ? `${instruction} Reference image: ${replacement_image_url}`
+          : instruction;
+
+        const result = await runImageProviders(supabaseAdmin, {
+          gemini: {
+            prompt: instruction,
+            aspectRatio: "16:9",
+            imageSize: "1K",
+            images,
+          },
+          pollinations: {
+            prompt: pollinationsPrompt,
+            width: 1280,
+            height: 720,
+            model: "kontext",
+            imageUrl: current_image_url,
+          },
+          allowPaidFallback,
+          paidFallback: async () => {
+            if (!falApiKey) throw new Error("FAL_KEY not configured");
+
+            let modelPath = "";
+            let falInput: Record<string, unknown> = {};
+
+            if (edit_type === "replace_text") {
               modelPath = "fal-ai/flux-pro/kontext";
               falInput = { prompt: instruction, image_url: current_image_url, strength: 0.85 };
+            } else if (edit_type === "replace_background") {
+              modelPath = "fal-ai/flux-pro/kontext";
+              falInput = { prompt: instruction, image_url: current_image_url, strength: 0.9 };
+            } else if (edit_type === "replace_person") {
+              if (replacement_image_url) {
+                modelPath = "fal-ai/hy-wu";
+                falInput = { image_url: current_image_url, reference_image_url: replacement_image_url, task: "face_swap" };
+              } else {
+                modelPath = "fal-ai/flux-pro/kontext";
+                falInput = { prompt: instruction, image_url: current_image_url, strength: 0.85 };
+              }
+            } else if (edit_type === "replace_object") {
+              modelPath = "fal-ai/flux-pro/kontext";
+              falInput = { prompt: instruction, image_url: current_image_url, strength: 0.8 };
+            } else {
+              throw new Error("Invalid edit type");
             }
-          } else if (edit_type === "replace_object") {
-            modelPath = "fal-ai/flux-pro/kontext";
-            falInput = { prompt: instruction, image_url: current_image_url, strength: 0.8 };
-          } else {
-            throw new Error("Invalid edit type");
+
+            const runResp = await fetch(`https://fal.run/${modelPath}`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Key ${falApiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(falInput),
+            });
+
+            if (!runResp.ok) {
+              console.error("Fal request failed:", await runResp.text());
+              throw new Error("Fal API failed");
+            }
+
+            const falData = await runResp.json();
+            const url = extractFalImageUrl(falData) || falData.image?.url || falData.image;
+            if (!url) throw new Error("No image returned from Fal API");
+            return { imageUrl: url, provider: "fal", modelUsed: modelPath };
           }
+        });
 
-          const runResp = await fetch(`https://fal.run/${modelPath}`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Key ${falApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(falInput),
-          });
-
-          if (!runResp.ok) {
-            console.error("Fal request failed:", await runResp.text());
-            throw new Error("Fal API failed");
-          }
-
-          const falData = await runResp.json();
-          const url = extractFalImageUrl(falData) || falData.image?.url || falData.image;
-          if (!url) throw new Error("No image returned from Fal API");
-          return { imageUrl: url, provider: "fal", modelUsed: modelPath };
-        }
-      });
-
-      resultImageUrl = result.imageUrl;
-      modelUsed = result.modelUsed;
-      provider = result.provider;
+        resultImageUrl = result.imageUrl;
+        modelUsed = result.modelUsed;
+        provider = result.provider;
+      }
     }
 
     if (!resultImageUrl) throw new Error("No image returned from provider");

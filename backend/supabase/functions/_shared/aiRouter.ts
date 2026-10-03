@@ -7,6 +7,13 @@ type CacheEntry = {
   model_used: string;
 };
 
+export function isPaidUser(planType: string | null | undefined): boolean {
+  if (!planType) return false;
+  if (planType === "none") return false;
+  if (planType === "free") return false;
+  return true;
+}
+
 type ImagePart = {
   data: string;
   mimeType: string;
